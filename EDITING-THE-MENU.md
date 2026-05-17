@@ -1,65 +1,50 @@
-# 📋 JINSI YA KUBADILISHA MENYU / HOW TO EDIT THE MENU
-## No coding needed — edits live on the website in ~1 minute.
+// ============================================================
+//  BUSINESS CONFIGURATION  —  Unyamwezini Jiko La Bibi JJJ
+// ============================================================
+//  This file holds all the business details shown on the site.
+//  You can safely edit anything between the quote marks " ".
+//  After editing on GitHub, the site updates itself in ~1 minute.
+// ============================================================
 
----
+export const business = {
+  // --- Names ---
+  name: "Unyamwezini Jiko La Bibi JJJ",
+  shortName: "Jiko La Bibi JJJ",
+  tagline_sw: "Ladha ya Tanzania Katika Kila Kijiko",
+  tagline_en: "Taste of Tanzania in Dar",
 
-## KUBADILISHA BEI (Change a price)
+  // --- Contact / Ordering ---
+  // WhatsApp number in FULL international format, digits only, no + or spaces.
+  // 0655 709 024  ->  255655709024
+  whatsapp: "255655709024",
+  phoneDisplay: "+255 655 709 024",
 
-1. Nenda kwenye GitHub repo yako / Go to your GitHub repo
-2. Bonyeza faili hii / Open the file: `src/data/menu.js`
-3. Bonyeza ✏️ (Edit / Pencil icon) juu kulia
-4. Tafuta jina la sahani unayotaka kubadilisha (Ctrl+F / Cmd+F)
-5. Badilisha nambari ya bei tu — e.g. `price: 1000` → `price: 1200`
-6. Shuka chini → bonyeza **"Commit changes"** → **"Commit changes"** tena
-7. Vercel inajenga upya kiotomatiki. Baada ya dakika ~1, bei mpya iko live! ✅
+  // --- Mobile Money payment (Lipa Namba) ---
+  lipaNamba: "18873261",
+  lipaName: "UNYAMWEZINI JIKO LA BIBI JJJ",
 
----
+  // --- Location ---
+  city: "Dar es Salaam",
+  area: "Mbezi Luis, Goba Road (Chingwalu St)",
+  // Optional: paste a Google Maps share link here once the profile is verified
+  mapsLink: "",
 
-## KUBADILISHA HABARI ZA BIASHARA (Change business info)
+  // --- Opening hours (shown in footer) ---
+  // EDIT THESE to the real hours.
+  hours_sw: "Kila siku: 7:00 asubuhi – 9:00 usiku",
+  hours_en: "Every day: 7:00 AM – 9:00 PM",
 
-Nambari ya simu, Lipa Namba, saa za kazi, mahali — ziko hapa:
-`src/data/businessConfig.js`
+  // --- Social links (leave "" to hide) ---
+  instagram: "",
+  facebook: "",
 
-Fanya mabadiliko kwa njia ile ile (Edit → Commit).
-
----
-
-## KUONGEZA SAHANI MPYA (Add a new dish)
-
-Fungua `src/data/menu.js`. Ongeza mstari mpya kwenye sehemu sahihi.
-
-**Sahani rahisi (bei moja):**
-```js
-{ id: "sahani-mpya", section: "vitafunwa",
-  name: { sw: "Jina la Sahani", en: "Dish Name" }, price: 1500 },
-```
-
-**Sahani yenye ukubwa (S/M/L):**
-```js
-{ id: "sahani-mpya", section: "mchele",
-  name: { sw: "Wali Mpya", en: "New Rice Dish" },
-  sizes: [
-    { label: { sw: "Ndogo", en: "Small" }, price: 3000 },
-    { label: { sw: "Wastani", en: "Medium" }, price: 5000 },
-    { label: { sw: "Kubwa", en: "Large" }, price: 7500 },
-  ] },
-```
-
-Make sure `section:` matches one of:
-`vitafunwa` | `mchele` | `standard` | `pilau` | `specials` | `vinywaji` | `jioni`
-
----
-
-## KUFICHA SAHANI (Hide a dish temporarily)
-
-Add `hidden: true` to any item:
-```js
-{ id: "chips-zege", section: "specials", ..., hidden: true },
-```
-Then in `src/App.jsx`, filter: `.filter((m) => !m.hidden)` — or message Baba Wemma.
-
----
-
-## NEED HELP?
-
-WhatsApp Baba Wemma (the site manager) if anything looks wrong.
+  // --- Order rules ---
+  currency: "TZS",
+  // Services offered (the checkout shows these). Set to false to hide one.
+  services: {
+    pickup: true,
+    delivery: true,
+    dinein: true,
+    events: true,
+  },
+};
