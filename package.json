@@ -1,40 +1,30 @@
-// ============================================================
-//  LANGUAGE STATE  —  Swahili (default) / English toggle.
-// ============================================================
-import { createContext, useContext, useEffect, useState } from "react";
-import { ui } from "../i18n";
-
-const LanguageContext = createContext(null);
-
-export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState(() => {
-    try {
-      return localStorage.getItem("jiko-lang") || "sw";
-    } catch {
-      return "sw";
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("jiko-lang", lang);
-    } catch {
-      /* ignore */
-    }
-  }, [lang]);
-
-  const t = (key) => ui[lang][key] ?? key;
-  const toggle = () => setLang((l) => (l === "sw" ? "en" : "sw"));
-
-  return (
-    <LanguageContext.Provider value={{ lang, setLang, toggle, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-}
-
-export function useLang() {
-  const ctx = useContext(LanguageContext);
-  if (!ctx) throw new Error("useLang must be used inside <LanguageProvider>");
-  return ctx;
+{
+  "name": "jiko-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.0.12"
+  }
 }
