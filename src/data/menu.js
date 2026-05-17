@@ -1,14 +1,11 @@
-// ============================================================
-//  THE MENU  v2  —  Unyamwezini Jiko La Bibi JJJ
-// ============================================================
 export const sections = [
-  { id:"vitafunwa", icon:"ti-coffee",  color:"#6B3A1F", name:{ sw:"Vitafunwa & Vinywaji vya Moto", en:"Hot Drinks & Snacks" } },
-  { id:"mchele",   icon:"ti-flame",   color:"#1A5C2E", name:{ sw:"Vyakula vya Mchana na Jioni",   en:"Lunch & Dinner" } },
-  { id:"standard", icon:"ti-chef-hat",color:"#0B1F45", name:{ sw:"Sahani za Kawaida",             en:"Standard Plates" } },
-  { id:"pilau",    icon:"ti-flame",   color:"#8B4C0A", name:{ sw:"Pilau",                          en:"Pilau" } },
-  { id:"specials", icon:"ti-star",    color:"#7B5C10", name:{ sw:"Spesheli",                       en:"Specials" } },
-  { id:"vinywaji", icon:"ti-glass",   color:"#1A4D6E", name:{ sw:"Vinywaji Baridi",                en:"Cold Drinks" } },
-  { id:"jioni",    icon:"ti-moon",    color:"#4A235A", name:{ sw:"Supu na Vitafunwa vya Jioni",    en:"Evening Soups & Snacks" } },
+  { id:"vitafunwa", icon:"ti-coffee",  color:"#C15A00", name:{ sw:"Vitafunwa & Vinywaji vya Moto", en:"Hot Drinks & Snacks" } },
+  { id:"mchele",   icon:"ti-flame",   color:"#1B6B20", name:{ sw:"Vyakula vya Mchana na Jioni",   en:"Lunch & Dinner" } },
+  { id:"standard", icon:"ti-chef-hat",color:"#1565C0", name:{ sw:"Sahani za Kawaida",             en:"Standard Plates" } },
+  { id:"pilau",    icon:"ti-flame",   color:"#C62828", name:{ sw:"Pilau",                          en:"Pilau" } },
+  { id:"specials", icon:"ti-star",    color:"#E65100", name:{ sw:"Spesheli",                       en:"Specials" } },
+  { id:"vinywaji", icon:"ti-glass",   color:"#00695C", name:{ sw:"Vinywaji Baridi",                en:"Cold Drinks" } },
+  { id:"jioni",    icon:"ti-moon",    color:"#4527A0", name:{ sw:"Supu na Vitafunwa vya Jioni",    en:"Evening Soups & Snacks" } },
 ];
 
 export const menu = [
