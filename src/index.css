@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-body bg-cream text-navy antialiased;
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: #f3e6c8; }
+::-webkit-scrollbar-thumb { background: #c9a94a; border-radius: 8px; }
+
+/* Decorative kanga-inspired diagonal border */
+.kanga-border {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #d4af37 0, #d4af37 8px,
+    #0a1f44 8px, #0a1f44 16px
+  );
+}
+
+.section-anchor { scroll-margin-top: 96px; }
+
+/* Hide scrollbar on the section nav strip */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
