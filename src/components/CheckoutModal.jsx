@@ -68,8 +68,8 @@ export default function CheckoutModal({ onClose }) {
             </p>
             <p className="mt-2 text-sm text-navy/70">
               {lang === "sw"
-                ? `Lipa kwa Lipa Namba ${business.lipaNamba} (${business.lipaName}). Tutakuthibitishia mapema.`
-                : `Pay via Lipa Namba ${business.lipaNamba} (${business.lipaName}). We'll confirm your order shortly.`}
+                ? `Scan QR code au ingiza Lipa Namba ${business.lipaNamba} — ${business.lipaName}. Tutakuthibitishia mapema.`
+                : `Scan QR code or enter Lipa Namba ${business.lipaNamba} — ${business.lipaName}. We'll confirm shortly.`}
             </p>
             <button
               onClick={onClose}
@@ -106,15 +106,48 @@ export default function CheckoutModal({ onClose }) {
               </div>
             </div>
 
-            {/* Payment info */}
-            <div className="mx-4 mt-3 rounded-xl border-2 border-gold/40 bg-gold/5 px-4 py-3 text-center">
-              <p className="text-xs font-bold uppercase tracking-wider text-navy/60">
-                {t("payInfo")} — Lipa Namba
+            {/* Payment info — QR code + Lipa Namba */}
+            <div className="mx-4 mt-3 rounded-xl border-2 border-gold/40 bg-gold/5 px-4 py-4 text-center">
+              <p className="text-xs font-bold uppercase tracking-wider text-navy/60 mb-3">
+                {lang === "sw" ? "Lipa kwa Scan au Namba" : "Pay by Scan or Number"}
               </p>
-              <p className="mt-1 font-display text-3xl font-black tracking-widest text-navy">
+
+              {/* Scannable QR code */}
+              <div className="flex justify-center mb-3">
+                <div style={{
+                  background:"#fff", borderRadius:"12px",
+                  padding:"8px", border:"2px solid rgba(212,175,55,0.4)",
+                  display:"inline-block",
+                }}>
+                  <img
+                    src="/qr-lipa.jpg"
+                    alt="Lipa QR code — scan to pay"
+                    width={180}
+                    height={157}
+                    style={{ display:"block", borderRadius:"6px" }}
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-navy/50 mb-1 font-medium uppercase tracking-wider">
+                {lang === "sw" ? "Au ingiza namba" : "Or enter number"}
+              </p>
+
+              <p className="font-display text-3xl font-black tracking-widest text-navy">
                 {business.lipaNamba}
               </p>
-              <p className="text-xs text-navy/60">{business.lipaName}</p>
+              <p className="text-xs text-navy/60 mt-0.5">{business.lipaName}</p>
+
+              <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+                {["Mixx by Yas","Airtel Money","M-Pesa","Benki"].map((n,i) => (
+                  <span key={i} style={{
+                    background:"rgba(11,31,69,0.07)",
+                    borderRadius:"99px", padding:"2px 10px",
+                    fontSize:"10px", color:"rgba(11,31,69,0.55)",
+                    fontFamily:"sans-serif", fontWeight:600,
+                  }}>{n}</span>
+                ))}
+              </div>
             </div>
 
             {/* Form */}
