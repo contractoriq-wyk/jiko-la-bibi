@@ -3,14 +3,15 @@ import { sections, menu } from "./data/menu";
 import { useLang } from "./lang/LanguageContext";
 import { useCart } from "./cart/CartContext";
 import { business } from "./data/businessConfig";
-import Header     from "./components/Header";
-import Hero       from "./components/Hero";
-import ServiceBar  from "./components/ServiceBar";
-import BottomNav   from "./components/BottomNav";
-import MenuItemCard from "./components/MenuItemCard";
-import ItemModal    from "./components/ItemModal";
-import CartDrawer   from "./components/CartDrawer";
+import Header      from "./components/Header";
+import Hero        from "./components/Hero";
+import ServiceBar   from "./components/ServiceBar";
+import BottomNav    from "./components/BottomNav";
+import MenuItemCard  from "./components/MenuItemCard";
+import ItemModal     from "./components/ItemModal";
+import CartDrawer    from "./components/CartDrawer";
 import CheckoutModal from "./components/CheckoutModal";
+import AdminPage     from "./pages/AdminPage";
 
 const GOLD  = "#D4AF37";
 const NAVY  = "#0B1F45";
@@ -413,6 +414,7 @@ export default function App() {
       {page==="menu"   && <MenuPage   sectionIdx={sectionIdx} setSectionIdx={setSectionIdx} setConfigItem={setConfigItem} />}
       {page==="about"  && <AboutPage  />}
       {page==="policy" && <PolicyPage />}
+      {page==="admin"  && <AdminPage  onExit={() => navigate("home")} />}
 
       <BottomNav
         page={page}
