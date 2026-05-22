@@ -16,7 +16,7 @@ export const menu = [
     name:{ sw:"Chai ya Rangi (kikombe)",  en:"Black Tea (cup)" }, price:500 },
   { id:"chapati-vit",   section:"vitafunwa", emoji:"🫓", photo:"/food/chapati.jpg",
     name:{ sw:"Chapati Raini + Maziwa na Siagi", en:"Plain Chapati with Milk & Butter" }, price:1000 },
-  { id:"maandazi",      section:"vitafunwa", emoji:"🍩",
+  { id:"maandazi",      section:"vitafunwa", emoji:"🍩", photo:"/food/maandazi.jpg",
     name:{ sw:"Maandazi (1)",  en:"Maandazi — 1 piece" }, price:500 },
   { id:"vitumbua",      section:"vitafunwa", emoji:"🍡",
     name:{ sw:"Vitumbua (1)", en:"Rice Cake — 1 piece" }, price:500 },
