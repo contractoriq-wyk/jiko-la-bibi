@@ -50,7 +50,7 @@ export default function MenuItemCard({ item, onConfigure }) {
 
       {/* Emoji / Photo zone */}
       <div style={{
-        width: item.photo ? "110px" : "70px", flexShrink:0, alignSelf:"stretch",
+        width:"70px", flexShrink:0, alignSelf:"stretch",
         display:"flex", alignItems:"center", justifyContent:"center",
         background: CREAM_BG, fontSize:"34px", userSelect:"none",
         position:"relative", overflow:"hidden",
