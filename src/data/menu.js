@@ -26,18 +26,18 @@ export const menu = [
     name:{ sw:"Mhogo wa Kuchemsha (1)", en:"Boiled Cassava" }, price:500 },
 
   /* ── MCHELE ── */
-  { id:"wali-combo",  section:"mchele", emoji:"🍛", photo:"/food/wali.jpg",
+  { id:"wali-combo",  section:"mchele", emoji:"🍛", photo:"/food/wali-combo.jpg",
     name:{ sw:"Wali, Nyama, Maharage na Mboga za Majani", en:"Rice, Meat, Beans & Greens" },
     sizes:[ { label:{ sw:"Ndogo", en:"Small" }, price:3000 }, { label:{ sw:"Wastani", en:"Medium" }, price:5000 }, { label:{ sw:"Kubwa", en:"Large" }, price:7500 } ] },
-  { id:"ugali-combo", section:"mchele", emoji:"🍚", photo:"/food/wali.jpg",
+  { id:"ugali-combo", section:"mchele", emoji:"🍚", photo:"/food/ugali-combo.jpg",
     name:{ sw:"Ugali, Nyama, Maharage na Mboga za Majani", en:"Ugali, Meat, Beans & Greens" },
     sizes:[ { label:{ sw:"Ndogo", en:"Small" }, price:3000 }, { label:{ sw:"Wastani", en:"Medium" }, price:5000 }, { label:{ sw:"Kubwa", en:"Large" }, price:7500 } ] },
 
   /* ── STANDARD ── */
-  { id:"plate-wali",  section:"standard", emoji:"🍗", photo:"/food/wali.jpg",
+  { id:"plate-wali",  section:"standard", emoji:"🍗", photo:"/food/wali-combo.jpg",
     name:{ sw:"Wali + Protini + Mboga za Majani", en:"Rice + Protein + Greens" }, price:7500,
     choices:[ { sw:"Kuku", en:"Chicken" }, { sw:"Samaki", en:"Fish" }, { sw:"Maini", en:"Liver" }, { sw:"Maharage", en:"Beans" } ] },
-  { id:"plate-ugali", section:"standard", emoji:"🐟", photo:"/food/wali.jpg",
+  { id:"plate-ugali", section:"standard", emoji:"🐟", photo:"/food/ugali-combo.jpg",
     name:{ sw:"Ugali + Protini + Mboga za Majani", en:"Ugali + Protein + Greens" }, price:7500,
     choices:[ { sw:"Kuku", en:"Chicken" }, { sw:"Samaki", en:"Fish" }, { sw:"Maini", en:"Liver" }, { sw:"Maharage", en:"Beans" } ] },
 
