@@ -1,63 +1,40 @@
 import { useState, useRef } from "react";
 import { sections, menu } from "./data/menu";
-import { useLang } from "./lang/LanguageContext";
 import { useCart } from "./cart/CartContext";
 import { business } from "./data/businessConfig";
 import Header      from "./components/Header";
 import Hero        from "./components/Hero";
-import ServiceBar   from "./components/ServiceBar";
-import BottomNav    from "./components/BottomNav";
-import MenuItemCard  from "./components/MenuItemCard";
-import ItemModal     from "./components/ItemModal";
-import CartDrawer    from "./components/CartDrawer";
+import ServiceBar  from "./components/ServiceBar";
+import BottomNav   from "./components/BottomNav";
+import ItemModal    from "./components/ItemModal";
+import CartDrawer   from "./components/CartDrawer";
 import CheckoutModal from "./components/CheckoutModal";
-import AdminPage     from "./pages/AdminPage";
-import JikoLaBibiMenu from "./components/JikoLaBibiMenu";
+import AdminPage    from "./pages/AdminPage";
 
 const GOLD  = "#D4AF37";
 const NAVY  = "#0B1F45";
 const NAVY2 = "#06132E";
-const MQ    = "VYAKULA VYA NYUMBANI * BEI NAFUU * HUDUMA BORA * PICKUP - DELIVERY - MATUKIO * ";
+const MQ    = "VYAKULA VYA NYUMBANI  *  BEI NAFUU  *  HUDUMA BORA  *  PICKUP  *  DELIVERY  *  MATUKIO  *  ";
 
 function BottomBanner() {
   return (
     <div style={{ position:"relative", overflow:"hidden", marginTop:"2.5rem" }}>
-      <div style={{
-        backgroundImage:"url(/banner.jpg)",
-        backgroundSize:"cover", backgroundPosition:"center",
-        filter:"brightness(0.45)",
-        position:"absolute", inset:0,
-      }} />
-      <div style={{
-        position:"relative", zIndex:1,
-        background:"rgba(6,19,46,0.68)",
-        padding:"3.5rem 1.5rem 4rem",
-        display:"flex", flexDirection:"column",
-        alignItems:"center", textAlign:"center",
-      }}>
-        <h2 style={{
-          fontFamily:"Georgia,serif", fontSize:"22px",
-          fontWeight:900, color:"#FDF5E4", margin:"0 0 6px",
-        }}>
+      <div style={{ backgroundImage:"url(/banner.jpg)", backgroundSize:"cover", backgroundPosition:"center", filter:"brightness(0.45)", position:"absolute", inset:0 }} />
+      <div style={{ position:"relative", zIndex:1, background:"rgba(6,19,46,0.68)", padding:"3.5rem 1.5rem 4rem", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
+        <h2 style={{ fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:900, color:"#FDF5E4", margin:"0 0 6px" }}>
           Karibu <span style={{ color:GOLD }}>Unyamwezini Jiko La Bibi JJJ</span>
         </h2>
-        <p style={{
-          fontFamily:"Georgia,serif", fontStyle:"italic",
-          color:"rgba(253,245,228,0.72)", fontSize:"14px", margin:"0 0 1.6rem",
-        }}>
+        <p style={{ fontFamily:"Georgia,serif", fontStyle:"italic", color:"rgba(253,245,228,0.72)", fontSize:"14px", margin:"0 0 1.6rem" }}>
           Taste of Tanzania in DAR
         </p>
         <div style={{ display:"flex", flexWrap:"wrap", gap:"18px", justifyContent:"center" }}>
           {[
-            { icon:"ti-map-pin",        text:"Mbezi Luis, Goba Road, Dar es Salaam" },
+            { icon:"ti-map-pin", text:"Mbezi Luis, Goba Road, Dar es Salaam" },
             { icon:"ti-brand-whatsapp", text:"+255 655 709 024" },
-            { icon:"ti-clock",          text:"Kila siku: 7:00 - 21:00" },
+            { icon:"ti-clock", text:"Kila siku: 7:00 - 21:00" },
           ].map((r,i) => (
-            <div key={i} style={{
-              color:"#FDF5E4", fontFamily:"sans-serif",
-              fontSize:"13px", display:"flex", alignItems:"center", gap:"7px",
-            }}>
-              <i className={`ti ${r.icon}`} style={{ color:GOLD, fontSize:"15px" }} />
+            <div key={i} style={{ color:"#FDF5E4", fontFamily:"sans-serif", fontSize:"13px", display:"flex", alignItems:"center", gap:"7px" }}>
+              <i className={"ti " + r.icon} style={{ color:GOLD, fontSize:"15px" }} />
               {r.text}
             </div>
           ))}
@@ -67,7 +44,10 @@ function BottomBanner() {
   );
 }
 
-function HomePage({ setPage, setSectionIdx }) {
+/* ══════════════════════════════════════════════════════
+   HOME PAGE — poster menu replaces section cards
+══════════════════════════════════════════════════════ */
+function HomePage() {
   return (
     <div>
       <Hero />
@@ -75,10 +55,7 @@ function HomePage({ setPage, setSectionIdx }) {
       <div style={{ background:GOLD, overflow:"hidden", padding:"9px 0" }}>
         <div className="mq-run">
           {[1,2].map(n => (
-            <span key={n} style={{
-              color:NAVY2, fontSize:"15px", fontWeight:700,
-              letterSpacing:"2px", padding:"0 24px", fontFamily:"sans-serif",
-            }}>
+            <span key={n} style={{ color:NAVY2, fontSize:"15px", fontWeight:700, letterSpacing:"2px", padding:"0 24px", fontFamily:"sans-serif" }}>
               {MQ.repeat(3)}
             </span>
           ))}
@@ -87,87 +64,25 @@ function HomePage({ setPage, setSectionIdx }) {
 
       <ServiceBar />
 
-      <div style={{ maxWidth:"900px", margin:"0 auto", padding:"2rem 1rem 1.5rem" }}>
+      {/* ── POSTER MENU EMBEDDED ── */}
+      <div style={{ padding:"1.2rem 0 0" }}>
         <h2 style={{
           fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:700,
-          color:NAVY, margin:"0 0 1.2rem", textAlign:"center",
+          color:NAVY, margin:"0 0 1rem", textAlign:"center", padding:"0 1rem",
         }}>
           Menyu Yetu
         </h2>
-
-        <div style={{
-          display:"grid", gap:"12px",
-          gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))",
-        }}>
-          {sections.map((sec, i) => {
-            const count = menu.filter(m => m.section === sec.id).length;
-            return (
-              <button
-                key={sec.id}
-                onClick={() => { setSectionIdx(i); setPage("menu"); }}
-                style={{
-                  background:"#FFFFFF",
-                  border:"1.5px solid rgba(212,175,55,0.25)",
-                  borderRadius:"14px",
-                  padding:"1.2rem 1rem",
-                  display:"flex", flexDirection:"column", alignItems:"center", gap:"8px",
-                  cursor:"pointer", textAlign:"center",
-                  boxShadow:"0 3px 12px rgba(11,31,69,0.07)",
-                  transition:"transform 0.18s, box-shadow 0.18s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow="0 8px 22px rgba(11,31,69,0.14)"; e.currentTarget.style.borderColor="rgba(212,175,55,0.6)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 3px 12px rgba(11,31,69,0.07)"; e.currentTarget.style.borderColor="rgba(212,175,55,0.25)"; }}
-              >
-                <div style={{
-                  width:"54px", height:"54px", borderRadius:"50%",
-                  background: sec.color + "22",
-                  border:"2px solid " + sec.color + "55",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:"26px",
-                }}>
-                  {menu.find(m => m.section === sec.id)?.emoji || ""}
-                </div>
-                <div style={{ fontFamily:"Georgia,serif", fontSize:"13px", fontWeight:700, color:NAVY, lineHeight:1.3 }}>
-                  {sec.name.sw}
-                </div>
-                <div style={{ fontFamily:"sans-serif", fontSize:"11px", color:"rgba(11,31,69,0.45)" }}>
-                  {count} bidhaa
-                </div>
-                <div style={{
-                  background:NAVY, color:GOLD,
-                  borderRadius:"99px", padding:"4px 14px",
-                  fontSize:"11px", fontFamily:"sans-serif", fontWeight:700,
-                }}>
-                  Angalia
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ textAlign:"center", marginTop:"1.5rem" }}>
-          <button
-            onClick={() => setPage("poster")}
-            style={{
-              background:"linear-gradient(135deg, #06132E, #0B1F45)",
-              color:GOLD,
-              border:"1.5px solid rgba(212,175,55,0.35)",
-              borderRadius:"99px",
-              padding:"12px 28px",
-              fontFamily:"Georgia,serif",
-              fontSize:"14px",
-              fontWeight:700,
-              cursor:"pointer",
-              letterSpacing:"0.03em",
-              boxShadow:"0 4px 16px rgba(11,31,69,0.2)",
-              display:"inline-flex",
-              alignItems:"center",
-              gap:"8px",
-            }}
-          >
-            Tazama Menyu Kamili
-          </button>
-        </div>
+        <iframe
+          src="/menu.html"
+          title="Menyu - Jiko La Bibi JJJ"
+          style={{
+            width:"100%",
+            height:"2200px",
+            border:"none",
+            display:"block",
+          }}
+          scrolling="no"
+        />
       </div>
 
       <BottomBanner />
@@ -175,168 +90,54 @@ function HomePage({ setPage, setSectionIdx }) {
   );
 }
 
-function MenuPage({ sectionIdx, setSectionIdx, setConfigItem }) {
-  const touchStartX = useRef(null);
-  const sec   = sections[sectionIdx];
-  const items = menu.filter(m => m.section === sec.id);
-
-  function onTouchStart(e) { touchStartX.current = e.touches[0].clientX; }
-  function onTouchEnd(e) {
-    if (touchStartX.current === null) return;
-    const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (delta >  60) setSectionIdx(i => Math.min(sections.length - 1, i + 1));
-    if (delta < -60) setSectionIdx(i => Math.max(0, i - 1));
-    touchStartX.current = null;
-  }
-
+/* ══════════════════════════════════════════════════════
+   MENU PAGE — full screen poster
+══════════════════════════════════════════════════════ */
+function MenuPage() {
   return (
-    <div>
-      <nav style={{
-        position:"sticky", top:"60px", zIndex:30,
-        background:"rgba(249,243,232,0.97)", backdropFilter:"blur(8px)",
-        borderBottom:"1px solid rgba(212,175,55,0.22)",
-        overflowX:"auto", padding:"10px 12px",
-        display:"flex", gap:"6px", scrollbarWidth:"none",
-      }}>
-        {sections.map((s,i) => (
-          <button key={s.id} onClick={() => setSectionIdx(i)} style={{
-            background: i===sectionIdx ? NAVY : "transparent",
-            color:       i===sectionIdx ? GOLD : "rgba(11,31,69,0.5)",
-            border:"1.5px solid " + (i===sectionIdx ? NAVY : "rgba(11,31,69,0.18)"),
-            borderRadius:"99px", padding:"6px 14px", whiteSpace:"nowrap",
-            fontFamily:"sans-serif", fontSize:"12px",
-            fontWeight: i===sectionIdx ? 700 : 400,
-            cursor:"pointer", transition:"all 0.2s",
-          }}>
-            {s.name.sw.split(" ")[0]}
-          </button>
-        ))}
-      </nav>
-
-      <div
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        style={{ maxWidth:"900px", margin:"0 auto" }}
-      >
-        <div style={{
-          background:NAVY, padding:"14px 20px",
-          display:"flex", alignItems:"center", gap:"12px",
-        }}>
-          <div style={{
-            background:GOLD, color:NAVY2, width:"30px", height:"30px",
-            borderRadius:"50%", display:"flex", alignItems:"center",
-            justifyContent:"center", fontWeight:900, fontSize:"13px",
-            flexShrink:0, fontFamily:"sans-serif",
-          }}>
-            {sectionIdx + 1}
-          </div>
-          <div style={{ flex:1 }}>
-            <h2 style={{ fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:700, color:GOLD, lineHeight:1.2, margin:0 }}>
-              {sec.name.sw}
-            </h2>
-            <p style={{ fontSize:"11px", fontStyle:"italic", color:"rgba(253,245,228,0.60)", margin:"2px 0 0" }}>
-              {sec.name.en}
-            </p>
-          </div>
-          <i className={"ti " + sec.icon} style={{ fontSize:"22px", color:"rgba(212,175,55,0.75)", flexShrink:0 }} aria-hidden="true" />
-        </div>
-
-        <div style={{
-          background: sectionIdx % 2 === 0 ? "#FFFBF3" : "#FBF4E4",
-          padding:"18px",
-          display:"grid", gap:"12px",
-          gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))",
-          minHeight:"220px",
-        }}>
-          {items.map(item => (
-            <MenuItemCard key={item.id} item={item} onConfigure={setConfigItem} />
-          ))}
-        </div>
-
-        <div style={{
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"14px 20px", background:"#F9F3E8",
-          maxWidth:"900px", margin:"0 auto",
-        }}>
-          <button
-            onClick={() => setSectionIdx(i => Math.max(0, i-1))}
-            disabled={sectionIdx === 0}
-            style={{
-              background: sectionIdx===0 ? "rgba(11,31,69,0.07)" : NAVY,
-              color:       sectionIdx===0 ? "rgba(11,31,69,0.28)" : GOLD,
-              border:"none", borderRadius:"99px", padding:"10px 22px",
-              fontFamily:"sans-serif", fontSize:"13px", fontWeight:700,
-              cursor: sectionIdx===0 ? "default" : "pointer",
-            }}
-          >
-            {sectionIdx > 0 ? ("< " + sections[sectionIdx-1].name.sw.split(" ")[0]) : "<"}
-          </button>
-
-          <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
-            {sections.map((_,i) => (
-              <div key={i} onClick={() => setSectionIdx(i)} style={{
-                width: i===sectionIdx ? "22px" : "8px",
-                height:"8px", borderRadius:"4px",
-                background: i===sectionIdx ? GOLD : "rgba(11,31,69,0.18)",
-                cursor:"pointer", transition:"all 0.3s",
-              }} />
-            ))}
-          </div>
-
-          <button
-            onClick={() => setSectionIdx(i => Math.min(sections.length-1, i+1))}
-            disabled={sectionIdx === sections.length-1}
-            style={{
-              background: sectionIdx===sections.length-1 ? "rgba(11,31,69,0.07)" : NAVY,
-              color:       sectionIdx===sections.length-1 ? "rgba(11,31,69,0.28)" : GOLD,
-              border:"none", borderRadius:"99px", padding:"10px 22px",
-              fontFamily:"sans-serif", fontSize:"13px", fontWeight:700,
-              cursor: sectionIdx===sections.length-1 ? "default" : "pointer",
-            }}
-          >
-            {sectionIdx < sections.length-1 ? (sections[sectionIdx+1].name.sw.split(" ")[0] + " >") : ">"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <iframe
+      src="/menu.html"
+      title="Menyu - Jiko La Bibi JJJ"
+      style={{
+        width:"100%",
+        height:"calc(100vh - 130px)",
+        border:"none",
+        display:"block",
+      }}
+    />
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   ABOUT PAGE
+══════════════════════════════════════════════════════ */
 function AboutPage() {
   const info = [
-    { icon:"ti-map-pin",        label:"Mahali",     value:"Mbezi Luis, Goba Road (Chingwalu St), Dar es Salaam" },
-    { icon:"ti-brand-whatsapp", label:"WhatsApp",   value:"+255 655 709 024" },
-    { icon:"ti-clock",          label:"Saa za Kazi",value:"Kila siku: 7:00 asubuhi - 9:00 usiku" },
-    { icon:"ti-credit-card",    label:"Lipa Namba", value:business.lipaNamba + " - " + business.lipaName },
-    { icon:"ti-wifi",           label:"WiFi",       value:"WiFi ya Bure kwa Wateja wote" },
-    { icon:"ti-device-tv",      label:"Burudani",   value:"Michezo na Entertainment kwa Wateja" },
+    { icon:"ti-map-pin", label:"Mahali", value:"Mbezi Luis, Goba Road (Chingwalu St), Dar es Salaam" },
+    { icon:"ti-brand-whatsapp", label:"WhatsApp", value:"+255 655 709 024" },
+    { icon:"ti-clock", label:"Saa za Kazi", value:"Kila siku: 7:00 asubuhi - 9:00 usiku" },
+    { icon:"ti-credit-card", label:"Lipa Namba", value:business.lipaNamba + " - " + business.lipaName },
+    { icon:"ti-wifi", label:"WiFi", value:"WiFi ya Bure kwa Wateja wote" },
+    { icon:"ti-device-tv", label:"Burudani", value:"Michezo na Entertainment kwa Wateja" },
   ];
   return (
     <div>
       <div style={{ background:NAVY2, padding:"3rem 1.5rem 2rem", textAlign:"center" }}>
-        <img src="/logo.png" alt="logo" width={120} height={120}
-          style={{ borderRadius:"50%", border:"3px solid " + GOLD, objectFit:"cover", marginBottom:"1rem" }}
-          onError={e => { e.target.style.display="none"; }} />
+        <img src="/logo.png" alt="logo" width={120} height={120} style={{ borderRadius:"50%", border:"3px solid "+GOLD, objectFit:"cover", marginBottom:"1rem" }} onError={e => { e.target.style.display="none"; }} />
         <h1 style={{ fontFamily:"Georgia,serif", fontSize:"26px", fontWeight:900, color:"#FDF5E4", margin:"0 0 6px" }}>Kuhusu Sisi</h1>
         <p style={{ fontFamily:"Georgia,serif", fontStyle:"italic", color:"rgba(253,245,228,0.70)", fontSize:"15px", margin:0 }}>Taste of Tanzania in DAR</p>
       </div>
       <div style={{ maxWidth:"720px", margin:"0 auto", padding:"2rem 1rem" }}>
-        <div style={{ background:"#FFFFFF", borderRadius:"16px", padding:"2rem", marginBottom:"1.5rem", boxShadow:"0 3px 14px rgba(11,31,69,0.08)", borderLeft:"5px solid " + GOLD }}>
+        <div style={{ background:"#FFFFFF", borderRadius:"16px", padding:"2rem", marginBottom:"1.5rem", boxShadow:"0 3px 14px rgba(11,31,69,0.08)", borderLeft:"5px solid "+GOLD }}>
           <h2 style={{ fontFamily:"Georgia,serif", fontSize:"20px", color:NAVY, margin:"0 0 1rem" }}>Hadithi Yetu</h2>
-          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:"0 0 1rem" }}>
-            Karibu kwenye mkusanyiko wa familia - mahali ambapo chakula halisi cha Tanzania kinaandaliwa kwa upendo na mikono ya Bibi wetu.
-          </p>
-          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:"0 0 1rem" }}>
-            Jiko La Bibi JJJ si mkahawa tu - ni nyumbani. Tunaamini kwamba chakula bora kinatoka moyoni, kikipikwa na malighafi ya asili ya Tanzania.
-          </p>
-          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:0 }}>
-            Bibi Veneranda ndiye moyo wa jiko letu. Mapishi yake yamepitishwa kutoka kizazi hadi kizazi - tangu Unyamwezini hadi Dar es Salaam. Leo, tunaleta ladha hiyo kwenye meza yako.
-          </p>
+          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:"0 0 1rem" }}>Karibu kwenye mkusanyiko wa familia - mahali ambapo chakula halisi cha Tanzania kinaandaliwa kwa upendo na mikono ya Bibi wetu.</p>
+          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:"0 0 1rem" }}>Jiko La Bibi JJJ si mkahawa tu - ni nyumbani. Tunaamini kwamba chakula bora kinatoka moyoni, kikipikwa na malighafi ya asili ya Tanzania.</p>
+          <p style={{ fontFamily:"Georgia,serif", fontSize:"15px", color:"rgba(11,31,69,0.78)", lineHeight:1.85, margin:0 }}>Bibi Veneranda ndiye moyo wa jiko letu. Mapishi yake yamepitishwa kutoka kizazi hadi kizazi - tangu Unyamwezini hadi Dar es Salaam.</p>
         </div>
         <div style={{ display:"grid", gap:"12px", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))" }}>
           {info.map((item,i) => (
             <div key={i} style={{ background:"#FFFFFF", borderRadius:"12px", padding:"1rem 1.25rem", boxShadow:"0 2px 10px rgba(11,31,69,0.07)", display:"flex", gap:"12px", alignItems:"flex-start" }}>
-              <i className={"ti " + item.icon} style={{ fontSize:"20px", color:GOLD, flexShrink:0, marginTop:"2px" }} />
+              <i className={"ti "+item.icon} style={{ fontSize:"20px", color:GOLD, flexShrink:0, marginTop:"2px" }} />
               <div>
                 <div style={{ fontSize:"10px", fontFamily:"sans-serif", fontWeight:700, color:"rgba(11,31,69,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"3px" }}>{item.label}</div>
                 <div style={{ fontSize:"14px", fontFamily:"Georgia,serif", color:NAVY }}>{item.value}</div>
@@ -350,14 +151,17 @@ function AboutPage() {
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   POLICY PAGE
+══════════════════════════════════════════════════════ */
 function PolicyPage() {
   const policies = [
-    { icon:"ti-clipboard-list", title:"1. Sera ya Maagizo",    body:"Maagizo yanakubaliwa kupitia WhatsApp, simu, au tovuti yetu\nChakula cha kawaida hutayarishwa ndani ya dakika 15-30\nMaagizo ya matukio (Events) yanahitaji siku 2-3 za mapema\nTunashughulikia: Kuchukua, Delivery, Kula Hapa, na Matukio" },
-    { icon:"ti-credit-card",    title:"2. Sera ya Malipo",     body:"Tunakubali: Lipa Namba (18873261), Mixx by Yas, Airtel Money, Pesa Taslimu\nMalipo yanaweza fanywa kabla au wakati wa kupokea chakula\nRisiti hutolewa kwa maombi yoyote" },
-    { icon:"ti-bike",           title:"3. Sera ya Delivery",   body:"Tunahudumia maeneo ya Dar es Salaam\nGharama ya delivery inategemea umbali - wasiliana nasi\nMuda wa delivery: ndani ya saa 1 baada ya chakula kutayarishwa" },
-    { icon:"ti-refresh",        title:"4. Sera ya Kurejesha",  body:"Kurejesha pesa kunafanyika ikiwa agizo halikutimizwa kwa sababu yetu\nKanselo baada ya dakika 15 (chakula kikiandaliwa) linaweza kulipishwa asilimia 30\nMalalamiko yashughulikiwe haraka kupitia WhatsApp" },
-    { icon:"ti-shield-check",   title:"5. Kanuni ya Chakula",  body:"Chakula chetu kinapikwa kwa viungo vya asili, bila kemikali za ziada\nHatuna dhamana kamili ya kukosa alerji - tafadhali tuambie mapema\nBei zinaweza kubadilika bila taarifa ya awali\nTunafuata Sheria ya Chakula, Dawa na Vipodozi (Cap 219)\nLeseni: BL01396922025-2605162556 | TIN: 192-791-243" },
-    { icon:"ti-lock",           title:"6. Sera ya Faragha",    body:"Habari zako za kibinafsi (jina, simu) zinakingwa na sisi\nTunatumia maelezo yako kwa mawasiliano ya agizo lako pekee\nHatutashiriki taarifa zako bila ruhusa yako wazi" },
+    { icon:"ti-clipboard-list", title:"1. Sera ya Maagizo", body:"Maagizo yanakubaliwa kupitia WhatsApp, simu, au tovuti yetu\nChakula cha kawaida hutayarishwa ndani ya dakika 15-30\nMaagizo ya matukio (Events) yanahitaji siku 2-3 za mapema\nTunashughulikia: Kuchukua, Delivery, Kula Hapa, na Matukio" },
+    { icon:"ti-credit-card", title:"2. Sera ya Malipo", body:"Tunakubali: Lipa Namba (18873261), Mixx by Yas, Airtel Money, Pesa Taslimu\nMalipo yanaweza fanywa kabla au wakati wa kupokea chakula\nRisiti hutolewa kwa maombi yoyote" },
+    { icon:"ti-bike", title:"3. Sera ya Delivery", body:"Tunahudumia maeneo ya Dar es Salaam\nGharama ya delivery inategemea umbali - wasiliana nasi\nMuda wa delivery: ndani ya saa 1 baada ya chakula kutayarishwa" },
+    { icon:"ti-refresh", title:"4. Sera ya Kurejesha", body:"Kurejesha pesa kunafanyika ikiwa agizo halikutimizwa kwa sababu yetu\nKanselo baada ya dakika 15 linaweza kulipishwa asilimia 30\nMalalamiko yashughulikiwe haraka kupitia WhatsApp" },
+    { icon:"ti-shield-check", title:"5. Kanuni ya Chakula", body:"Chakula chetu kinapikwa kwa viungo vya asili, bila kemikali za ziada\nHatuna dhamana kamili ya kukosa alerji - tafadhali tuambie mapema\nBei zinaweza kubadilika bila taarifa ya awali\nLeseni: BL01396922025-2605162556 | TIN: 192-791-243" },
+    { icon:"ti-lock", title:"6. Sera ya Faragha", body:"Habari zako za kibinafsi (jina, simu) zinakingwa na sisi\nTunatumia maelezo yako kwa mawasiliano ya agizo lako pekee\nHatutashiriki taarifa zako bila ruhusa yako wazi" },
   ];
   return (
     <div>
@@ -367,9 +171,9 @@ function PolicyPage() {
       </div>
       <div style={{ maxWidth:"720px", margin:"0 auto", padding:"1.5rem 1rem" }}>
         {policies.map((p,i) => (
-          <div key={i} style={{ background:"#FFFFFF", borderRadius:"14px", padding:"1.5rem", marginBottom:"1rem", boxShadow:"0 2px 10px rgba(11,31,69,0.07)", borderLeft:"5px solid " + GOLD }}>
+          <div key={i} style={{ background:"#FFFFFF", borderRadius:"14px", padding:"1.5rem", marginBottom:"1rem", boxShadow:"0 2px 10px rgba(11,31,69,0.07)", borderLeft:"5px solid "+GOLD }}>
             <h3 style={{ fontFamily:"Georgia,serif", fontSize:"16px", fontWeight:700, color:NAVY, margin:"0 0 0.8rem", display:"flex", alignItems:"center", gap:"8px" }}>
-              <i className={"ti " + p.icon} style={{ color:GOLD, fontSize:"18px" }} />
+              <i className={"ti "+p.icon} style={{ color:GOLD, fontSize:"18px" }} />
               {p.title}
             </h3>
             <p style={{ fontFamily:"sans-serif", fontSize:"13.5px", color:"rgba(11,31,69,0.72)", lineHeight:1.85, margin:0, whiteSpace:"pre-line" }}>{p.body}</p>
@@ -377,7 +181,7 @@ function PolicyPage() {
         ))}
         <div style={{ background:"rgba(212,175,55,0.10)", border:"1px solid rgba(212,175,55,0.40)", borderRadius:"12px", padding:"1.25rem", textAlign:"center" }}>
           <p style={{ fontFamily:"sans-serif", fontSize:"13px", color:"rgba(11,31,69,0.65)", margin:0 }}>
-            Maswali kuhusu sera hizi - WhatsApp: <strong style={{ color:NAVY }}>+255 655 709 024</strong>
+            Maswali - WhatsApp: <strong style={{ color:NAVY }}>+255 655 709 024</strong>
           </p>
         </div>
       </div>
@@ -386,12 +190,14 @@ function PolicyPage() {
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   MAIN APP
+══════════════════════════════════════════════════════ */
 export default function App() {
   const { count } = useCart();
-  const [page,         setPage]         = useState("home");
-  const [sectionIdx,   setSectionIdx]   = useState(0);
-  const [configItem,   setConfigItem]   = useState(null);
-  const [cartOpen,     setCartOpen]     = useState(false);
+  const [page, setPage] = useState("home");
+  const [configItem, setConfigItem] = useState(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   function navigate(p) { setPage(p); window.scrollTo(0,0); }
@@ -406,23 +212,17 @@ export default function App() {
 
       <Header onCartClick={() => setCartOpen(true)} />
 
-      {page==="home"   && <HomePage   setPage={navigate} setSectionIdx={setSectionIdx} />}
-      {page==="menu"   && <MenuPage   sectionIdx={sectionIdx} setSectionIdx={setSectionIdx} setConfigItem={setConfigItem} />}
-      {page==="about"  && <AboutPage  />}
+      {page==="home"   && <HomePage />}
+      {page==="menu"   && <MenuPage />}
+      {page==="about"  && <AboutPage />}
       {page==="policy" && <PolicyPage />}
-      {page==="poster" && <JikoLaBibiMenu />}
-      {page==="admin"  && <AdminPage  onExit={() => navigate("home")} />}
+      {page==="admin"  && <AdminPage onExit={() => navigate("home")} />}
 
-      <BottomNav
-        page={page}
-        setPage={navigate}
-        onCartClick={() => setCartOpen(true)}
-        cartCount={count}
-      />
+      <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />
 
-      {configItem    && <ItemModal    item={configItem} onClose={() => setConfigItem(null)} />}
-      {cartOpen      && <CartDrawer   onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />}
-      {checkoutOpen  && <CheckoutModal onClose={() => setCheckoutOpen(false)} />}
+      {configItem   && <ItemModal item={configItem} onClose={() => setConfigItem(null)} />}
+      {cartOpen     && <CartDrawer onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />}
+      {checkoutOpen && <CheckoutModal onClose={() => setCheckoutOpen(false)} />}
     </div>
   );
 }
