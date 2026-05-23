@@ -8,14 +8,55 @@
     <title>Unyamwezini Jiko La Bibi JJJ</title>
     <!-- Open Graph for WhatsApp link previews -->
     <meta property="og:title" content="Unyamwezini Jiko La Bibi JJJ" />
-    <meta property="og:description" content="Taste of Tanzania in DAR · Agiza chakula cha nyumbani sasa!" />
+    <meta property="og:description" content="Taste of Tanzania in DAR - Agiza chakula cha nyumbani sasa!" />
     <meta property="og:type" content="restaurant.restaurant" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<meta name="google" content="notranslate">
-<link rel="stylesheet" href="/improvements.css">
+    <meta name="google" content="notranslate">
+    <link rel="stylesheet" href="/improvements.css">
+    <!-- Restaurant schema for Google Search -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Restaurant",
+      "name": "Unyamwezini Jiko La Bibi JJJ",
+      "description": "Taste of Tanzania in Dar es Salaam",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Mbezi Luis, Goba Road (Chingwalu St)",
+        "addressLocality": "Dar es Salaam",
+        "addressCountry": "TZ"
+      },
+      "telephone": "+255655709024",
+      "openingHours": "Mo-Su 07:00-21:00",
+      "servesCuisine": "Tanzanian",
+      "url": "https://jikolabibijjj.com",
+      "sameAs": [
+        "https://www.instagram.com/Unyamwezini",
+        "https://www.facebook.com/Unyamwezini",
+        "https://www.tiktok.com/@Unyamwezini"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Social media links injected into footer -->
+    <script>
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        var footer = document.querySelector('div[style*="Mbezi"]');
+        if (!footer) return;
+        if (document.querySelector('.social-links')) return;
+        var s = document.createElement('div');
+        s.className = 'social-links';
+        s.innerHTML =
+          '<a href="https://www.instagram.com/Unyamwezini" target="_blank" rel="noopener"><i class="ti ti-brand-instagram"></i> Instagram</a>' +
+          '<a href="https://www.facebook.com/Unyamwezini" target="_blank" rel="noopener"><i class="ti ti-brand-facebook"></i> Facebook</a>' +
+          '<a href="https://www.tiktok.com/@Unyamwezini" target="_blank" rel="noopener"><i class="ti ti-brand-tiktok"></i> TikTok</a>';
+        footer.appendChild(s);
+      }, 1500);
+    });
+    </script>
   </body>
 </html>
