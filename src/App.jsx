@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useCart } from "./cart/CartContext";
 import { business } from "./data/businessConfig";
 import Header      from "./components/Header";
@@ -161,11 +161,18 @@ function BottomBanner() {
 ══════════════════════════════════════════════════════ */
 function MenuEmbed() {
   const [height, setHeight] = useState(900);
+  const lastH = React.useRef(0);
 
   useEffect(() => {
     function onMsg(e) {
       if (e.data && e.data.jikoMenuHeight) {
-        setHeight(e.data.jikoMenuHeight + 10);
+        const incoming = e.data.jikoMenuHeight;
+        // Only update if this is a meaningful first measurement or accordion open
+        // Never let it grow more than 200px beyond last stable reading
+        if (lastH.current === 0 || Math.abs(incoming - lastH.current) < 1200) {
+          lastH.current = incoming;
+          setHeight(incoming);
+        }
       }
     }
     window.addEventListener("message", onMsg);
@@ -176,7 +183,7 @@ function MenuEmbed() {
     <iframe
       src="/menu.html"
       title="Menyu - Jiko La Bibi JJJ"
-      style={{ width:"100%", height:height+"px", border:"none", display:"block", transition:"height 0.4s ease" }}
+      style={{ width:"100%", height:height+"px", border:"none", display:"block" }}
       scrolling="no"
     />
   );
