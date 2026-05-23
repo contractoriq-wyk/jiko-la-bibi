@@ -34,7 +34,7 @@ html,body{
   font-family:'Cinzel',Georgia,serif;
   background:#0e0802;
   color:#f0ddb0;
-  min-height:100%;
+  height:auto;
 }
 body::before{
   content:'';
@@ -554,8 +554,14 @@ function notifyHeight(){
   const h=document.documentElement.scrollHeight;
   try{window.parent.postMessage({jikoMenuHeight:h},"*");}catch(e){}
 }
-window.addEventListener("load",()=>{setTimeout(notifyHeight,200)});
+window.addEventListener("load",()=>{
+  notifyHeight();
+  setTimeout(notifyHeight,300);
+  setTimeout(notifyHeight,800);
+});
 window.addEventListener("resize",notifyHeight);
+// Also report on font load
+document.fonts && document.fonts.ready.then(notifyHeight);
 </script>
 </body>
 </html>
