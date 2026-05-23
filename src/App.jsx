@@ -65,27 +65,40 @@ function HomePage() {
       <ServiceBar />
 
       {/* ── POSTER MENU EMBEDDED ── */}
-      <div style={{ padding:"1.2rem 0 0" }}>
-        <h2 style={{
-          fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:700,
-          color:NAVY, margin:"0 0 1rem", textAlign:"center", padding:"0 1rem",
-        }}>
-          Menyu Yetu
-        </h2>
-        <iframe
-          src="/menu.html"
-          title="Menyu - Jiko La Bibi JJJ"
-          style={{
-            width:"100%",
-            height:"2200px",
-            border:"none",
-            display:"block",
-          }}
-          scrolling="no"
-        />
-      </div>
+      <MenuEmbed label="Menyu Yetu" />
 
       <BottomBanner />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   SHARED MENU EMBED — auto-resizes via postMessage
+══════════════════════════════════════════════════════ */
+function MenuEmbed({ label }) {
+  const [h, setH] = useState(1800);
+  const ref = useRef(null);
+  useEffect(() => {
+    function onMsg(e) {
+      if (e.data?.jikoMenuHeight) setH(e.data.jikoMenuHeight + 24);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+  return (
+    <div style={{ padding: label ? "1.2rem 0 0" : 0 }}>
+      {label && (
+        <h2 style={{ fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:700, color:NAVY, margin:"0 0 1rem", textAlign:"center", padding:"0 1rem" }}>
+          {label}
+        </h2>
+      )}
+      <iframe
+        ref={ref}
+        src="/menu.html"
+        title="Menyu - Jiko La Bibi JJJ"
+        style={{ width:"100%", height:h+"px", border:"none", display:"block" }}
+        scrolling="no"
+      />
     </div>
   );
 }
@@ -94,18 +107,7 @@ function HomePage() {
    MENU PAGE — full screen poster
 ══════════════════════════════════════════════════════ */
 function MenuPage() {
-  return (
-    <iframe
-      src="/menu.html"
-      title="Menyu - Jiko La Bibi JJJ"
-      style={{
-        width:"100%",
-        height:"calc(100vh - 130px)",
-        border:"none",
-        display:"block",
-      }}
-    />
-  );
+  return <MenuEmbed />;
 }
 
 /* ══════════════════════════════════════════════════════
