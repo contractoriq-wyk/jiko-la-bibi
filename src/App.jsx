@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import { sections, menu } from "./data/menu";
+import { useState, useRef, useEffect } from "react";
 import { useCart } from "./cart/CartContext";
 import { business } from "./data/businessConfig";
 import Header      from "./components/Header";
@@ -44,14 +43,33 @@ function BottomBanner() {
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   HOME PAGE — poster menu replaces section cards
-══════════════════════════════════════════════════════ */
+function MenuEmbed() {
+  const [height, setHeight] = useState(1800);
+
+  useEffect(() => {
+    function onMessage(e) {
+      if (e.data && e.data.jikoMenuHeight) {
+        setHeight(e.data.jikoMenuHeight + 24);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  return (
+    <iframe
+      src="/menu.html"
+      title="Menyu - Jiko La Bibi JJJ"
+      style={{ width:"100%", height:height+"px", border:"none", display:"block" }}
+      scrolling="no"
+    />
+  );
+}
+
 function HomePage() {
   return (
     <div>
       <Hero />
-
       <div style={{ background:GOLD, overflow:"hidden", padding:"9px 0" }}>
         <div className="mq-run">
           {[1,2].map(n => (
@@ -61,58 +79,22 @@ function HomePage() {
           ))}
         </div>
       </div>
-
       <ServiceBar />
-
-      {/* ── POSTER MENU EMBEDDED ── */}
-      <MenuEmbed label="Menyu Yetu" />
-
+      <div style={{ padding:"1.2rem 0 0" }}>
+        <h2 style={{ fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:700, color:NAVY, margin:"0 0 1rem", textAlign:"center", padding:"0 1rem" }}>
+          Menyu Yetu
+        </h2>
+        <MenuEmbed />
+      </div>
       <BottomBanner />
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   SHARED MENU EMBED — auto-resizes via postMessage
-══════════════════════════════════════════════════════ */
-function MenuEmbed({ label }) {
-  const [h, setH] = useState(1800);
-  const ref = useRef(null);
-  useEffect(() => {
-    function onMsg(e) {
-      if (e.data?.jikoMenuHeight) setH(e.data.jikoMenuHeight + 24);
-    }
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
-  return (
-    <div style={{ padding: label ? "1.2rem 0 0" : 0 }}>
-      {label && (
-        <h2 style={{ fontFamily:"Georgia,serif", fontSize:"22px", fontWeight:700, color:NAVY, margin:"0 0 1rem", textAlign:"center", padding:"0 1rem" }}>
-          {label}
-        </h2>
-      )}
-      <iframe
-        ref={ref}
-        src="/menu.html"
-        title="Menyu - Jiko La Bibi JJJ"
-        style={{ width:"100%", height:h+"px", border:"none", display:"block" }}
-        scrolling="no"
-      />
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════
-   MENU PAGE — full screen poster
-══════════════════════════════════════════════════════ */
 function MenuPage() {
   return <MenuEmbed />;
 }
 
-/* ══════════════════════════════════════════════════════
-   ABOUT PAGE
-══════════════════════════════════════════════════════ */
 function AboutPage() {
   const info = [
     { icon:"ti-map-pin", label:"Mahali", value:"Mbezi Luis, Goba Road (Chingwalu St), Dar es Salaam" },
@@ -153,9 +135,6 @@ function AboutPage() {
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   POLICY PAGE
-══════════════════════════════════════════════════════ */
 function PolicyPage() {
   const policies = [
     { icon:"ti-clipboard-list", title:"1. Sera ya Maagizo", body:"Maagizo yanakubaliwa kupitia WhatsApp, simu, au tovuti yetu\nChakula cha kawaida hutayarishwa ndani ya dakika 15-30\nMaagizo ya matukio (Events) yanahitaji siku 2-3 za mapema\nTunashughulikia: Kuchukua, Delivery, Kula Hapa, na Matukio" },
@@ -192,9 +171,6 @@ function PolicyPage() {
   );
 }
 
-/* ══════════════════════════════════════════════════════
-   MAIN APP
-══════════════════════════════════════════════════════ */
 export default function App() {
   const { count } = useCart();
   const [page, setPage] = useState("home");
