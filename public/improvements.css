@@ -1,0 +1,286 @@
+/* ═══════════════════════════════════════════════════════════
+   UNYAMWEZINI JIKO LA BIBI JJJ — improvements.css
+   Load AFTER main bundle in index.html
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── FONTS ── */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Cinzel+Decorative:wght@700;900&family=Great+Vibes&display=swap');
+
+/* ── ANIMATIONS ── */
+@keyframes goldShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 10px rgba(212,175,55,0.15)}50%{box-shadow:0 0 22px rgba(212,175,55,0.4)}}
+@keyframes shimmerSweep{0%{left:-100%}100%{left:160%}}
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes borderBreath{0%,100%{border-color:rgba(212,175,55,0.2)}50%{border-color:rgba(212,175,55,0.5)}}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 1 — REMOVE DUPLICATE SCROLLING TICKER
+   ═══════════════════════════════════════════════════════════ */
+/* The ticker container appears twice — hide the second one */
+.page-enter > div:has(.mq-run) + div:has(.mq-run) {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 2 — MARQUEE GOLD GRADIENT UPGRADE
+   ═══════════════════════════════════════════════════════════ */
+div:has(> .mq-run) {
+  background: linear-gradient(90deg, #a07010, #D4AF37, #f7e8a0, #D4AF37, #a07010) !important;
+  box-shadow: 0 2px 12px rgba(212,175,55,0.35) !important;
+  padding: 10px 0 !important;
+}
+.mq-run span {
+  font-family: 'Cinzel', sans-serif !important;
+  font-size: 13px !important;
+  letter-spacing: 2.5px !important;
+  color: #06132e !important;
+  font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 3 — HERO LOGO SIZE
+   ═══════════════════════════════════════════════════════════ */
+#top img[src*="logo"],
+section img[src*="logo"]:not(header img) {
+  max-width: 110px !important;
+  max-height: 110px !important;
+  width: 110px !important;
+  height: 110px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 4 — FOOD ICON STRIP — pull below hero cleanly
+   ═══════════════════════════════════════════════════════════ */
+#top > div:last-child > div:last-child,
+section#top > div > div:last-child {
+  position: relative !important;
+  z-index: 10 !important;
+  background: #06132e !important;
+  border-top: 1px solid rgba(212,175,55,0.3) !important;
+  padding: 10px 4px !important;
+  margin-top: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 5 — HIDE MSIMAMIZI (ADMIN) FROM PUBLIC NAV
+   ═══════════════════════════════════════════════════════════ */
+button:has(> i.ti-lock),
+button:has(.ti-lock) {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 6 — ODA (ORDER) BUTTON — prominent gold in bottom nav
+   ═══════════════════════════════════════════════════════════ */
+button:has(> i.ti-shopping-cart),
+button:has(.ti-shopping-cart) {
+  background: linear-gradient(135deg, #D4AF37, #a07010) !important;
+  color: #06132e !important;
+  border-radius: 10px !important;
+  padding: 6px 12px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 10px rgba(212,175,55,0.45) !important;
+  animation: glowPulse 3s ease-in-out infinite !important;
+}
+button:has(.ti-shopping-cart) span,
+button:has(> i.ti-shopping-cart) span {
+  color: #06132e !important;
+  font-weight: 700 !important;
+}
+button:has(.ti-shopping-cart) i,
+button:has(> i.ti-shopping-cart) i {
+  color: #06132e !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 7 — SERVICE CARDS (Kuchukua / Kuletewa / Kula Hapa / Sherehe)
+   ═══════════════════════════════════════════════════════════ */
+.bg-navy > div > div,
+div[style*="#06132e"] > div > div,
+div[style*="0B1F45"] > div > div {
+  flex-direction: column !important;
+  gap: 5px !important;
+  padding: 14px 10px !important;
+  cursor: pointer !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(212,175,55,0.12) !important;
+  transition: background 0.25s ease, transform 0.2s ease, border-color 0.25s !important;
+  position: relative;
+  overflow: hidden;
+}
+.bg-navy > div > div:hover,
+div[style*="#06132e"] > div > div:hover {
+  background: rgba(212,175,55,0.1) !important;
+  transform: translateY(-3px) !important;
+  border-color: rgba(212,175,55,0.4) !important;
+}
+.bg-navy > div > div span:first-child {
+  font-size: 2rem !important;
+  margin-bottom: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 8 — MENU IFRAME FULL WIDTH + NO GAP
+   ═══════════════════════════════════════════════════════════ */
+iframe[src*="menu.html"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+  display: block !important;
+}
+/* Remove extra padding around iframe container */
+div:has(> iframe[src*="menu.html"]) {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 9 — BOTTOM NAV — polished fixed bar
+   ═══════════════════════════════════════════════════════════ */
+nav[style*="fixed"],
+div[style*="position:fixed"][style*="bottom"],
+div[style*="position: fixed"][style*="bottom"] {
+  background: #06132e !important;
+  border-top: 1px solid rgba(212,175,55,0.3) !important;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.3) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIX 10 — MOBILE HERO TEXT
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  #top h1, section#top h1 {
+    font-size: clamp(1.6rem, 7.5vw, 2.5rem) !important;
+    line-height: 1.2 !important;
+  }
+  #top p, section#top p {
+    font-size: clamp(0.82rem, 3.5vw, 1rem) !important;
+  }
+  #top img[src*="logo"] {
+    max-width: 80px !important;
+    max-height: 80px !important;
+    width: 80px !important;
+    height: 80px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   L99 GLOBAL POLISH — every card, button, heading
+   ═══════════════════════════════════════════════════════════ */
+
+/* Shimmer gold text on all section headings */
+.l99-section-heading,
+h2.shimmer-gold {
+  font-family: 'Cinzel Decorative', 'Cinzel', Georgia, serif !important;
+  background: linear-gradient(135deg, #c8a830 0%, #f7e8a0 35%, #D4AF37 55%, #8b6209 100%) !important;
+  background-size: 300% auto !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  animation: goldShimmer 5s linear infinite !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* L99 cards — glow + lift + shimmer sweep */
+.l99-card {
+  animation: glowPulse 4s ease-in-out infinite;
+  transition: transform 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.22s, border-color 0.22s !important;
+  position: relative;
+  overflow: hidden;
+}
+.l99-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 55%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.07), transparent);
+  pointer-events: none;
+  transition: none;
+}
+.l99-card:hover {
+  transform: translateY(-4px) scale(1.01) !important;
+  box-shadow: 0 12px 36px rgba(11,31,69,0.2), 0 0 0 1px rgba(212,175,55,0.4) !important;
+}
+.l99-card:hover::after {
+  animation: shimmerSweep 0.55s ease forwards !important;
+}
+.l99-card:active { transform: scale(0.98) !important; }
+
+/* L99 buttons */
+.l99-btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s !important;
+}
+.l99-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 55%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  pointer-events: none;
+}
+.l99-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(11,31,69,0.25) !important;
+}
+.l99-btn:hover::after {
+  animation: shimmerSweep 0.5s ease forwards !important;
+}
+.l99-btn:active { transform: scale(0.96) !important; }
+
+/* Page fade-in */
+.page-enter {
+  animation: fadeSlideUp 0.4s ease both;
+}
+
+/* BottomBanner gold rules */
+div[style*="Karibu"] + *,
+.bottom-banner-gold-top {
+  height: 2px;
+  background: linear-gradient(to right, transparent, #D4AF37, #f7e8a0, #D4AF37, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER — Cinzel font + gold on brand name
+   ═══════════════════════════════════════════════════════════ */
+header span, header div[class*="font"],
+header a span, header p {
+  font-family: 'Cinzel', Georgia, serif !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO CTA BUTTONS — L99 gold glow
+   ═══════════════════════════════════════════════════════════ */
+#top button, section#top button,
+#top a[href*="wa.me"], section#top a {
+  transition: transform 0.2s, box-shadow 0.2s !important;
+  position: relative;
+  overflow: hidden;
+}
+#top button:hover, section#top button:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 8px 24px rgba(212,175,55,0.3) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ABOUT PAGE CARDS
+   ═══════════════════════════════════════════════════════════ */
+.l99-card[style*="background:#FFFFFF"],
+.l99-card[style*='background:"#FFFFFF"'] {
+  border: 1px solid rgba(212,175,55,0.18) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PREVENT GOOGLE TRANSLATE VISUAL GLITCH
+   (meta tag in index.html handles the block,
+    this hides the translate bar if it appears anyway)
+   ═══════════════════════════════════════════════════════════ */
+.goog-te-banner-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+div#goog-gt- {
+  display: none !important;
+}
+body { top: 0 !important; }
