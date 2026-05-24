@@ -72,6 +72,8 @@ export const menu = [
   /* ── JIONI ── */
   { id:"supu-kongoro",  section:"jioni", emoji:"🍲", photo:"/food/kongoro.jpg",
     name:{ sw:"Supu ya Kongoro",                     en:"Cow Trotter Soup" },                price:3000 },
+  { id:"supu-nyama",    section:"jioni", emoji:"🥩",
+    name:{ sw:"Supu ya Nyama",                        en:"Beef Soup" },                       price:2500 },
   { id:"chapati-jioni", section:"jioni", emoji:"🫓", photo:"/food/chapati.jpg",
     name:{ sw:"Chapati Raini + Maziwa na Siagi (1)", en:"Plain Chapati with Milk & Butter" },price:1000 },
   { id:"ndizi-jioni",   section:"jioni", emoji:"🌾",
