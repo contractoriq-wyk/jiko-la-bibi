@@ -121,6 +121,15 @@ export function AdminProvider({ children }) {
     const next={...itemCosts,[itemId]:cost};setItemCosts(next);
     if(supabase) await supabase.from("item_costs").upsert({item_id:itemId,cost_per_unit:cost,updated_at:new Date().toISOString()},{onConflict:"item_id"});
   }
+  async function updateSale(id, updates){
+    setTodaySales(prev=>prev.map(s=>s.id===id?{...s,...updates}:s));
+    setAllSales(prev=>prev.map(s=>s.id===id?{...s,...updates}:s));
+    if(supabase) await supabase.from("sales").update(updates).eq("id",id);
+  }
+  async function updateCost(id, updates){
+    setAllCosts(prev=>prev.map(c=>c.id===id?{...c,...updates}:c));
+    if(supabase) await supabase.from("daily_costs").update(updates).eq("id",id);
+  }
   function addOrder(o){const n=[o,...orders].slice(0,200);setOrders(n);save("jiko-orders",n);}
   function updateOrderStatus(id,status){const n=orders.map(o=>o.id===id?{...o,status}:o);setOrders(n);save("jiko-orders",n);}
 
@@ -129,7 +138,7 @@ export function AdminProvider({ children }) {
       prices,stock,orders,todaySales,allSales,allCosts,todayCosts,
       itemCosts,synced,loading,goals,
       todayGross,todayNet,todayOverhead,todayItemCost,
-      setGoal,recordSale,recordCost,deleteCost,deleteSale,
+      setGoal,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,
       fetchRange, isOutOfStock:(id)=>!!stock[id],
     }}>
