@@ -874,7 +874,7 @@ export default function AdminPage({onExit}) {
       {/* Header */}
       <div style={{background:"rgba(7,20,40,0.95)",backdropFilter:"blur(20px)",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,borderBottom:`1px solid ${BORDER}`}}>
         <button onClick={onExit} style={{background:"none",border:"none",color:DIM2,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,display:"flex",alignItems:"center",gap:6}}><i className="ti ti-arrow-left"/> Rudi / Back</button>
-        <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,background:`linear-gradient(135deg,${GOLD},${GOLD2})`,backgroundSize:"300% auto",-webkitBackgroundClip:"text",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",animation:"shimmer 4s linear infinite"}}>Msimamizi 🔐</span>
+        <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:GOLD,animation:"shimmer 4s linear infinite"}}>Msimamizi 🔐</span>
         <button onClick={()=>setAuthed(false)} style={{background:"none",border:"none",color:DIM2,cursor:"pointer",fontFamily:"sans-serif",fontSize:11}}>Toka / Exit</button>
       </div>
 
