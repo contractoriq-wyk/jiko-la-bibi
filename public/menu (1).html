@@ -356,6 +356,78 @@ body::before{display:none;
   text-shadow:0 0 20px rgba(212,175,55,0.5);letter-spacing:0.04em;
 }
 .bband-deco{font-size:10px;color:#6b4e0a;letter-spacing:0.3em;margin:2px 0}
+
+/* ═══ LIGHT BLUE + GOLD THEME ═══ */
+.hdr { 
+  display:flex !important; 
+  background:linear-gradient(135deg,#1B4F72,#1565C0) !important; 
+  min-height:auto !important;
+}
+.hl { 
+  flex:0 0 44% !important; 
+  border-right:2px solid #D4AF37 !important;
+  background:linear-gradient(160deg,#154360,#1565C0) !important;
+  padding:0 0 10px !important;
+}
+.hl::before { display:none !important; }
+.hl::after { display:none !important; }
+.logo-img { max-height:220px !important; object-fit:contain !important; }
+.logo-tags { padding:4px 8px !important; }
+.ltag { 
+  color:rgba(255,255,255,0.85) !important; 
+  border-color:rgba(212,175,55,0.5) !important;
+  background:rgba(212,175,55,0.15) !important;
+}
+.ltagline { color:#D4AF37 !important; }
+.hr { 
+  flex:1 !important; 
+  background:linear-gradient(135deg,#1B4F72,#1565C0) !important;
+  padding:14px !important;
+}
+.rn1 { color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; animation:none !important; font-size:clamp(14px,3vw,20px) !important; }
+.rn2 { color:#D4AF37 !important; font-size:clamp(12px,2.5vw,17px) !important; }
+.rtagline { color:rgba(255,255,255,0.75) !important; }
+.cbtn { 
+  background:rgba(0,0,0,0.25) !important; 
+  border-color:rgba(212,175,55,0.5) !important; 
+  width:100% !important;
+}
+.cbtn:hover { background:rgba(212,175,55,0.2) !important; }
+.cl { color:rgba(255,255,255,0.6) !important; }
+.cv { color:#D4AF37 !important; }
+html, body { background: #F9F3E8 !important; margin:0 !important; padding:0 !important; height:auto !important; overflow:hidden !important; }
+.frame { background:#EAF4FB !important; border:2px solid #D4AF37 !important; border-radius:10px !important; max-width:780px !important; margin:10px auto !important; box-shadow:0 4px 24px rgba(21,101,192,0.15) !important; }
+.gr, .gr2 { background:linear-gradient(to right,transparent,#D4AF37,transparent) !important; height:1px !important; }
+.sects { background:#EAF4FB !important; padding:8px !important; }
+.tab { background:#FFFFFF !important; border:1px solid rgba(212,175,55,0.4) !important; margin-bottom:6px !important; box-shadow:0 2px 8px rgba(21,101,192,0.08) !important; }
+.tab:hover { box-shadow:0 4px 16px rgba(21,101,192,0.15) !important; }
+.th { background:linear-gradient(to right, #DBEEFF, #FFFFFF) !important; border-bottom:1px solid rgba(212,175,55,0.3) !important; }
+.tnum { background:#1565C0 !important; border:2px solid #D4AF37 !important; color:#FFFFFF !important; box-shadow:0 2px 8px rgba(21,101,192,0.4) !important; }
+.tsw { color:#1a1a2e !important; font-size:13px !important; font-weight:700 !important; }
+.ten { color:rgba(26,26,46,0.55) !important; }
+.tem { opacity:0.9 !important; }
+.tarr { color:#1565C0 !important; }
+.tprev { background:#F0F8FF !important; }
+.tprev img { filter:brightness(1) saturate(1.1) !important; }
+.tbody { background:#F8FBFF !important; border-top:1px solid rgba(212,175,55,0.25) !important; }
+.ic { background:#FFFFFF !important; border:1px solid rgba(21,101,192,0.15) !important; box-shadow:0 2px 8px rgba(21,101,192,0.08) !important; }
+.ic:hover { border-color:rgba(212,175,55,0.5) !important; box-shadow:0 4px 16px rgba(21,101,192,0.15) !important; }
+.isw { color:#1a1a2e !important; }
+.ien { color:rgba(26,26,46,0.5) !important; }
+.ipr { color:#1565C0 !important; font-weight:800 !important; }
+.ipr-sm { color:rgba(26,26,46,0.5) !important; }
+.ab { background:linear-gradient(135deg,#D4AF37,#a07010) !important; color:#1a1a2e !important; }
+.iphoto img { filter:brightness(0.95) saturate(1.1) !important; }
+.ftr { background:#DBEEFF !important; border:1px solid rgba(212,175,55,0.3) !important; }
+.svc { background:rgba(21,101,192,0.05) !important; border-right:1px solid rgba(21,101,192,0.1) !important; }
+.si { font-size:22px !important; }
+.st { color:#1565C0 !important; font-weight:700 !important; }
+.addr { color:rgba(26,26,46,0.5) !important; }
+.addr a { color:#1565C0 !important; }
+.bband { background:linear-gradient(90deg,#DBEEFF,#EAF4FB,#DBEEFF) !important; border-top:1px solid #D4AF37 !important; }
+.bband-txt { color:#D4AF37 !important; text-shadow:0 0 12px rgba(212,175,55,0.3) !important; }
+.bband-deco { color:#1565C0 !important; }
+.c { color:#D4AF37 !important; }
 </style>
 </head>
 <body>
@@ -476,6 +548,7 @@ const D=[
    p:["/food/kongoro.jpg","/food/chapati.jpg"],
    items:[
     {sw:"Supu ya Kongoro",en:"Cow Trotter Soup",pr:"3,000",ph:"/food/kongoro.jpg"},
+    {sw:"Supu ya Nyama",en:"Beef Soup",pr:"2,500",em:"🥩"},
     {sw:"Chapati Raini + Maziwa na Siagi (1)",en:"Chapati with Milk & Butter",pr:"1,000",ph:"/food/chapati.jpg"},
     {sw:"Ndizi ya Kuchemsha (1)",en:"Boiled Plantain",pr:"500",em:"🌾"},
   ]},
@@ -555,10 +628,14 @@ document.addEventListener("click",e=>{
 
 // Auto-resize iframe
 function notifyHeight(){
-  var frame=document.querySelector(".frame");
-  if(!frame)return;
-  var h=frame.getBoundingClientRect().height;
-  try{window.parent.postMessage({jikoMenuHeight:Math.ceil(h)+16},"*");}catch(e){}
+  var sects=document.querySelector(".sects");
+  var ftr=document.querySelector(".ftr");
+  var bband=document.querySelector(".bband");
+  if(!sects)return;
+  var top=sects.getBoundingClientRect().top;
+  var bot=(bband||ftr||sects).getBoundingClientRect().bottom;
+  var h=bot-top+40;
+  try{window.parent.postMessage({jikoMenuHeight:Math.ceil(h)+20},"*");}catch(e){}
 }
 window.addEventListener("load",function(){
   setTimeout(notifyHeight,100);
