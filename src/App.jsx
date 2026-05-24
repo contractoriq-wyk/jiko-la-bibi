@@ -350,6 +350,24 @@ export default function App() {
 
   function navigate(p) { setPage(p); window.scrollTo(0,0); }
 
+  // Secret admin access — 5 rapid taps on logo triggers admin
+  React.useEffect(() => {
+    let taps = 0, timer;
+    function onTap(e) {
+      const logo = e.target.closest('img[src*="logo"]') || e.target.closest('header img');
+      if (!logo) return;
+      taps++;
+      clearTimeout(timer);
+      timer = setTimeout(() => { taps = 0; }, 2000);
+      if (taps >= 5) {
+        taps = 0;
+        navigate("admin");
+      }
+    }
+    document.addEventListener("click", onTap);
+    return () => document.removeEventListener("click", onTap);
+  }, []);
+
   return (
     <div style={{ minHeight:"100vh", background:"#F9F3E8", paddingBottom:"70px" }}>
       <style>{GLOBAL_CSS}</style>
