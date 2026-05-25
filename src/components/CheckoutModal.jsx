@@ -4,6 +4,7 @@ import { useCart } from "../cart/CartContext";
 import { business } from "../data/businessConfig";
 import { formatMoney, whatsappOrderLink } from "../utils/order";
 import { CloseIcon, WhatsAppIcon } from "./Icons";
+import { supabase } from "../lib/supabase";
 
 const SERVICES = [
   { key: "pickup",   icon: "🥡" },
@@ -25,11 +26,44 @@ export default function CheckoutModal({ onClose }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  function submit() {
+  // ── Save order to Supabase so it appears in Maagizo (Orders) tab
+  async function saveOrderToDB() {
+    if (!supabase) return;
+    try {
+      const itemsStr = cart.map(line => {
+        const sub = [line.sizeLabel?.sw, line.choiceLabel?.sw].filter(Boolean).join(" · ");
+        return `${line.name.sw}${sub ? " ("+sub+")" : ""} x${line.qty}`;
+      }).join(", ");
+
+      const extraNotes = [];
+      if (form.address) extraNotes.push("Address: " + form.address);
+      if (form.dineTime) extraNotes.push("Time: " + form.dineTime);
+      if (form.guests) extraNotes.push("Guests: " + form.guests);
+      if (form.notes) extraNotes.push(form.notes);
+
+      await supabase.from("customer_orders").insert({
+        customer_name: form.name,
+        customer_phone: form.phone,
+        items: itemsStr,
+        total: total,
+        service: form.service,
+        notes: extraNotes.join(" · "),
+        status: "pending",
+        source: "whatsapp",
+      });
+    } catch (e) {
+      console.warn("Order save to DB failed (continuing with WhatsApp):", e);
+    }
+  }
+
+  async function submit() {
     if (!form.name.trim() || !form.phone.trim()) {
       setError(t("requiredFields"));
       return;
     }
+    // Save to database FIRST so it shows in Maagizo tab
+    await saveOrderToDB();
+    // Then open WhatsApp
     const link = whatsappOrderLink(cart, total, form, lang);
     window.open(link, "_blank");
     setSent(true);
@@ -106,13 +140,12 @@ export default function CheckoutModal({ onClose }) {
               </div>
             </div>
 
-            {/* Payment info — QR code + Lipa Namba */}
+            {/* Payment info */}
             <div className="mx-4 mt-3 rounded-xl border-2 border-gold/40 bg-gold/5 px-4 py-4 text-center">
               <p className="text-xs font-bold uppercase tracking-wider text-navy/60 mb-3">
                 {lang === "sw" ? "Lipa kwa Scan au Namba" : "Pay by Scan or Number"}
               </p>
 
-              {/* Scannable QR code */}
               <div className="flex justify-center mb-3">
                 <div style={{
                   background:"#fff", borderRadius:"12px",
@@ -152,7 +185,6 @@ export default function CheckoutModal({ onClose }) {
 
             {/* Form */}
             <div className="px-4 py-4 space-y-3">
-              {/* Name */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-navy">
                   {t("name")} *
@@ -165,7 +197,6 @@ export default function CheckoutModal({ onClose }) {
                 />
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-navy">
                   {t("phone")} *
@@ -179,7 +210,6 @@ export default function CheckoutModal({ onClose }) {
                 />
               </div>
 
-              {/* Service type */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-navy">
                   {t("serviceType")}
@@ -202,7 +232,6 @@ export default function CheckoutModal({ onClose }) {
                 </div>
               </div>
 
-              {/* Delivery address */}
               {form.service === "delivery" && (
                 <div>
                   <label className="mb-1 block text-xs font-bold text-navy">
@@ -217,7 +246,6 @@ export default function CheckoutModal({ onClose }) {
                 </div>
               )}
 
-              {/* Dine-in time */}
               {form.service === "dinein" && (
                 <div>
                   <label className="mb-1 block text-xs font-bold text-navy">
@@ -232,7 +260,6 @@ export default function CheckoutModal({ onClose }) {
                 </div>
               )}
 
-              {/* Guest count */}
               {(form.service === "dinein" || form.service === "events") && (
                 <div>
                   <label className="mb-1 block text-xs font-bold text-navy">
@@ -249,7 +276,6 @@ export default function CheckoutModal({ onClose }) {
                 </div>
               )}
 
-              {/* Notes */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-navy">
                   {t("notes")}
