@@ -4,7 +4,6 @@ import { useCart } from "../cart/CartContext";
 import { business } from "../data/businessConfig";
 import { formatMoney, whatsappOrderLink } from "../utils/order";
 import { CloseIcon, WhatsAppIcon } from "./Icons";
-import { supabase } from "../lib/supabase";
 
 const SERVICES = [
   { key: "pickup",   icon: "🥡" },
@@ -12,6 +11,38 @@ const SERVICES = [
   { key: "dinein",   icon: "🍽️" },
   { key: "events",   icon: "🎉" },
 ];
+
+// ── Background save (non-blocking) — order always goes to WhatsApp first
+function backgroundSaveOrder(cart, total, form) {
+  // Fire and forget — never block the WhatsApp flow
+  try {
+    import("../lib/supabase").then(mod => {
+      const supabase = mod.supabase;
+      if (!supabase) return;
+      const itemsStr = cart.map(line => {
+        const sub = [line.sizeLabel?.sw, line.choiceLabel?.sw].filter(Boolean).join(" · ");
+        return `${line.name.sw}${sub ? " ("+sub+")" : ""} x${line.qty}`;
+      }).join(", ");
+      const extraNotes = [];
+      if (form.address) extraNotes.push("Address: " + form.address);
+      if (form.dineTime) extraNotes.push("Time: " + form.dineTime);
+      if (form.guests) extraNotes.push("Guests: " + form.guests);
+      if (form.notes) extraNotes.push(form.notes);
+      supabase.from("customer_orders").insert({
+        customer_name: form.name,
+        customer_phone: form.phone,
+        items: itemsStr,
+        total: total,
+        service: form.service,
+        notes: extraNotes.join(" · "),
+        status: "pending",
+        source: "whatsapp",
+      }).then(()=>{}).catch(e => console.warn("DB save failed:", e));
+    }).catch(e => console.warn("Supabase module load failed:", e));
+  } catch(e) {
+    console.warn("Background save error:", e);
+  }
+}
 
 export default function CheckoutModal({ onClose }) {
   const { lang, t } = useLang();
@@ -26,46 +57,17 @@ export default function CheckoutModal({ onClose }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // ── Save order to Supabase so it appears in Maagizo (Orders) tab
-  async function saveOrderToDB() {
-    if (!supabase) return;
-    try {
-      const itemsStr = cart.map(line => {
-        const sub = [line.sizeLabel?.sw, line.choiceLabel?.sw].filter(Boolean).join(" · ");
-        return `${line.name.sw}${sub ? " ("+sub+")" : ""} x${line.qty}`;
-      }).join(", ");
-
-      const extraNotes = [];
-      if (form.address) extraNotes.push("Address: " + form.address);
-      if (form.dineTime) extraNotes.push("Time: " + form.dineTime);
-      if (form.guests) extraNotes.push("Guests: " + form.guests);
-      if (form.notes) extraNotes.push(form.notes);
-
-      await supabase.from("customer_orders").insert({
-        customer_name: form.name,
-        customer_phone: form.phone,
-        items: itemsStr,
-        total: total,
-        service: form.service,
-        notes: extraNotes.join(" · "),
-        status: "pending",
-        source: "whatsapp",
-      });
-    } catch (e) {
-      console.warn("Order save to DB failed (continuing with WhatsApp):", e);
-    }
-  }
-
-  async function submit() {
+  function submit() {
     if (!form.name.trim() || !form.phone.trim()) {
       setError(t("requiredFields"));
       return;
     }
-    // Save to database FIRST so it shows in Maagizo tab
-    await saveOrderToDB();
-    // Then open WhatsApp
+    // 1) Open WhatsApp FIRST — this is the critical customer action, must never be blocked
     const link = whatsappOrderLink(cart, total, form, lang);
     window.open(link, "_blank");
+    // 2) Save to DB in background (never blocks the order)
+    backgroundSaveOrder(cart, total, form);
+    // 3) Show confirmation
     setSent(true);
     clearCart();
   }
@@ -81,7 +83,6 @@ export default function CheckoutModal({ onClose }) {
         className="w-full max-w-md overflow-hidden rounded-t-2xl bg-cream sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between bg-navy px-5 py-4">
           <h2 className="font-display text-xl font-bold text-cream">
             {sent ? (lang === "sw" ? "Asante! 🎉" : "Thank you! 🎉") : t("checkout")}
@@ -91,7 +92,6 @@ export default function CheckoutModal({ onClose }) {
           </button>
         </div>
 
-        {/* Sent confirmation */}
         {sent ? (
           <div className="px-5 py-8 text-center">
             <p className="text-5xl">✅</p>
@@ -114,7 +114,6 @@ export default function CheckoutModal({ onClose }) {
           </div>
         ) : (
           <div className="max-h-[72vh] overflow-y-auto">
-            {/* Order summary */}
             <div className="mx-4 mt-4 rounded-xl border border-navy/10 bg-white p-4">
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-navy/50">
                 {lang === "sw" ? "Muhtasari wa Oda" : "Order Summary"}
@@ -140,12 +139,10 @@ export default function CheckoutModal({ onClose }) {
               </div>
             </div>
 
-            {/* Payment info */}
             <div className="mx-4 mt-3 rounded-xl border-2 border-gold/40 bg-gold/5 px-4 py-4 text-center">
               <p className="text-xs font-bold uppercase tracking-wider text-navy/60 mb-3">
                 {lang === "sw" ? "Lipa kwa Scan au Namba" : "Pay by Scan or Number"}
               </p>
-
               <div className="flex justify-center mb-3">
                 <div style={{
                   background:"#fff", borderRadius:"12px",
@@ -161,16 +158,13 @@ export default function CheckoutModal({ onClose }) {
                   />
                 </div>
               </div>
-
               <p className="text-[10px] text-navy/50 mb-1 font-medium uppercase tracking-wider">
                 {lang === "sw" ? "Au ingiza namba" : "Or enter number"}
               </p>
-
               <p className="font-display text-3xl font-black tracking-widest text-navy">
                 {business.lipaNamba}
               </p>
               <p className="text-xs text-navy/60 mt-0.5">{business.lipaName}</p>
-
               <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
                 {["Mixx by Yas","Airtel Money","M-Pesa","Benki"].map((n,i) => (
                   <span key={i} style={{
@@ -183,37 +177,27 @@ export default function CheckoutModal({ onClose }) {
               </div>
             </div>
 
-            {/* Form */}
             <div className="px-4 py-4 space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-bold text-navy">
-                  {t("name")} *
-                </label>
+                <label className="mb-1 block text-xs font-bold text-navy">{t("name")} *</label>
                 <input
-                  value={form.name}
-                  onChange={set("name")}
+                  value={form.name} onChange={set("name")}
                   placeholder={lang === "sw" ? "Jina lako kamili" : "Your full name"}
                   className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold text-navy">
-                  {t("phone")} *
-                </label>
+                <label className="mb-1 block text-xs font-bold text-navy">{t("phone")} *</label>
                 <input
-                  value={form.phone}
-                  onChange={set("phone")}
-                  placeholder="0700 000 000"
-                  type="tel"
+                  value={form.phone} onChange={set("phone")}
+                  placeholder="0700 000 000" type="tel"
                   className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold text-navy">
-                  {t("serviceType")}
-                </label>
+                <label className="mb-1 block text-xs font-bold text-navy">{t("serviceType")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   {activeServices.map((s) => (
                     <button
@@ -234,12 +218,9 @@ export default function CheckoutModal({ onClose }) {
 
               {form.service === "delivery" && (
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-navy">
-                    {t("address")}
-                  </label>
+                  <label className="mb-1 block text-xs font-bold text-navy">{t("address")}</label>
                   <input
-                    value={form.address}
-                    onChange={set("address")}
+                    value={form.address} onChange={set("address")}
                     placeholder={t("addressHint")}
                     className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none"
                   />
@@ -248,13 +229,9 @@ export default function CheckoutModal({ onClose }) {
 
               {form.service === "dinein" && (
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-navy">
-                    {t("dineTime")}
-                  </label>
+                  <label className="mb-1 block text-xs font-bold text-navy">{t("dineTime")}</label>
                   <input
-                    value={form.dineTime}
-                    onChange={set("dineTime")}
-                    type="datetime-local"
+                    value={form.dineTime} onChange={set("dineTime")} type="datetime-local"
                     className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none"
                   />
                 </div>
@@ -262,41 +239,28 @@ export default function CheckoutModal({ onClose }) {
 
               {(form.service === "dinein" || form.service === "events") && (
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-navy">
-                    {t("guests")}
-                  </label>
+                  <label className="mb-1 block text-xs font-bold text-navy">{t("guests")}</label>
                   <input
-                    value={form.guests}
-                    onChange={set("guests")}
-                    type="number"
-                    min="1"
-                    placeholder="2"
+                    value={form.guests} onChange={set("guests")} type="number" min="1" placeholder="2"
                     className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none"
                   />
                 </div>
               )}
 
               <div>
-                <label className="mb-1 block text-xs font-bold text-navy">
-                  {t("notes")}
-                </label>
+                <label className="mb-1 block text-xs font-bold text-navy">{t("notes")}</label>
                 <textarea
-                  value={form.notes}
-                  onChange={set("notes")}
-                  rows={2}
+                  value={form.notes} onChange={set("notes")} rows={2}
                   placeholder={t("notesHint")}
                   className="w-full rounded-xl border border-navy/20 bg-white px-4 py-2.5 text-sm text-navy focus:border-gold focus:outline-none resize-none"
                 />
               </div>
 
               {error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
-                  {error}
-                </p>
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">{error}</p>
               )}
             </div>
 
-            {/* Submit */}
             <div className="border-t border-navy/10 bg-white px-4 py-4">
               <button
                 onClick={submit}
