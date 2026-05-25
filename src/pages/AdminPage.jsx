@@ -429,6 +429,54 @@ function IngizaTab() {
   );
 }
 
+/* ═══ COMPARISON ROW ═══ */
+function ComparisonRow({range, cStart, cEnd, currentGross}) {
+  const {t} = useT();
+  const {fetchRange, allSales} = useAdmin();
+  const [prevGross,setPrevGross] = useState(null);
+  const [loaded,setLoaded] = useState(false);
+
+  function getPreviousPeriod(){
+    const fmt = d => d.toISOString().split("T")[0];
+    const now = new Date();
+    if(range==="today"){const y=new Date(now);y.setDate(y.getDate()-1);return {start:fmt(y),end:fmt(y),label:"yesterday"};}
+    if(range==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-2);return {start:fmt(y),end:fmt(y),label:"day before"};}
+    if(range==="last7"){const e=new Date(now);e.setDate(e.getDate()-7);const s=new Date(e);s.setDate(s.getDate()-6);return {start:fmt(s),end:fmt(e),label:"previous 7 days"};}
+    if(range==="month"){const s=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return {start:fmt(s),end:fmt(e),label:"last month"};}
+    return null;
+  }
+
+  useEffect(()=>{
+    async function fetchPrev(){
+      const p = getPreviousPeriod(); if(!p) return;
+      const {supabase} = await import("../lib/supabase");
+      if(!supabase) return;
+      const {data} = await supabase.from("sales").select("total_price").gte("sale_date",p.start).lte("sale_date",p.end);
+      const sum = (data||[]).reduce((s,r)=>s+r.total_price,0);
+      setPrevGross(sum);
+      setLoaded(true);
+    }
+    fetchPrev();
+  },[range,cStart,cEnd]);
+
+  if(range==="custom"||prevGross===null||!loaded) return null;
+  const period = getPreviousPeriod(); if(!period) return null;
+  const change = prevGross>0 ? Math.round((currentGross-prevGross)/prevGross*100) : (currentGross>0?100:0);
+  const up = change >= 0;
+  return (
+    <Card style={{padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div>
+        <div style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px"}}>vs {period.label}</div>
+        <div style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,marginTop:2}}>Previous: TZS {Number(prevGross).toLocaleString()}</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:5}}>
+        <span style={{fontSize:18,color:up?t.gr:t.rd}}>{up?"▲":"▼"}</span>
+        <span style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:900,color:up?t.gr:t.rd}}>{Math.abs(change)}%</span>
+      </div>
+    </Card>
+  );
+}
+
 /* ═══ TAB 3: RIPOTI ═══ */
 function RipodiTab() {
   const {t} = useT();
@@ -488,6 +536,7 @@ function RipodiTab() {
           <Chip label="Gharama Yote" value={fmt(overhead)} color={t.rd} icon="💸"/>
           <Chip label="Mauzo" value={sales.length} color={t.bl} icon="🧾"/>
         </div>
+        <ComparisonRow range={range} cStart={cStart} cEnd={cEnd} currentGross={gross}/>
         {wkGoal&&<Card style={{padding:"1rem"}}><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>Weekly Goal</p><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Wiki</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(wkGoal)}</span></div><Bar value={gross} max={wkGoal} color={t.bl}/></Card>}
         {moGoal&&<Card style={{padding:"1rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Mwezi</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(moGoal)}</span></div><Bar value={gross} max={moGoal} color={t.gr}/></Card>}
         {sales.length>0&&<Card style={{padding:"1rem"}}>
@@ -712,6 +761,67 @@ function MaagizoTab() {
   );
 }
 
+/* ═══ TAB: BACKUP / EXPORT ═══ */
+function BackupTab() {
+  const {t} = useT();
+  const {exportAll, importAll} = useAdmin();
+  const [status,setStatus]=useState("");
+  const [importText,setImportText]=useState("");
+  async function doExport(){
+    const json = await exportAll();
+    const blob = new Blob([json],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "jiko-backup-"+today()+".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus("✓ Downloaded / Imepakuliwa");
+    setTimeout(()=>setStatus(""),3000);
+  }
+  function onFile(e){
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=async ev=>{setImportText(ev.target.result);};
+    r.readAsText(f);
+  }
+  async function doImport(){
+    if(!importText){setStatus("× No file selected");return;}
+    const res=await importAll(importText);
+    setStatus(res.ok?"✓ "+res.msg:"× "+res.msg);
+    setTimeout(()=>setStatus(""),3500);
+  }
+  return (
+    <div style={{padding:"1rem"}}>
+      <Card style={{padding:"1.2rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Backup / Hifadhi Akiba</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"12px",color:t.dim,marginBottom:14,lineHeight:1.5}}>
+          Pakua faili la backup yenye data zote: bei, stoki, gharama, malengo, maagizo. / Download a complete backup with prices, stock, costs, goals, and orders.
+        </p>
+        <button onClick={doExport} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <i className="ti ti-download"/> Download Backup / Pakua
+        </button>
+
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"16px 0 12px"}}>Restore / Rejesha</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"12px",color:t.dim,marginBottom:10,lineHeight:1.5}}>
+          Chagua faili la JSON kurejesha data. / Select a JSON backup file to restore data.
+        </p>
+        <input type="file" accept=".json,application/json" onChange={onFile} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"1px dashed "+t.gold+"66",background:t.bg4,color:t.text,fontFamily:"sans-serif",fontSize:12,outline:"none",boxSizing:"border-box",marginBottom:10,cursor:"pointer"}}/>
+        <button onClick={doImport} disabled={!importText} style={{width:"100%",background:importText?"linear-gradient(135deg,"+t.gr+",#009940)":t.bg4,color:importText?"#fff":t.dim2,border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:importText?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <i className="ti ti-upload"/> Restore / Rejesha
+        </button>
+
+        {status&&<p style={{marginTop:12,padding:"8px 12px",borderRadius:8,background:status.startsWith("✓")?t.gr+"18":t.rd+"18",color:status.startsWith("✓")?t.gr:t.rd,fontFamily:"sans-serif",fontSize:12,fontWeight:700,textAlign:"center"}}>{status}</p>}
+      </Card>
+
+      <div style={{background:t.bg4,borderRadius:12,padding:"1rem",marginTop:10,border:"1px solid "+t.border}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.gold,marginBottom:6}}>💡 Tip / Kidokezo</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,lineHeight:1.5,margin:0}}>Pakua backup kila wiki na uihifadhi kwenye Google Drive au email. / Download a backup every week and save it to Google Drive or email it to yourself.</p>
+      </div>
+    </div>
+  );
+}
+
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
   const [authed,setAuthed]=useState(false);
@@ -727,6 +837,7 @@ export default function AdminPage({onExit}) {
     {key:"akili",  icon:"ti-brain",           label:"Akili",   sub:"Analytics"},
     {key:"menu",   icon:"ti-tools-kitchen-2", label:"Menyu",   sub:"Menu"},
     {key:"maagizo",icon:"ti-clipboard-list",  label:"Maagizo", sub:"Orders"},
+    {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
   ];
   if(!authed) return (
     <ThemeCtx.Provider value={{t,dark,toggle}}>
@@ -741,14 +852,15 @@ export default function AdminPage({onExit}) {
           <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Msimamizi 🔐</span>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <ThemeToggle/>
+            <button onClick={()=>setTab("backup")} style={{background:"none",border:"none",color:t.dim,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,padding:"4px 6px",display:"flex",alignItems:"center",gap:3}} title="Backup"><i className="ti ti-cloud-download" style={{fontSize:14}}/></button>
             <button onClick={()=>setAuthed(false)} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:11}}>Exit</button>
           </div>
         </div>
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
           {TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
             <i className={"ti "+tb.icon} style={{fontSize:17,color:tab===tb.key?t.gold:t.dim2}}/>
-            <span style={{fontFamily:"sans-serif",fontSize:"8px",fontWeight:700,color:tab===tb.key?t.gold:t.dim2,whiteSpace:"nowrap"}}>{tb.label}</span>
-            <span style={{fontFamily:"sans-serif",fontSize:"7px",color:tab===tb.key?t.gold+"88":t.dim2+"66",whiteSpace:"nowrap"}}>{tb.sub}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:tab===tb.key?t.gold:t.text,whiteSpace:"nowrap"}}>{tb.label}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:tab===tb.key?t.gold:t.dim,whiteSpace:"nowrap"}}>{tb.sub}</span>
           </button>)}
         </div>
         {tab==="leo"    &&<LeoTab onGoTo={setTab}/>}
@@ -758,6 +870,7 @@ export default function AdminPage({onExit}) {
         {tab==="akili"  &&<AkiliTab/>}
         {tab==="menu"   &&<MenuTab/>}
         {tab==="maagizo"&&<MaagizoTab/>}
+        {tab==="backup" &&<BackupTab/>}
       </div>
     </ThemeCtx.Provider>
   );
