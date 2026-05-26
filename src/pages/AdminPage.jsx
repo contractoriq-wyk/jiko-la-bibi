@@ -568,6 +568,12 @@ function MalengoTab() {
   const [wv,setWv]=useState(String(goals.weekly||""));
   const [mv,setMv]=useState(String(goals.monthly||""));
   const [saved,setSaved]=useState(false);
+  // Keep input fields synced with saved goals so values persist when switching tabs
+  useEffect(()=>{
+    if(goals.daily) setDv(String(goals.daily));
+    if(goals.weekly) setWv(String(goals.weekly));
+    if(goals.monthly) setMv(String(goals.monthly));
+  },[goals.daily,goals.weekly,goals.monthly]);
   const ws=new Date();ws.setDate(ws.getDate()-ws.getDay());
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   const wkG=allSales.filter(s=>s.sale_date>=ws.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
