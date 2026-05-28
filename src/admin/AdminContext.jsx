@@ -20,6 +20,7 @@ export function AdminProvider({ children }) {
     const p=load("jiko-prices",{}); delete p.SECURITY_PROBE_TEST; return p;
   });
   const [stock,setStock]=useState(()=>load("jiko-stock",{}));
+  const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
   const [itemCosts,setItemCosts]=useState({});
@@ -117,6 +118,23 @@ export function AdminProvider({ children }) {
   async function toggleStock(id){const v=!stock[id],next={...stock,[id]:v};setStock(next);save("jiko-stock",next);if(supabase) await supabase.from("stock_status").upsert({item_id:id,out_of_stock:v,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
   async function setCost(itemId,cost){const next={...itemCosts,[itemId]:cost};setItemCosts(next);if(supabase) await supabase.from("item_costs").upsert({item_id:itemId,cost_per_unit:cost,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
 
+  /* ─── CUSTOM MENU ITEMS (added from Msimamizi) ─── */
+  function addCustomItem(item){
+    const next=[...customItems,{...item,id:"custom_"+Date.now()}];
+    setCustomItems(next);
+    save("jiko-custom-items",next);
+  }
+  function deleteCustomItem(id){
+    const next=customItems.filter(c=>c.id!==id);
+    setCustomItems(next);
+    save("jiko-custom-items",next);
+  }
+  function updateCustomItem(id,updates){
+    const next=customItems.map(c=>c.id===id?{...c,...updates}:c);
+    setCustomItems(next);
+    save("jiko-custom-items",next);
+  }
+
   /* ─── CUSTOMER ORDERS ─── */
   async function addOrder(o){
     const rec={customer_name:o.customer||"Customer",customer_phone:o.phone||"",items:o.items||"",total:parseInt(o.total)||0,service:o.service||"pickup",notes:o.notes||"",status:o.status||"pending",source:o.source||"manual"};
@@ -156,6 +174,7 @@ export function AdminProvider({ children }) {
       todayGross,todayNet,todayOverhead,todayItemCost,
       setGoal,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
+      customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       fetchRange,exportAll,importAll,
       isOutOfStock:(id)=>!!stock[id],
     }}>
