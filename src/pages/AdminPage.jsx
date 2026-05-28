@@ -686,8 +686,17 @@ function AkiliTab() {
 /* ═══ MENU TAB ═══ */
 function MenuTab() {
   const {t} = useT();
-  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost} = useAdmin();
+  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,deleteCustomItem} = useAdmin();
   const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");
+  const [showAdd,setShowAdd]=useState(false);
+  const [newItem,setNewItem]=useState({sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"});
+  const setNI=k=>e=>setNewItem(p=>({...p,[k]:e.target.value}));
+  function saveNew(){
+    if(!newItem.sw.trim()||!newItem.pr.trim())return;
+    addCustomItem(newItem);
+    setNewItem({sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"});
+    setShowAdd(false);
+  }
   return (
     <div style={{padding:"1rem"}}>
       {sections.map((sec,si)=><div key={sec.id} style={{marginBottom:14}}>
