@@ -211,54 +211,108 @@ html,body{background:#F9F3E8 !important;margin:0 !important;padding:0 !important
 </div>
 
 <script>
-const D=[
+const D_RAW=[
   {c:"#C15A00",e:"☕",sw:"Vinywaji vya Moto & Vitafunwa",en:"Hot Drinks & Snacks",
    p:["/food/chai.jpg","/food/chai-rangi.jpg","/food/chapati.jpg","/food/maandazi.jpg","/food/vitumbua.jpg"],
    items:[
-    {sw:"Chai ya Maziwa (kikombe)",en:"Milk Tea",pr:"1,000",ph:"/food/chai.jpg"},
-    {sw:"Chai ya Rangi (kikombe)",en:"Black Tea",pr:"500",ph:"/food/chai-rangi.jpg"},
-    {sw:"Chapati Raini + Maziwa na Siagi",en:"Plain Chapati with Milk & Butter",pr:"1,000",ph:"/food/chapati.jpg"},
-    {sw:"Maandazi (1)",en:"Maandazi — 1 piece",pr:"500",ph:"/food/maandazi.jpg"},
-    {sw:"Vitumbua (1)",en:"Rice Cake — 1 piece",pr:"500",ph:"/food/vitumbua.jpg"},
-    {sw:"Viazi Vitamu vya Kuchemsha (1)",en:"Boiled Sweet Potato",pr:"500",ph:"/food/viazi-vitamu.jpg"},
-    {sw:"Mhogo wa Kuchemsha (1)",en:"Boiled Cassava",pr:"500",ph:"/food/mihogo.jpg"},
+    {id:"chai-maziwa",sw:"Chai ya Maziwa (kikombe)",en:"Milk Tea",pr:"1,000",ph:"/food/chai.jpg"},
+    {id:"chai-rangi",sw:"Chai ya Rangi (kikombe)",en:"Black Tea",pr:"500",ph:"/food/chai-rangi.jpg"},
+    {id:"chapati-asubuhi",sw:"Chapati Raini + Maziwa na Siagi",en:"Plain Chapati with Milk & Butter",pr:"1,000",ph:"/food/chapati.jpg"},
+    {id:"maandazi",sw:"Maandazi (1)",en:"Maandazi — 1 piece",pr:"500",ph:"/food/maandazi.jpg"},
+    {id:"vitumbua",sw:"Vitumbua (1)",en:"Rice Cake — 1 piece",pr:"500",ph:"/food/vitumbua.jpg"},
+    {id:"viazi-vitamu",sw:"Viazi Vitamu vya Kuchemsha (1)",en:"Boiled Sweet Potato",pr:"500",ph:"/food/viazi-vitamu.jpg"},
+    {id:"mhogo",sw:"Mhogo wa Kuchemsha (1)",en:"Boiled Cassava",pr:"500",ph:"/food/mihogo.jpg"},
   ]},
   {c:"#1B6B20",e:"🍛",sw:"Vyakula vya Mchana na Jioni",en:"Lunch & Dinner",
    p:["/food/wali-combo.jpg","/food/ugali-combo.jpg"],
    items:[
-    {sw:"Wali na Mboga za Majani + Protini",en:"Rice with Greens + Protein",sz:"Small / Medium / Large",pr:"3,000 / 5,000 / 7,500",ch:"Nyama / Kuku / Samaki / Maini / Maharage",ph:"/food/wali-combo.jpg"},
-    {sw:"Ugali na Mboga za Majani + Protini",en:"Ugali with Greens + Protein",sz:"Small / Medium / Large",pr:"3,000 / 5,000 / 7,500",ch:"Nyama / Kuku / Samaki / Maini / Maharage",ph:"/food/ugali-combo.jpg"},
+    {id:"wali-combo",sw:"Wali na Mboga za Majani + Protini",en:"Rice with Greens + Protein",sz:"Small / Medium / Large",pr:"3,000 / 5,000 / 7,500",ch:"Nyama / Kuku / Samaki / Maini / Maharage",ph:"/food/wali-combo.jpg"},
+    {id:"ugali-combo",sw:"Ugali na Mboga za Majani + Protini",en:"Ugali with Greens + Protein",sz:"Small / Medium / Large",pr:"3,000 / 5,000 / 7,500",ch:"Nyama / Kuku / Samaki / Maini / Maharage",ph:"/food/ugali-combo.jpg"},
   ]},
   {c:"#C62828",e:"🫕",sw:"Pilau",en:"Pilau",
    p:["/food/pilau.jpg"],
    items:[
-    {sw:"Pilau ya Nyama",en:"Pilau with Meat",sz:"Wastani / Kubwa",pr:"5,000 / 7,500",ph:"/food/pilau.jpg"},
-    {sw:"Pilau ya Kuku / Samaki / Maini",en:"Chicken / Fish / Liver Pilau",sz:"Wastani / Kubwa",pr:"5,000 / 7,500",ph:"/food/pilau.jpg"},
+    {id:"pilau-nyama",sw:"Pilau ya Nyama",en:"Pilau with Meat",sz:"Wastani / Kubwa",pr:"5,000 / 7,500",ph:"/food/pilau.jpg"},
+    {id:"pilau-mix",sw:"Pilau ya Kuku / Samaki / Maini",en:"Chicken / Fish / Liver Pilau",sz:"Wastani / Kubwa",pr:"5,000 / 7,500",ph:"/food/pilau.jpg"},
   ]},
   {c:"#E65100",e:"⭐",sw:"Spesheli",en:"Specials",
    p:["/food/chips.jpg","/food/ndizi-mzuzu.jpg"],
    items:[
-    {sw:"Chips Zege",en:"Chips with Egg",pr:"5,000",ph:"/food/chips.jpg"},
-    {sw:"Chips Robo Kuku",en:"Chips + Quarter Chicken",pr:"6,000",ph:"/food/chips.jpg"},
-    {sw:"Ndizi Mzuzu ya Kukaanga",en:"Fried Sweet Plantain",pr:"1,000",ph:"/food/ndizi-mzuzu.jpg"},
+    {id:"chips-zege",sw:"Chips Zege",en:"Chips with Egg",pr:"5,000",ph:"/food/chips.jpg"},
+    {id:"chips-robo-kuku",sw:"Chips Robo Kuku",en:"Chips + Quarter Chicken",pr:"6,000",ph:"/food/chips.jpg"},
+    {id:"ndizi-mzuzu",sw:"Ndizi Mzuzu ya Kukaanga",en:"Fried Sweet Plantain",pr:"1,000",ph:"/food/ndizi-mzuzu.jpg"},
   ]},
   {c:"#00695C",e:"🥤",sw:"Vinywaji Baridi",en:"Cold Drinks",
    p:["/food/maji-litre.jpg","/food/maji-nusu.jpg","/food/soda.jpg","/food/juice-freshi.jpg"],
    items:[
-    {sw:"Maji Baridi (Lita 1)",en:"Cold Water 1L",pr:"1,200",ph:"/food/maji-litre.jpg"},
-    {sw:"Maji Baridi (Nusu Lita)",en:"Cold Water 500ml",pr:"700",ph:"/food/maji-nusu.jpg"},
-    {sw:"Soda",en:"Soda",pr:"1,000",ph:"/food/soda.jpg"},
-    {sw:"Juice Freshi",en:"Fresh Juice",sz:"Ndogo / Wastani / Kubwa",pr:"1,000 / 1,500 / 2,500",ph:"/food/juice-freshi.jpg"},
+    {id:"maji-litre",sw:"Maji Baridi (Lita 1)",en:"Cold Water 1L",pr:"1,200",ph:"/food/maji-litre.jpg"},
+    {id:"maji-nusu",sw:"Maji Baridi (Nusu Lita)",en:"Cold Water 500ml",pr:"700",ph:"/food/maji-nusu.jpg"},
+    {id:"soda",sw:"Soda",en:"Soda",pr:"1,000",ph:"/food/soda.jpg"},
+    {id:"juice-freshi",sw:"Juice Freshi",en:"Fresh Juice",sz:"Ndogo / Wastani / Kubwa",pr:"1,000 / 1,500 / 2,500",ph:"/food/juice-freshi.jpg"},
   ]},
   {c:"#6A1B9A",e:"🌙",sw:"Supu na Vitafunwa vya Jioni",en:"Evening Soups & Snacks",
    p:["/food/kongoro.jpg","/food/chapati.jpg"],
    items:[
-    {sw:"Supu ya Kongoro",en:"Cow Trotter Soup",pr:"3,000",ph:"/food/kongoro.jpg"},
-    {sw:"Supu ya Nyama",en:"Beef Soup",pr:"2,500",em:"🥩"},
-    {sw:"Chapati Raini + Maziwa na Siagi (1)",en:"Chapati with Milk & Butter",pr:"1,000",ph:"/food/chapati.jpg"},
-    {sw:"Ndizi ya Kuchemsha (1)",en:"Boiled Plantain",pr:"500",em:"🌾"},
+    {id:"supu-kongoro",sw:"Supu ya Kongoro",en:"Cow Trotter Soup",pr:"3,000",ph:"/food/kongoro.jpg"},
+    {id:"supu-nyama",sw:"Supu ya Nyama",en:"Beef Soup",pr:"2,500",em:"🥩"},
+    {id:"chapati-jioni",sw:"Chapati Raini + Maziwa na Siagi (1)",en:"Chapati with Milk & Butter",pr:"1,000",ph:"/food/chapati.jpg"},
+    {id:"ndizi-kuchemsha",sw:"Ndizi ya Kuchemsha (1)",en:"Boiled Plantain",pr:"500",em:"🌾"},
   ]},
 ];
+
+// ═══ ADMIN SYNC: Read overrides from localStorage (set by Msimamizi) ═══
+function applyAdminOverrides(rawData) {
+  try {
+    const prices = JSON.parse(localStorage.getItem("jiko-prices") || "{}");
+    const stock = JSON.parse(localStorage.getItem("jiko-stock") || "{}");
+    const customItems = JSON.parse(localStorage.getItem("jiko-custom-items") || "[]");
+    const data = JSON.parse(JSON.stringify(rawData));
+    data.forEach(section => {
+      section.items.forEach(item => {
+        if (!item.id) return;
+        if (prices[item.id] !== undefined && prices[item.id] !== null) {
+          const newPrice = Number(prices[item.id]);
+          if (item.sz && item.pr.includes("/")) {
+            const parts = item.pr.split("/").map(p => p.trim());
+            parts[0] = newPrice.toLocaleString();
+            item.pr = parts.join(" / ");
+          } else {
+            item.pr = newPrice.toLocaleString();
+          }
+        }
+        if (stock[item.id]) item.outOfStock = true;
+      });
+    });
+    if (customItems && customItems.length > 0) {
+      const grouped = {};
+      customItems.forEach(it => {
+        const key = it.sectionName || "Bidhaa Mpya / Specials";
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(it);
+      });
+      Object.keys(grouped).forEach(secName => {
+        data.push({
+          c: "#D4AF37", e: "✨", sw: secName, en: "Custom Items",
+          p: [], items: grouped[secName]
+        });
+      });
+    }
+    return data;
+  } catch(e) {
+    console.warn("Override sync failed:", e);
+    return rawData;
+  }
+}
+
+const D = applyAdminOverrides(D_RAW);
+
+// Reload menu when admin changes overrides
+window.addEventListener("storage", function(e) {
+  if (e.key === "jiko-prices" || e.key === "jiko-stock" || e.key === "jiko-custom-items") {
+    location.reload();
+  }
+});
+
 
 const wrap=document.getElementById("sects");
 let openIdx=null;
@@ -279,7 +333,10 @@ D.forEach((s,si)=>{
     else{ip.textContent=item.em||s.e;ip.style.background=s.c+"22";}
     const ii2=document.createElement("div");ii2.className="iinfo";
     const phtml=item.pr.includes("/")?'<div class="ipr-sm">TZS '+item.pr+'</div>':'<div class="ipr">TZS '+item.pr+'</div>';
-    ii2.innerHTML='<div><div class="isw">'+item.sw+'</div><div class="ien">'+(item.en||"")+'</div>'+(item.ch?'<div class="ich" style="color:'+s.c+'bb">'+item.ch+'</div>':"")+(item.sz?'<div class="isz">'+item.sz+'</div>':"")+'</div><div class="ifoot">'+phtml+'<button class="ab" data-si="'+si+'" data-ii="'+ii+'">+</button></div>';
+    const oosBadge = item.outOfStock ? '<span style="display:inline-block;background:#C62828;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">IMEISHA</span>' : '';
+    const oosBtn = item.outOfStock ? '<button class="ab" style="background:#999 !important;cursor:not-allowed !important;opacity:0.5" disabled>×</button>' : '<button class="ab" data-si="'+si+'" data-ii="'+ii+'">+</button>';
+    ii2.innerHTML='<div><div class="isw">'+item.sw+oosBadge+'</div><div class="ien">'+(item.en||"")+'</div>'+(item.ch?'<div class="ich" style="color:'+s.c+'bb">'+item.ch+'</div>':"")+(item.sz?'<div class="isz">'+item.sz+'</div>':"")+'</div><div class="ifoot">'+phtml+oosBtn+'</div>';
+    if(item.outOfStock) ic.style.opacity = "0.5";
     ic.appendChild(ip);ic.appendChild(ii2);tb.appendChild(ic);
   });
   th.addEventListener("click",()=>{
