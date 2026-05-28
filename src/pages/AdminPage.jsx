@@ -729,6 +729,42 @@ function MenuTab() {
           })}
         </div>
       </div>)}
+
+      {/* ═══ CUSTOM ITEMS / BIDHAA MPYA ═══ */}
+      <div style={{marginTop:18}}>
+        <div style={{background:t.gold,borderRadius:"12px 12px 0 0",padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",fontWeight:900}}>✨</div>
+            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.length})</span>
+          </div>
+          <button onClick={()=>setShowAdd(!showAdd)} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{showAdd?"✕ Funga":"+ Ongeza"}</button>
+        </div>
+        <div style={{border:"1px solid "+t.border,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",background:t.bg2,padding:"12px"}}>
+          {showAdd && <div style={{background:t.bg4,borderRadius:10,padding:12,marginBottom:10}}>
+            <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>New Item / Bidhaa Mpya</p>
+            <div style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:8,marginBottom:8}}>
+              <input value={newItem.em} onChange={setNI("em")} placeholder="🍽️" style={{padding:"9px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:18,textAlign:"center",color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
+              <input value={newItem.sw} onChange={setNI("sw")} placeholder="Jina la Kiswahili *" style={{padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <input value={newItem.en} onChange={setNI("en")} placeholder="English name (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <input value={newItem.pr} onChange={setNI("pr")} placeholder="Bei (e.g. 2,500) *" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <input value={newItem.ph} onChange={setNI("ph")} placeholder="Photo URL (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <input value={newItem.sectionName} onChange={setNI("sectionName")} placeholder="Section name" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+            <button onClick={saveNew} disabled={!newItem.sw||!newItem.pr} style={{width:"100%",background:(!newItem.sw||!newItem.pr)?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:(!newItem.sw||!newItem.pr)?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:(!newItem.sw||!newItem.pr)?"default":"pointer"}}>Save & Show on Website / Hifadhi</button>
+          </div>}
+          {customItems.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
+          {customItems.map((it,i)=>(
+            <div key={it.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
+              <span style={{fontSize:20}}>{it.em||"🍽️"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{it.sw}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{it.sectionName} · TZS {it.pr}</div>
+              </div>
+              <button onClick={()=>{if(confirm("Delete this custom item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
