@@ -260,53 +260,85 @@ const D_RAW=[
   ]},
 ];
 
-// ═══ ADMIN SYNC: Read overrides from localStorage (set by Msimamizi) ═══
-function applyAdminOverrides(rawData) {
+// ═══ SUPABASE CLOUD SYNC — fetches live overrides + custom items ═══
+const SB_URL = "https://dodnrnefvtbkzusquubu.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZG5ybmVmdnRia3p1c3F1dWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDU0ODMsImV4cCI6MjA5NDg4MTQ4M30.XpRGKWnaFJydgcysrckL2rgTuGvAH5f6zlEz_UXS6eM";
+
+async function fetchFromSupabase(path) {
   try {
-    const prices = JSON.parse(localStorage.getItem("jiko-prices") || "{}");
-    const stock = JSON.parse(localStorage.getItem("jiko-stock") || "{}");
-    const customItems = JSON.parse(localStorage.getItem("jiko-custom-items") || "[]");
-    const data = JSON.parse(JSON.stringify(rawData));
-    data.forEach(section => {
-      section.items.forEach(item => {
-        if (!item.id) return;
-        if (prices[item.id] !== undefined && prices[item.id] !== null) {
-          const newPrice = Number(prices[item.id]);
-          if (item.sz && item.pr.includes("/")) {
-            const parts = item.pr.split("/").map(p => p.trim());
-            parts[0] = newPrice.toLocaleString();
-            item.pr = parts.join(" / ");
-          } else {
-            item.pr = newPrice.toLocaleString();
-          }
-        }
-        if (stock[item.id]) item.outOfStock = true;
-      });
+    const res = await fetch(SB_URL + "/rest/v1/" + path, {
+      headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
     });
-    if (customItems && customItems.length > 0) {
-      const grouped = {};
-      customItems.forEach(it => {
-        const key = it.sectionName || "Bidhaa Mpya / Specials";
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(it);
-      });
-      Object.keys(grouped).forEach(secName => {
-        data.push({
-          c: "#D4AF37", e: "✨", sw: secName, en: "Custom Items",
-          p: [], items: grouped[secName]
-        });
-      });
-    }
-    return data;
+    return res.ok ? await res.json() : [];
   } catch(e) {
-    console.warn("Override sync failed:", e);
-    return rawData;
+    console.warn("Supabase fetch failed for " + path, e);
+    return [];
   }
 }
 
-const D = applyAdminOverrides(D_RAW);
+async function applyAdminOverrides(rawData) {
+  // Fetch all three datasets in parallel
+  const [priceRows, stockRows, customRows] = await Promise.all([
+    fetchFromSupabase("price_overrides?select=item_id,price"),
+    fetchFromSupabase("stock_status?select=item_id,out_of_stock"),
+    fetchFromSupabase("custom_menu_items?select=*&active=eq.true&order=sort_order.asc")
+  ]);
+  
+  // Build lookup maps
+  const prices = {};
+  priceRows.forEach(r => { prices[r.item_id] = r.price; });
+  const stock = {};
+  stockRows.forEach(r => { if(r.out_of_stock) stock[r.item_id] = true; });
+  
+  // Also merge with localStorage as fallback for offline
+  try {
+    const localPrices = JSON.parse(localStorage.getItem("jiko-prices") || "{}");
+    const localStock = JSON.parse(localStorage.getItem("jiko-stock") || "{}");
+    Object.keys(localPrices).forEach(k => { if(!(k in prices)) prices[k] = localPrices[k]; });
+    Object.keys(localStock).forEach(k => { if(!(k in stock) && localStock[k]) stock[k] = true; });
+  } catch(e) {}
+  
+  // Apply overrides to menu data
+  const data = JSON.parse(JSON.stringify(rawData));
+  data.forEach(section => {
+    section.items.forEach(item => {
+      if (!item.id) return;
+      if (prices[item.id] !== undefined && prices[item.id] !== null) {
+        const newPrice = Number(prices[item.id]);
+        if (item.sz && item.pr.includes("/")) {
+          const parts = item.pr.split("/").map(p => p.trim());
+          parts[0] = newPrice.toLocaleString();
+          item.pr = parts.join(" / ");
+        } else {
+          item.pr = newPrice.toLocaleString();
+        }
+      }
+      if (stock[item.id]) item.outOfStock = true;
+    });
+  });
+  
+  // Add custom items from cloud, grouped by section name
+  if (customRows && customRows.length > 0) {
+    const grouped = {};
+    customRows.forEach(it => {
+      const key = it.section_name || "Bidhaa Mpya / Specials";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push({
+        id: it.id, sw: it.sw, en: it.en, pr: it.pr, ph: it.ph, em: it.em
+      });
+    });
+    Object.keys(grouped).forEach(secName => {
+      data.push({
+        c: "#D4AF37", e: "✨", sw: secName, en: "Custom Items",
+        p: [], items: grouped[secName]
+      });
+    });
+  }
+  
+  return data;
+}
 
-// Reload menu when admin changes overrides
+let D = D_RAW; // initial fallback while async fetch resolves
 window.addEventListener("storage", function(e) {
   if (e.key === "jiko-prices" || e.key === "jiko-stock" || e.key === "jiko-custom-items") {
     location.reload();
@@ -317,7 +349,10 @@ window.addEventListener("storage", function(e) {
 const wrap=document.getElementById("sects");
 let openIdx=null;
 
-D.forEach((s,si)=>{
+async function renderMenu() {
+  D = await applyAdminOverrides(D_RAW);
+  wrap.innerHTML = ""; // clear in case of re-render
+  D.forEach((s,si)=>{
   const tab=document.createElement("div");
   tab.className="tab";tab.style.setProperty("--c",s.c);
   const th=document.createElement("div");
@@ -351,7 +386,10 @@ D.forEach((s,si)=>{
   });
   tab.appendChild(th);tab.appendChild(tp);tab.appendChild(tb);
   wrap.appendChild(tab);
-});
+  });
+  setTimeout(notifyHeight, 200);
+}
+renderMenu();
 
 // ═══ ADD TO CART — POST TO PARENT REACT APP ═══
 function buildItemPayload(si, ii) {
