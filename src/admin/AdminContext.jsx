@@ -34,13 +34,14 @@ export function AdminProvider({ children }) {
     if (!supabase) return;
     const today = todayStr();
     async function init() {
-      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords}] = await Promise.all([
+      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust}] = await Promise.all([
         supabase.from("price_overrides").select("item_id,price"),
         supabase.from("stock_status").select("item_id,out_of_stock"),
         supabase.from("sales").select("*").eq("sale_date",today).order("created_at",{ascending:false}),
         supabase.from("daily_costs").select("*").order("cost_date",{ascending:false}).limit(300),
         supabase.from("item_costs").select("*"),
         supabase.from("customer_orders").select("*").order("created_at",{ascending:false}).limit(100),
+        supabase.from("custom_menu_items").select("*").eq("active",true).order("sort_order",{ascending:true}),
       ]);
       if(pr?.length){const p={};pr.forEach(r=>{p[r.item_id]=r.price;});setPrices(p);save("jiko-prices",p);}
       if(sr?.length){const s={};sr.forEach(r=>{s[r.item_id]=r.out_of_stock;});setStock(s);save("jiko-stock",s);}
@@ -48,6 +49,11 @@ export function AdminProvider({ children }) {
       if(costs) setAllCosts(costs);
       if(ic?.length){const c={};ic.forEach(r=>{c[r.item_id]=r.cost_per_unit;});setItemCosts(c);}
       if(ords) setOrders(ords);
+      if(cust && cust.length > 0) {
+        const formatted = cust.map(c => ({id:c.id, sw:c.sw, en:c.en, pr:c.pr, ph:c.ph, em:c.em, sectionName:c.section_name}));
+        setCustomItems(formatted);
+        save("jiko-custom-items", formatted);
+      }
       setSynced(true);
     }
     init();
@@ -119,20 +125,39 @@ export function AdminProvider({ children }) {
   async function setCost(itemId,cost){const next={...itemCosts,[itemId]:cost};setItemCosts(next);if(supabase) await supabase.from("item_costs").upsert({item_id:itemId,cost_per_unit:cost,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
 
   /* ─── CUSTOM MENU ITEMS (added from Msimamizi) ─── */
-  function addCustomItem(item){
-    const next=[...customItems,{...item,id:"custom_"+Date.now()}];
+  async function addCustomItem(item){
+    const id = "custom_" + Date.now();
+    const rec = {id, sw:item.sw, en:item.en||"", pr:item.pr, ph:item.ph||null, em:item.em||"🍽️", section_name:item.sectionName||"Bidhaa Mpya / Specials", active:true};
+    const next=[...customItems,{...item,id,sectionName:rec.section_name}];
     setCustomItems(next);
     save("jiko-custom-items",next);
+    if(supabase){
+      try { await supabase.from("custom_menu_items").insert(rec); } catch(e){ console.warn("Custom item cloud save failed:", e); }
+    }
   }
-  function deleteCustomItem(id){
+  async function deleteCustomItem(id){
     const next=customItems.filter(c=>c.id!==id);
     setCustomItems(next);
     save("jiko-custom-items",next);
+    if(supabase){
+      try { await supabase.from("custom_menu_items").delete().eq("id",id); } catch(e){ console.warn("Custom item cloud delete failed:", e); }
+    }
   }
-  function updateCustomItem(id,updates){
+  async function updateCustomItem(id,updates){
     const next=customItems.map(c=>c.id===id?{...c,...updates}:c);
     setCustomItems(next);
     save("jiko-custom-items",next);
+    if(supabase){
+      const sbUpdate = {};
+      if(updates.sw)sbUpdate.sw=updates.sw;
+      if(updates.en)sbUpdate.en=updates.en;
+      if(updates.pr)sbUpdate.pr=updates.pr;
+      if(updates.ph!==undefined)sbUpdate.ph=updates.ph;
+      if(updates.em)sbUpdate.em=updates.em;
+      if(updates.sectionName)sbUpdate.section_name=updates.sectionName;
+      sbUpdate.updated_at = new Date().toISOString();
+      try { await supabase.from("custom_menu_items").update(sbUpdate).eq("id",id); } catch(e){ console.warn("Custom item cloud update failed:", e); }
+    }
   }
 
   /* ─── CUSTOMER ORDERS ─── */
