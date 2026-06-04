@@ -332,7 +332,7 @@ function LeoTab({onGoTo}) {
 /* ═══ TAB 2: INGIZA ═══ */
 function IngizaTab() {
   const {t} = useT();
-  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost} = useAdmin();
+  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost,customItems} = useAdmin();
   const [mode,setMode]=useState("sale");
   const [date,setDate]=useState(today());
   const [sec,setSec]=useState(sections[0].id);
@@ -348,7 +348,37 @@ function IngizaTab() {
   const [costBusy,setCostBusy]=useState(false);
   const [costOk,setCostOk]=useState(false);
   const [editRec,setEditRec]=useState(null);
-  const secItems=menu.filter(m=>m.section===sec);
+  // Build virtual sections from custom items so they appear in Ingiza
+  const customSections = useMemo(() => {
+    const names = new Set();
+    customItems.forEach(ci => names.add(ci.sectionName || "Bidhaa Mpya"));
+    return Array.from(names).map((name, i) => ({
+      id: "custom_sec_" + i,
+      sectionName: name,
+      name: { sw: name.split("/")[0].trim(), en: (name.split("/")[1] || name).trim() }
+    }));
+  }, [customItems]);
+  const allSections = [...sections, ...customSections];
+  // Convert custom items to menu-item shape so the rest of the code works unchanged
+  function customAsMenuItem(ci, secId) {
+    return {
+      id: ci.id,
+      section: secId,
+      name: { sw: ci.sw, en: ci.en || ci.sw },
+      emoji: ci.em || "🍽️",
+      price: parseInt(String(ci.pr).replace(/,/g, "")) || 0,
+      photo: ci.ph || null
+    };
+  }
+  let secItems;
+  if (sections.find(s => s.id === sec)) {
+    secItems = menu.filter(m => m.section === sec);
+  } else {
+    const customSec = customSections.find(s => s.id === sec);
+    secItems = customSec
+      ? customItems.filter(ci => (ci.sectionName || "Bidhaa Mpya") === customSec.sectionName).map(ci => customAsMenuItem(ci, sec))
+      : [];
+  }
   const isToday=date===today();
   const recentCosts=allCosts.filter(c=>c.cost_date===date).slice(0,10);
   const DCATS=[{k:"gas",l:"Gas/Gesi"},{k:"staff",l:"Staff/Wafanyakazi"},{k:"ingredients",l:"Ingredients/Malighafi"},{k:"rent",l:"Rent/Pango"},{k:"other",l:"Other/Nyingine"}];
@@ -371,7 +401,7 @@ function IngizaTab() {
         <Card style={{padding:"1rem"}}>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Select Item / Chagua Bidhaa</p>
           <div style={{display:"flex",gap:5,overflowX:"auto",marginBottom:10,scrollbarWidth:"none",paddingBottom:2}}>
-            {sections.map(s=><button key={s.id} onClick={()=>{setSec(s.id);setItem(null);}} style={{background:sec===s.id?t.gr+"18":"transparent",color:sec===s.id?t.gr:t.dim2,border:"1px solid "+(sec===s.id?t.gr:t.border),borderRadius:99,padding:"4px 10px",whiteSpace:"nowrap",fontFamily:"sans-serif",fontSize:"10px",fontWeight:sec===s.id?700:400,cursor:"pointer",flexShrink:0}}>{s.name.sw.split(" ")[0]}</button>)}
+            {allSections.map(s=><button key={s.id} onClick={()=>{setSec(s.id);setItem(null);}} style={{background:sec===s.id?t.gr+"18":"transparent",color:sec===s.id?t.gr:t.dim2,border:"1px solid "+(sec===s.id?(s.id.startsWith("custom_")?t.gold:t.gr):t.border),borderRadius:99,padding:"4px 10px",whiteSpace:"nowrap",fontFamily:"sans-serif",fontSize:"10px",fontWeight:sec===s.id?700:400,cursor:"pointer",flexShrink:0}}>{s.id.startsWith("custom_")?"✨ ":""}{s.name.sw.split(" ")[0]}</button>)}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6,marginBottom:10}}>
             {secItems.map(it=>{
