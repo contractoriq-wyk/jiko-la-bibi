@@ -381,7 +381,7 @@ function IngizaTab() {
   }
   const isToday=date===today();
   const recentCosts=allCosts.filter(c=>c.cost_date===date).slice(0,10);
-  const DCATS=[{k:"gas",l:"Gas/Gesi"},{k:"staff",l:"Staff/Wafanyakazi"},{k:"ingredients",l:"Ingredients/Malighafi"},{k:"rent",l:"Rent/Pango"},{k:"other",l:"Other/Nyingine"}];
+  const DCATS=[{k:"gas",l:"Gas/Gesi"},{k:"staff",l:"Staff/Wafanyakazi"},{k:"ingredients",l:"Ingredients/Malighafi"},{k:"rent",l:"Rent/Pango"},{k:"matengenezo",l:"Matengenezo/Maintenance"},{k:"vifaa",l:"Vifaa/Materials"},{k:"contractor",l:"Mkandarasi/Contractor"},{k:"other",l:"Other/Nyingine"}];
   const BCATS=[{k:"bulk_ingredients",l:"Bulk Ingredients"},{k:"equipment",l:"Equipment/Vifaa"},{k:"marketing",l:"Marketing"},{k:"bulk_other",l:"Other Bulk"}];
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   async function doSale(){if(!item||saleBusy)return;setSaleBusy(true);await recordSale(item,qty,svc,date);setItem(null);setQty(1);setSaleBusy(false);setSaleOk(true);setTimeout(()=>setSaleOk(false),2000);}
@@ -443,7 +443,7 @@ function IngizaTab() {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
             {(costType==="daily"?DCATS:BCATS).map(c=><button key={c.k} onClick={()=>setCat(c.k)} style={{padding:"7px 8px",borderRadius:8,border:"1px solid "+(cat===c.k?t.gold:t.border),background:cat===c.k?t.gold+"18":"transparent",color:cat===c.k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"10px",fontWeight:cat===c.k?700:400,cursor:"pointer"}}>{c.l}</button>)}
           </div>
-          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Description / Maelezo (e.g. Mkaa 10kg)" style={{...inp,marginBottom:8}}/>
+          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Maelezo Kamili / Full description (e.g. Mkaa 10kg, Fundi Umeme - Switch)" style={{...inp,marginBottom:8,borderColor:!desc?t.gold+"55":t.border}}/>{!desc&&<p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.gold,margin:"-3px 0 7px",fontStyle:"italic"}}>💡 Andika maelezo kamili kwa ripoti bora / Write full description for clearer reports</p>}
           <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount / Kiasi (TZS)" style={{...inp,marginBottom:10}}/>
           <button onClick={doCost} disabled={costBusy||!amount} style={{width:"100%",background:costOk?"linear-gradient(135deg,"+t.gr+",#009940)":!amount?t.bg4:"linear-gradient(135deg,"+t.rd+",#a80018)",color:!amount?t.dim2:"#fff",border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:!amount?"default":"pointer",transition:"all 0.3s"}}>
             {costOk?"✓ Saved!":costBusy?"Saving...":"SAVE EXPENSE / HIFADHI GHARAMA"}
@@ -920,36 +920,105 @@ function BackupTab() {
   );
 }
 
-/* ═══ TAB: WAFANYAKAZI / STAFF ═══ */
+/* ═══ TAB: WAFANYAKAZI & WAKANDARASI / STAFF & CONTRACTORS ═══ */
+function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay}) {
+  const {t} = useT();
+  const isContractor = s.type === "contractor";
+  const isSeasonal = s.type === "seasonal";
+  const accent = isContractor ? t.pu : (isSeasonal ? t.bl : t.gr);
+  const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
+  const setF = k=>e=>setForm(p=>({...p,[k]:e.target.value}));
+  const setPF = k=>e=>setPayForm(p=>({...p,[k]:e.target.value}));
+  const rateLabel = isContractor ? "Kiwango cha Kazi / Job Rate (TZS)" : "Mshahara wa Mwezi / Monthly Salary (TZS)";
+  const periodLabel = isContractor ? "Kazi iliyofanyika / Job done" : (isSeasonal ? "Maelezo / Description" : "Kipindi / Period (e.g. Mwezi wa 6)");
+
+  if(isEditing) return (
+    <Card glow style={{padding:"1rem",borderLeft:"3px solid "+accent}}>
+      <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:accent,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Hariri / Editing</p>
+      <input value={form.name} onChange={setF("name")} placeholder="Jina / Name *" style={{...inp,marginBottom:8}}/>
+      <input value={form.role} onChange={setF("role")} placeholder="Kazi / Role (e.g. Mpishi, Fundi Umeme)" style={{...inp,marginBottom:8}}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:8}}>
+        <button onClick={()=>setForm(p=>({...p,type:"long_term"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="long_term"?t.gr:t.border),background:form.type==="long_term"?t.gr+"18":"transparent",color:form.type==="long_term"?t.gr:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Kudumu<br/>Long-term</button>
+        <button onClick={()=>setForm(p=>({...p,type:"seasonal"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="seasonal"?t.bl:t.border),background:form.type==="seasonal"?t.bl+"18":"transparent",color:form.type==="seasonal"?t.bl:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Msimu<br/>Seasonal</button>
+        <button onClick={()=>setForm(p=>({...p,type:"contractor"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="contractor"?t.pu:t.border),background:form.type==="contractor"?t.pu+"18":"transparent",color:form.type==="contractor"?t.pu:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Mkandarasi<br/>Contractor</button>
+      </div>
+      <input type="number" value={form.monthly_salary} onChange={setF("monthly_salary")} placeholder={rateLabel} style={{...inp,marginBottom:8}}/>
+      <input value={form.phone} onChange={setF("phone")} placeholder="Simu / Phone" style={{...inp,marginBottom:8}}/>
+      <input value={form.notes} onChange={setF("notes")} placeholder="Maelezo / Notes (optional)" style={{...inp,marginBottom:10}}/>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={onSave} disabled={!form.name.trim()} style={{flex:2,background:!form.name.trim()?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:!form.name.trim()?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:!form.name.trim()?"default":"pointer"}}>Hifadhi / Save</button>
+        <button onClick={onCancelEdit} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:11,fontSize:13,cursor:"pointer"}}>Funga</button>
+      </div>
+    </Card>
+  );
+
+  return (
+    <Card style={{padding:"12px 14px",borderLeft:"3px solid "+accent}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
+          {s.monthly_salary>0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}{!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":""}</div>}
+          {s.notes && <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:3,fontStyle:"italic"}}>{s.notes}</div>}
+          {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
+            <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
+            <input value={payForm.period} onChange={setPF("period")} placeholder={periodLabel} style={{...inp,marginBottom:6,fontSize:12}}/>
+            <input type="date" value={payForm.date} onChange={setPF("date")} style={{...inp,marginBottom:8,fontSize:12}}/>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>onPay(s)} disabled={!payForm.amount} style={{flex:1,background:!payForm.amount?t.bg4:t.gr,color:!payForm.amount?t.dim2:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:!payForm.amount?"default":"pointer"}}>Lipa / Pay</button>
+              <button onClick={()=>setShowPay(null)} style={{background:t.bg4,color:t.dim,border:"none",borderRadius:8,padding:"9px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+          <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
+          <button onClick={()=>onStartEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
+          <button onClick={()=>onDelete(s)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🗑️ Toa</button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function WafanyakaziTab() {
   const {t} = useT();
   const {staff, addStaff, updateStaff, deleteStaff, payStaff, allCosts} = useAdmin();
   const [showAdd,setShowAdd]=useState(false);
+  const [editingId,setEditingId]=useState(null);
   const [showPay,setShowPay]=useState(null);
-  const [editing,setEditing]=useState(null);
   const [form,setForm]=useState({name:"",role:"",type:"long_term",monthly_salary:"",phone:"",notes:""});
   const [payForm,setPayForm]=useState({amount:"",date:today(),period:""});
   const setF=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
-  const setPF=k=>e=>setPayForm(p=>({...p,[k]:e.target.value}));
 
-  const longTerm = staff.filter(s => s.type === "long_term");
-  const seasonal = staff.filter(s => s.type === "seasonal");
+  const longTerm = staff.filter(s => s.type === "long_term" && s.active !== false);
+  const seasonal = staff.filter(s => s.type === "seasonal" && s.active !== false);
+  const contractors = staff.filter(s => s.type === "contractor" && s.active !== false);
   const totalPayroll = longTerm.reduce((s,m)=>s+(m.monthly_salary||0), 0);
-  // Total paid this month
   const m = new Date();
   const monthStart = new Date(m.getFullYear(), m.getMonth(), 1).toISOString().split("T")[0];
   const paidThisMonth = allCosts.filter(c => c.category==="staff" && c.cost_date>=monthStart).reduce((s,c)=>s+c.amount,0);
 
-  function startAdd(){setForm({name:"",role:"",type:"long_term",monthly_salary:"",phone:"",notes:""});setEditing(null);setShowAdd(true);}
-  function startEdit(s){setForm({name:s.name||"",role:s.role||"",type:s.type||"long_term",monthly_salary:String(s.monthly_salary||""),phone:s.phone||"",notes:s.notes||""});setEditing(s);setShowAdd(true);}
+  function startAdd(){
+    setForm({name:"",role:"",type:"long_term",monthly_salary:"",phone:"",notes:""});
+    setEditingId(null);
+    setShowAdd(true);
+  }
+  function startEdit(s){
+    setForm({name:s.name||"",role:s.role||"",type:s.type||"long_term",monthly_salary:String(s.monthly_salary||""),phone:s.phone||"",notes:s.notes||""});
+    setEditingId(s.id);
+    setShowAdd(false);
+  }
+  function cancelEdit(){setEditingId(null);}
   async function saveStaff(){
     if(!form.name.trim()) return;
-    if(editing){
-      await updateStaff(editing.id, {...form, monthly_salary: parseInt(form.monthly_salary)||0});
+    const payload = {...form, monthly_salary: parseInt(form.monthly_salary)||0};
+    if(editingId){
+      await updateStaff(editingId, payload);
+      setEditingId(null);
     } else {
-      await addStaff({...form, monthly_salary: parseInt(form.monthly_salary)||0});
+      await addStaff(payload);
+      setShowAdd(false);
     }
-    setShowAdd(false);setEditing(null);
   }
   async function doPay(member){
     if(!payForm.amount) return;
@@ -960,11 +1029,8 @@ function WafanyakaziTab() {
   function delMember(s){
     if(confirm("Toa "+s.name+" kwenye orodha? / Remove "+s.name+"?")) deleteStaff(s.id);
   }
-  // Payment history for selected staff
-  function getHistory(staffName){
-    return allCosts.filter(c => c.category==="staff" && c.description && c.description.startsWith(staffName)).slice(0,8);
-  }
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
+  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay};
 
   return (
     <div style={{padding:"1rem"}}>
@@ -974,81 +1040,43 @@ function WafanyakaziTab() {
       </div>
 
       <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 16px "+t.gold+"44"}}>
-        + Ongeza Mfanyakazi / Add Staff
+        + Ongeza Mfanyakazi au Mkandarasi / Add Staff or Contractor
       </button>
 
       {showAdd && <Card glow style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>{editing?"Hariri / Edit":"New / Mpya"}</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>New / Mpya</p>
         <input value={form.name} onChange={setF("name")} placeholder="Jina / Name *" style={{...inp,marginBottom:8}}/>
-        <input value={form.role} onChange={setF("role")} placeholder="Kazi / Role (e.g. Mpishi, Mhudumu)" style={{...inp,marginBottom:8}}/>
-        <div style={{display:"flex",gap:6,marginBottom:8}}>
-          <button onClick={()=>setForm(p=>({...p,type:"long_term"}))} style={{flex:1,padding:9,borderRadius:9,border:"1.5px solid "+(form.type==="long_term"?t.gr:t.border),background:form.type==="long_term"?t.gr+"18":"transparent",color:form.type==="long_term"?t.gr:t.dim2,fontSize:12,fontWeight:700,cursor:"pointer"}}>Wa Kudumu / Long-term</button>
-          <button onClick={()=>setForm(p=>({...p,type:"seasonal"}))} style={{flex:1,padding:9,borderRadius:9,border:"1.5px solid "+(form.type==="seasonal"?t.bl:t.border),background:form.type==="seasonal"?t.bl+"18":"transparent",color:form.type==="seasonal"?t.bl:t.dim2,fontSize:12,fontWeight:700,cursor:"pointer"}}>Wa Msimu / Seasonal</button>
+        <input value={form.role} onChange={setF("role")} placeholder="Kazi / Role (e.g. Mpishi, Fundi Umeme, Maji)" style={{...inp,marginBottom:8}}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:8}}>
+          <button onClick={()=>setForm(p=>({...p,type:"long_term"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="long_term"?t.gr:t.border),background:form.type==="long_term"?t.gr+"18":"transparent",color:form.type==="long_term"?t.gr:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Kudumu<br/>Long-term</button>
+          <button onClick={()=>setForm(p=>({...p,type:"seasonal"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="seasonal"?t.bl:t.border),background:form.type==="seasonal"?t.bl+"18":"transparent",color:form.type==="seasonal"?t.bl:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Msimu<br/>Seasonal</button>
+          <button onClick={()=>setForm(p=>({...p,type:"contractor"}))} style={{padding:8,borderRadius:8,border:"1.5px solid "+(form.type==="contractor"?t.pu:t.border),background:form.type==="contractor"?t.pu+"18":"transparent",color:form.type==="contractor"?t.pu:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>Mkandarasi<br/>Contractor</button>
         </div>
-        <input type="number" value={form.monthly_salary} onChange={setF("monthly_salary")} placeholder="Mshahara wa Mwezi / Monthly Salary (TZS)" style={{...inp,marginBottom:8}}/>
-        <input value={form.phone} onChange={setF("phone")} placeholder="Simu / Phone (07xx xxx xxx)" style={{...inp,marginBottom:8}}/>
-        <input value={form.notes} onChange={setF("notes")} placeholder="Maelezo / Notes (optional)" style={{...inp,marginBottom:10}}/>
+        <input type="number" value={form.monthly_salary} onChange={setF("monthly_salary")} placeholder={form.type==="contractor"?"Kiwango cha Kazi / Job Rate (TZS)":"Mshahara wa Mwezi / Monthly Salary (TZS)"} style={{...inp,marginBottom:8}}/>
+        <input value={form.phone} onChange={setF("phone")} placeholder="Simu / Phone" style={{...inp,marginBottom:8}}/>
+        <input value={form.notes} onChange={setF("notes")} placeholder="Maelezo / Notes (e.g. specialty, payment terms)" style={{...inp,marginBottom:10}}/>
         <div style={{display:"flex",gap:8}}>
           <button onClick={saveStaff} disabled={!form.name.trim()} style={{flex:2,background:!form.name.trim()?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:!form.name.trim()?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:!form.name.trim()?"default":"pointer"}}>Hifadhi / Save</button>
-          <button onClick={()=>{setShowAdd(false);setEditing(null);}} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:11,fontSize:13,cursor:"pointer"}}>Funga</button>
+          <button onClick={()=>{setShowAdd(false);}} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:11,fontSize:13,cursor:"pointer"}}>Funga</button>
         </div>
       </Card>}
 
       {longTerm.length > 0 && <>
-        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>Wa Kudumu / Long-term ({longTerm.length})</p>
-        {longTerm.map(s => <Card key={s.id} style={{padding:"12px 14px",borderLeft:"3px solid "+t.gr}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
-              {s.monthly_salary>0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:t.gold,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}/mwezi</div>}
-              {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
-                <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
-                <input value={payForm.period} onChange={setPF("period")} placeholder="Kipindi / Period (e.g. Mwezi wa 6)" style={{...inp,marginBottom:6,fontSize:12}}/>
-                <input type="date" value={payForm.date} onChange={setPF("date")} style={{...inp,marginBottom:8,fontSize:12}}/>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>doPay(s)} disabled={!payForm.amount} style={{flex:1,background:!payForm.amount?t.bg4:t.gr,color:!payForm.amount?t.dim2:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:!payForm.amount?"default":"pointer"}}>Lipa / Pay</button>
-                  <button onClick={()=>setShowPay(null)} style={{background:t.bg4,color:t.dim,border:"none",borderRadius:8,padding:"9px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
-                </div>
-              </div>}
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-              <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
-              <button onClick={()=>startEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
-              <button onClick={()=>delMember(s)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🗑️ Toa</button>
-            </div>
-          </div>
-        </Card>)}
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gr,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🟢 Wa Kudumu / Long-term ({longTerm.length})</p>
+        {longTerm.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
       </>}
 
       {seasonal.length > 0 && <>
-        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.bl,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>Wa Msimu / Seasonal ({seasonal.length})</p>
-        {seasonal.map(s => <Card key={s.id} style={{padding:"12px 14px",borderLeft:"3px solid "+t.bl}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
-              {s.monthly_salary>0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:t.bl,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}</div>}
-              {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
-                <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
-                <input value={payForm.period} onChange={setPF("period")} placeholder="Kazi / Job description" style={{...inp,marginBottom:6,fontSize:12}}/>
-                <input type="date" value={payForm.date} onChange={setPF("date")} style={{...inp,marginBottom:8,fontSize:12}}/>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>doPay(s)} disabled={!payForm.amount} style={{flex:1,background:!payForm.amount?t.bg4:t.gr,color:!payForm.amount?t.dim2:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:!payForm.amount?"default":"pointer"}}>Lipa / Pay</button>
-                  <button onClick={()=>setShowPay(null)} style={{background:t.bg4,color:t.dim,border:"none",borderRadius:8,padding:"9px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
-                </div>
-              </div>}
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-              <button onClick={()=>{setPayForm({amount:"",date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
-              <button onClick={()=>startEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
-              <button onClick={()=>delMember(s)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🗑️ Toa</button>
-            </div>
-          </div>
-        </Card>)}
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.bl,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🔵 Wa Msimu / Seasonal ({seasonal.length})</p>
+        {seasonal.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
       </>}
 
-      {staff.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:13,padding:"2rem 0"}}>No staff yet / Hakuna mfanyakazi. Tap + above to add.</p>}
+      {contractors.length > 0 && <>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.pu,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🟣 Wakandarasi / Contractors ({contractors.length})</p>
+        {contractors.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
+      </>}
+
+      {staff.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:13,padding:"2rem 0"}}>Hakuna mfanyakazi bado. / No staff yet. Tap + above to add.</p>}
     </div>
   );
 }
