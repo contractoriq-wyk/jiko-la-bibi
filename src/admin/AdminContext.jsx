@@ -21,6 +21,7 @@ export function AdminProvider({ children }) {
   });
   const [stock,setStock]=useState(()=>load("jiko-stock",{}));
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
+  const [staff,setStaff]=useState(()=>load("jiko-staff",[]));
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
   const [itemCosts,setItemCosts]=useState({});
@@ -34,7 +35,7 @@ export function AdminProvider({ children }) {
     if (!supabase) return;
     const today = todayStr();
     async function init() {
-      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust}] = await Promise.all([
+      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust},{data:stf}] = await Promise.all([
         supabase.from("price_overrides").select("item_id,price"),
         supabase.from("stock_status").select("item_id,out_of_stock"),
         supabase.from("sales").select("*").eq("sale_date",today).order("created_at",{ascending:false}),
@@ -42,6 +43,7 @@ export function AdminProvider({ children }) {
         supabase.from("item_costs").select("*"),
         supabase.from("customer_orders").select("*").order("created_at",{ascending:false}).limit(100),
         supabase.from("custom_menu_items").select("*").eq("active",true).order("sort_order",{ascending:true}),
+        supabase.from("staff_members").select("*").eq("active",true).order("name",{ascending:true}),
       ]);
       if(pr?.length){const p={};pr.forEach(r=>{p[r.item_id]=r.price;});setPrices(p);save("jiko-prices",p);}
       if(sr?.length){const s={};sr.forEach(r=>{s[r.item_id]=r.out_of_stock;});setStock(s);save("jiko-stock",s);}
@@ -53,6 +55,10 @@ export function AdminProvider({ children }) {
         const formatted = cust.map(c => ({id:c.id, sw:c.sw, en:c.en, pr:c.pr, ph:c.ph, em:c.em, sectionName:c.section_name}));
         setCustomItems(formatted);
         save("jiko-custom-items", formatted);
+      }
+      if(stf && stf.length > 0) {
+        setStaff(stf);
+        save("jiko-staff", stf);
       }
       setSynced(true);
     }
@@ -123,6 +129,61 @@ export function AdminProvider({ children }) {
   async function overridePrice(id,price){const next={...prices,[id]:price};setPrices(next);save("jiko-prices",next);if(supabase) await supabase.from("price_overrides").upsert({item_id:id,price,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
   async function toggleStock(id){const v=!stock[id],next={...stock,[id]:v};setStock(next);save("jiko-stock",next);if(supabase) await supabase.from("stock_status").upsert({item_id:id,out_of_stock:v,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
   async function setCost(itemId,cost){const next={...itemCosts,[itemId]:cost};setItemCosts(next);if(supabase) await supabase.from("item_costs").upsert({item_id:itemId,cost_per_unit:cost,updated_at:new Date().toISOString()},{onConflict:"item_id"});}
+
+  /* ─── STAFF / WAFANYAKAZI ─── */
+  async function addStaff(member){
+    const localId = "tmp_" + Date.now();
+    const optimistic = {...member, id:localId, active:true};
+    setStaff(prev => {
+      const next = [...prev, optimistic];
+      save("jiko-staff", next);
+      return next;
+    });
+    if(supabase){
+      try {
+        const {data} = await supabase.from("staff_members").insert({
+          name: member.name,
+          role: member.role || "",
+          type: member.type || "long_term",
+          monthly_salary: parseInt(member.monthly_salary) || 0,
+          phone: member.phone || "",
+          notes: member.notes || "",
+          active: true
+        }).select().single();
+        if(data) setStaff(prev => {
+          const next = prev.map(s => s.id === localId ? data : s);
+          save("jiko-staff", next);
+          return next;
+        });
+      } catch(e){ console.warn("Staff add failed:", e); }
+    }
+  }
+  async function updateStaff(id, updates){
+    setStaff(prev => {
+      const next = prev.map(s => s.id === id ? {...s, ...updates} : s);
+      save("jiko-staff", next);
+      return next;
+    });
+    if(supabase){
+      try { await supabase.from("staff_members").update({...updates, updated_at: new Date().toISOString()}).eq("id", id); }
+      catch(e){ console.warn("Staff update failed:", e); }
+    }
+  }
+  async function deleteStaff(id){
+    setStaff(prev => {
+      const next = prev.filter(s => s.id !== id);
+      save("jiko-staff", next);
+      return next;
+    });
+    if(supabase){
+      try { await supabase.from("staff_members").update({active:false, updated_at: new Date().toISOString()}).eq("id", id); }
+      catch(e){ console.warn("Staff delete failed:", e); }
+    }
+  }
+  async function payStaff(staffMember, amount, date, period){
+    const desc = staffMember.name + (period ? " — " + period : "");
+    await recordCost("staff", desc, amount, date, "daily");
+  }
 
   /* ─── CUSTOM MENU ITEMS (added from Msimamizi) ─── */
   async function addCustomItem(item){
@@ -200,6 +261,7 @@ export function AdminProvider({ children }) {
       setGoal,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
+      staff,addStaff,updateStaff,deleteStaff,payStaff,
       fetchRange,exportAll,importAll,
       isOutOfStock:(id)=>!!stock[id],
     }}>
