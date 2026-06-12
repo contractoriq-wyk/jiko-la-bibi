@@ -79,7 +79,6 @@ input:focus,select:focus{border-color:#B8860B}
     <button class="on" data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
     <button data-doc="kudumu" onclick="switchDoc('kudumu',this)">📜 Kudumu<br><small>Long-term</small></button>
     <button data-doc="sera" onclick="switchDoc('sera',this)">📕 Sera za Kazi<br><small>Policies</small></button>
-    <button data-doc="records" onclick="switchDoc('records',this)">🗂️ Kumbukumbu<br><small>Records</small></button>
   </div>
 
   <div class="print-header">
@@ -92,12 +91,6 @@ input:focus,select:focus{border-color:#B8860B}
   <div id="formArea"></div>
 
   <!-- RECORDS AREA -->
-  <div id="recordsArea" style="display:none">
-    <div class="card">
-      <h2>🗂️ Kumbukumbu za Mikataba / Signed Records</h2>
-      <div id="recordsList"><p style="text-align:center;color:rgba(11,31,69,0.4);padding:20px;font-size:13px">Inapakia... / Loading...</p></div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -191,15 +184,7 @@ function switchDoc(doc, btn){
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
   currentDoc = doc;
-  if(doc==="records"){
-    document.getElementById("formArea").style.display="none";
-    document.getElementById("recordsArea").style.display="block";
-    loadRecords();
-  } else {
-    document.getElementById("formArea").style.display="block";
-    document.getElementById("recordsArea").style.display="none";
-    renderForm(doc);
-  }
+  renderForm(doc);
 }
 
 function renderForm(docKey){
@@ -303,55 +288,6 @@ async function saveContract(){
 }
 
 /* ── RECORDS ── */
-const typeLabels = { muda_mfupi: "📄 Muda Mfupi", kudumu: "📜 Kudumu", sera: "📕 Sera" };
-async function loadRecords(){
-  const list = document.getElementById("recordsList");
-  try {
-    const res = await fetch(SB_URL + "/rest/v1/signed_contracts?select=id,doc_type,employee_name,employee_phone,signed_at&order=signed_at.desc&limit=100", {
-      headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
-    });
-    const rows = await res.json();
-    if(!rows.length){ list.innerHTML = '<p style="text-align:center;color:rgba(11,31,69,0.4);padding:20px;font-size:13px">Hakuna mikataba bado / No signed contracts yet</p>'; return; }
-    list.innerHTML = rows.map(r => `
-      <div class="rec">
-        <div class="rec-icon">${(typeLabels[r.doc_type]||"📄").split(" ")[0]}</div>
-        <div class="rec-info">
-          <div class="rec-name">${r.employee_name}</div>
-          <div class="rec-meta">${typeLabels[r.doc_type]||r.doc_type} · ${new Date(r.signed_at).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})}${r.employee_phone?" · "+r.employee_phone:""}</div>
-        </div>
-        <button class="rec-btn" onclick="viewRecord('${r.id}')">Angalia</button>
-      </div>`).join("");
-  } catch(e){
-    list.innerHTML = '<p style="text-align:center;color:#C62828;padding:20px;font-size:13px">Hitilafu ya mtandao / Network error</p>';
-  }
-}
-
-async function viewRecord(id){
-  try {
-    const res = await fetch(SB_URL + "/rest/v1/signed_contracts?id=eq." + id + "&select=*", {
-      headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
-    });
-    const [r] = await res.json();
-    if(!r) return;
-    const d = DOCS[r.doc_type];
-    const w = window.open("", "_blank");
-    const fieldsHtml = d ? d.fields.map(f => `<tr><td style="font-weight:bold;padding:5px 12px 5px 0;color:#555;font-size:12px;text-transform:uppercase">${f.l.replace(" *","")}</td><td style="padding:5px 0">${(r.form_data||{})[f.k]||"—"}</td></tr>`).join("") : "";
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${r.employee_name} — ${d?d.title:r.doc_type}</title>
-      <style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.terms{font-size:13px;line-height:1.7}@media print{button{display:none}}</style></head><body>
-      <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
-      <p style="text-align:center;font-size:11px;color:#777">Mbezi Luis, Goba Road, Dar es Salaam · +255 655 709 024</p>
-      <h1 style="font-size:15px;margin-top:18px">${d?d.title:r.doc_type}</h1>
-      <h2>Taarifa</h2><table>${fieldsHtml}</table>
-      <h2>Masharti</h2><div class="terms">${d?d.terms:""}</div>
-      <h2>Sahihi ya Mfanyakazi</h2>${r.employee_signature?`<img class="sig" src="${r.employee_signature}">`:"<p>—</p>"}
-      <h2>Sahihi ya Mwajiri</h2>${r.employer_signature?`<img class="sig" src="${r.employer_signature}">`:"<p>—</p>"}
-      <p style="margin-top:18px;font-size:12px;color:#777">Ilisainiwa: ${new Date(r.signed_at).toLocaleString("sw-TZ")}</p>
-      <button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer">🖨️ Print / Save PDF</button>
-      </body></html>`);
-    w.document.close();
-  } catch(e){ alert("Hitilafu: " + e.message); }
-}
-
 /* init */
 renderForm("muda_mfupi");
 </script>
