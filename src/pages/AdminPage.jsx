@@ -1039,9 +1039,13 @@ function WafanyakaziTab() {
         <Chip label="Lipwa Mwezi Huu / Paid This Month" value={fmt(paidThisMonth)} color={t.gr} icon="✅"/>
       </div>
 
-      <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 16px "+t.gold+"44"}}>
+      <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 16px "+t.gold+"44"}}>
         + Ongeza Mfanyakazi au Mkandarasi / Add Staff or Contractor
       </button>
+
+      <a href="/ajira.html" target="_blank" rel="noopener" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",background:t.bl+"12",color:t.bl,border:"1.5px solid "+t.bl+"44",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:10,textDecoration:"none",boxSizing:"border-box"}}>
+        📋 Ajira Digital — Mikataba na Sera / Contracts &amp; Policies
+      </a>
 
       {showAdd && <Card glow style={{padding:"1rem"}}>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>New / Mpya</p>
