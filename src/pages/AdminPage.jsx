@@ -1085,6 +1085,85 @@ function WafanyakaziTab() {
   );
 }
 
+/* ═══ TAB: AJIRA RECORDS (owner oversight of signed contracts) ═══ */
+function AjiraTab() {
+  const {t} = useT();
+  const [records,setRecords]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera" };
+
+  useEffect(()=>{
+    async function loadContracts(){
+      try {
+        const {supabase} = await import("../lib/supabase");
+        if(!supabase){setLoading(false);return;}
+        const {data} = await supabase.from("signed_contracts")
+          .select("id,doc_type,employee_name,employee_phone,signed_at")
+          .order("signed_at",{ascending:false}).limit(200);
+        setRecords(data||[]);
+      } catch(e){ console.warn("Contracts load failed:",e); }
+      setLoading(false);
+    }
+    loadContracts();
+  },[]);
+
+  async function viewRecord(id){
+    try {
+      const {supabase} = await import("../lib/supabase");
+      const {data} = await supabase.from("signed_contracts").select("*").eq("id",id).single();
+      if(!data) return;
+      const r = data;
+      const w = window.open("","_blank");
+      const fields = Object.entries(r.form_data||{}).map(([k,v])=>"<tr><td style='font-weight:bold;padding:5px 12px 5px 0;color:#555;font-size:12px;text-transform:uppercase'>"+k+"</td><td style='padding:5px 0'>"+(v||"—")+"</td></tr>").join("");
+      w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>"+r.employee_name+"</title><style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}@media print{button{display:none}}</style></head><body><h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1><p style='text-align:center;font-size:11px;color:#777'>Mkataba uliosainiwa / Signed contract</p><h2>Aina: "+(r.doc_type)+"</h2><h2>Taarifa</h2><table>"+fields+"</table><h2>Sahihi ya Mfanyakazi</h2>"+(r.employee_signature?"<img class='sig' src='"+r.employee_signature+"'>":"<p>—</p>")+"<h2>Sahihi ya Mwajiri</h2>"+(r.employer_signature?"<img class='sig' src='"+r.employer_signature+"'>":"<p>—</p>")+"<p style='margin-top:18px;font-size:12px;color:#777'>Ilisainiwa: "+new Date(r.signed_at).toLocaleString()+"</p><button onclick='window.print()' style='margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer'>🖨️ Print / PDF</button></body></html>");
+      w.document.close();
+    } catch(e){ alert("Error: "+e.message); }
+  }
+
+  const counts = {
+    total: records.length,
+    kudumu: records.filter(r=>r.doc_type==="kudumu").length,
+    sera: records.filter(r=>r.doc_type==="sera").length,
+  };
+
+  return (
+    <div style={{padding:"1rem"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+        <Chip label="Mikataba Yote" value={counts.total} color={t.gold} icon="📋"/>
+        <Chip label="Ya Kudumu" value={counts.kudumu} color={t.gr} icon="📜"/>
+        <Chip label="Sera Signed" value={counts.sera} color={t.bl} icon="📕"/>
+      </div>
+
+      <a href="/ajira" target="_blank" rel="noopener" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:12,textDecoration:"none",boxSizing:"border-box",boxShadow:"0 4px 16px "+t.gold+"44"}}>
+        ✍️ Fungua Ajira Digital / Open Signing App
+      </a>
+
+      <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Mikataba Iliyosainiwa / Signed Contracts</p>
+        {loading && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Inapakia... / Loading...</p>}
+        {!loading && records.length===0 && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Hakuna mikataba bado / No signed contracts yet</p>}
+        {records.map((r,i)=>(
+          <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
+            <span style={{fontSize:18}}>{(typeLabels[r.doc_type]||"📄").split(" ")[0]}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{r.employee_name}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{typeLabels[r.doc_type]||r.doc_type} · {new Date(r.signed_at).toLocaleDateString()}{r.employee_phone?" · "+r.employee_phone:""}</div>
+            </div>
+            <button onClick={()=>viewRecord(r.id)} style={{background:t.bl+"15",border:"1px solid "+t.bl+"40",color:t.bl,borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Angalia</button>
+          </div>
+        ))}
+      </Card>
+
+      <div style={{background:t.bg4,borderRadius:12,padding:"1rem",marginTop:10,border:"1px solid "+t.border}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.gold,marginBottom:6}}>💡 Jinsi inavyofanya kazi / How it works</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,lineHeight:1.6,margin:0}}>
+          Mpe msimamizi wa wafanyakazi link: <b>jikolabibijjj.com/ajira</b> na PIN yake (si ya Msimamizi). Yeye anaweza kusajili mikataba TU. Wewe unaona kila kitu hapa. / Give your staff manager the /ajira link with its own PIN. They can only sign contracts. You see everything here.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
   const [authed,setAuthed]=useState(false);
@@ -1101,6 +1180,7 @@ export default function AdminPage({onExit}) {
     {key:"menu",   icon:"ti-tools-kitchen-2", label:"Menyu",   sub:"Menu"},
     {key:"maagizo",icon:"ti-clipboard-list",  label:"Maagizo", sub:"Orders"},
     {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
+    {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
   ];
   if(!authed) return (
@@ -1135,6 +1215,7 @@ export default function AdminPage({onExit}) {
         {tab==="menu"   &&<MenuTab/>}
         {tab==="maagizo"&&<MaagizoTab/>}
         {tab==="wafanyakazi" &&<WafanyakaziTab/>}
+        {tab==="ajira" &&<AjiraTab/>}
         {tab==="backup" &&<BackupTab/>}
       </div>
     </ThemeCtx.Provider>
