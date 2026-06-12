@@ -65,7 +65,7 @@ input:focus,select:focus{border-color:#B8860B}
 
 <div class="pin-overlay" id="pinOverlay">
   <h2>🔐 Ajira Digital — Ingiza PIN</h2>
-  <div class="pin-dots" id="pinDots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
+  <div class="pin-dots" id="pinDots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
   <div class="pin-pad" id="pinPad"></div>
 </div>
 
@@ -88,8 +88,10 @@ input:focus,select:focus{border-color:#B8860B}
     <hr style="border:none;border-top:2px solid #B8860B;margin-top:8px">
   </div>
 
+  <!-- FORM AREA -->
   <div id="formArea"></div>
 
+  <!-- RECORDS AREA -->
   <div id="recordsArea" style="display:none">
     <div class="card">
       <h2>🗂️ Kumbukumbu za Mikataba / Signed Records</h2>
@@ -101,8 +103,9 @@ input:focus,select:focus{border-color:#B8860B}
 <script>
 const SB_URL = "https://dodnrnefvtbkzusquubu.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZG5ybmVmdnRia3p1c3F1dWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDU0ODMsImV4cCI6MjA5NDg4MTQ4M30.XpRGKWnaFJydgcysrckL2rgTuGvAH5f6zlEz_UXS6eM";
-const PIN = "5566";
+const PIN = "112021";
 
+/* ── PIN GATE ── */
 let pinEntry = "";
 const padKeys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 const pad = document.getElementById("pinPad");
@@ -113,7 +116,7 @@ padKeys.forEach(k=>{
     if(k==="⌫"){pinEntry=pinEntry.slice(0,-1);}
     else if(k!==""){pinEntry+=k;}
     document.querySelectorAll(".pin-dot").forEach((d,i)=>d.classList.toggle("on",i<pinEntry.length));
-    if(pinEntry.length===4){
+    if(pinEntry.length===6){
       if(pinEntry===PIN){document.getElementById("pinOverlay").style.display="none";}
       else{pinEntry="";setTimeout(()=>document.querySelectorAll(".pin-dot").forEach(d=>d.classList.remove("on")),300);}
     }
@@ -121,6 +124,7 @@ padKeys.forEach(k=>{
   pad.appendChild(b);
 });
 
+/* ── DOC TEMPLATES ── */
 const DOCS = {
   muda_mfupi: {
     title: "MKATABA WA AJIRA YA MUDA MFUPI / MSIMU",
@@ -226,6 +230,7 @@ function renderForm(docKey){
   initSig("sigEmployer");
 }
 
+/* ── SIGNATURE PADS ── */
 function initSig(id){
   const c = document.getElementById(id);
   const dpr = window.devicePixelRatio || 1;
@@ -257,6 +262,7 @@ function clearSig(id){
   p.reset();
 }
 
+/* ── SAVE TO SUPABASE ── */
 async function saveContract(){
   const st = document.getElementById("saveStatus");
   const d = DOCS[currentDoc];
@@ -296,6 +302,7 @@ async function saveContract(){
   }
 }
 
+/* ── RECORDS ── */
 const typeLabels = { muda_mfupi: "📄 Muda Mfupi", kudumu: "📜 Kudumu", sera: "📕 Sera" };
 async function loadRecords(){
   const list = document.getElementById("recordsList");
@@ -345,6 +352,7 @@ async function viewRecord(id){
   } catch(e){ alert("Hitilafu: " + e.message); }
 }
 
+/* init */
 renderForm("muda_mfupi");
 </script>
 </body>
