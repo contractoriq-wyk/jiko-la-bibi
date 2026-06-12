@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ajira Digital — Jiko La Bibi JJJ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#F0F4F8;color:#0B1F45;padding-bottom:40px}
+.hdr{background:linear-gradient(135deg,#0B1F45,#1a3a6e);color:#fff;text-align:center;padding:18px 14px;position:relative}
+.hdr h1{font-family:Georgia,serif;font-size:20px;color:#D4AF37}
+.hdr p{font-size:11px;opacity:0.7;margin-top:3px}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+.tabs{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap}
+.tabs button{flex:1;min-width:150px;padding:12px 8px;border:2px solid rgba(11,31,69,0.15);background:#fff;border-radius:12px;font-size:12px;font-weight:700;color:rgba(11,31,69,0.55);cursor:pointer}
+.tabs button.on{border-color:#B8860B;background:rgba(184,134,11,0.1);color:#B8860B}
+.card{background:#fff;border:1px solid rgba(11,31,69,0.1);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 12px rgba(11,31,69,0.06)}
+h2{font-family:Georgia,serif;font-size:16px;color:#B8860B;margin-bottom:10px}
+h3{font-size:13px;color:#0B1F45;margin:14px 0 8px;border-bottom:2px solid rgba(184,134,11,0.3);padding-bottom:4px}
+label{display:block;font-size:11px;font-weight:700;color:rgba(11,31,69,0.6);margin:8px 0 3px;text-transform:uppercase;letter-spacing:0.5px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid rgba(11,31,69,0.2);border-radius:10px;font-size:14px;color:#0B1F45;outline:none;font-family:Arial}
+input:focus,select:focus{border-color:#B8860B}
+.terms{background:rgba(11,31,69,0.03);border-radius:10px;padding:12px;font-size:13px;line-height:1.7;max-height:260px;overflow-y:auto;margin:8px 0}
+.terms li{margin:0 0 6px 18px}
+.terms ol li{margin-left:22px}
+.sig-area{border:2px dashed rgba(184,134,11,0.5);border-radius:12px;background:#FFFDF5;position:relative;margin-top:6px}
+.sig-area canvas{width:100%;height:130px;display:block;touch-action:none;border-radius:10px}
+.sig-clear{position:absolute;top:6px;right:6px;background:rgba(198,40,40,0.1);color:#C62828;border:1px solid rgba(198,40,40,0.3);border-radius:6px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px}
+.btn-gold{background:linear-gradient(135deg,#B8860B,#8a6008);color:#fff;box-shadow:0 4px 16px rgba(184,134,11,0.4)}
+.btn-green{background:linear-gradient(135deg,#1B7A20,#0d5012);color:#fff}
+.btn-grey{background:rgba(11,31,69,0.06);color:rgba(11,31,69,0.6)}
+.btn:disabled{background:rgba(11,31,69,0.08);color:rgba(11,31,69,0.3);cursor:default;box-shadow:none}
+.status{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;margin-top:10px;display:none}
+.status.ok{background:rgba(27,122,32,0.1);color:#1B7A20;display:block}
+.status.err{background:rgba(198,40,40,0.1);color:#C62828;display:block}
+.rec{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid rgba(11,31,69,0.06)}
+.rec:last-child{border-bottom:none}
+.rec-icon{width:36px;height:36px;border-radius:50%;background:rgba(184,134,11,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.rec-info{flex:1;min-width:0}
+.rec-name{font-size:13px;font-weight:700}
+.rec-meta{font-size:11px;color:rgba(11,31,69,0.5);margin-top:1px}
+.rec-btn{background:rgba(21,101,192,0.1);color:#1565C0;border:1px solid rgba(21,101,192,0.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+.pin-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0B1F45,#1565C0);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.pin-overlay h2{color:#fff;font-size:18px}
+.pin-dots{display:flex;gap:12px}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.3)}
+.pin-dot.on{background:#D4AF37;border-color:#D4AF37}
+.pin-pad{display:grid;grid-template-columns:repeat(3,70px);gap:10px}
+.pin-pad button{height:70px;border-radius:14px;font-size:22px;font-weight:700;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.15);cursor:pointer}
+@media print{
+  body{background:#fff;padding:0}
+  .hdr,.tabs,.no-print,.sig-clear,.btn,.status{display:none !important}
+  .card{box-shadow:none;border:none;page-break-inside:avoid}
+  .terms{max-height:none;overflow:visible;background:none}
+  input,select{border:none;border-bottom:1px solid #999;border-radius:0;font-weight:700}
+  .print-header{display:block !important;text-align:center;margin-bottom:18px}
+}
+.print-header{display:none}
+.print-header h1{font-family:Georgia,serif;font-size:20px;color:#0B1F45}
+.print-header p{font-size:11px;color:#666}
+</style>
+</head>
+<body>
+
+<div class="pin-overlay" id="pinOverlay">
+  <h2>🔐 Ajira Digital — Ingiza PIN</h2>
+  <div class="pin-dots" id="pinDots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
+  <div class="pin-pad" id="pinPad"></div>
+</div>
+
+<div class="hdr no-print">
+  <h1>Ajira Digital 📋</h1>
+  <p>Unyamwezini Jiko La Bibi JJJ — Mikataba na Sera bila Karatasi</p>
+</div>
+
+<div class="wrap">
+  <div class="tabs no-print">
+    <button class="on" data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
+    <button data-doc="kudumu" onclick="switchDoc('kudumu',this)">📜 Kudumu<br><small>Long-term</small></button>
+    <button data-doc="sera" onclick="switchDoc('sera',this)">📕 Sera za Kazi<br><small>Policies</small></button>
+    <button data-doc="records" onclick="switchDoc('records',this)">🗂️ Kumbukumbu<br><small>Records</small></button>
+  </div>
+
+  <div class="print-header">
+    <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
+    <p>Mbezi Luis, Goba Road, Dar es Salaam · WhatsApp: +255 655 709 024</p>
+    <hr style="border:none;border-top:2px solid #B8860B;margin-top:8px">
+  </div>
+
+  <div id="formArea"></div>
+
+  <div id="recordsArea" style="display:none">
+    <div class="card">
+      <h2>🗂️ Kumbukumbu za Mikataba / Signed Records</h2>
+      <div id="recordsList"><p style="text-align:center;color:rgba(11,31,69,0.4);padding:20px;font-size:13px">Inapakia... / Loading...</p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = "https://dodnrnefvtbkzusquubu.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZG5ybmVmdnRia3p1c3F1dWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDU0ODMsImV4cCI6MjA5NDg4MTQ4M30.XpRGKWnaFJydgcysrckL2rgTuGvAH5f6zlEz_UXS6eM";
+const PIN = "5566";
+
+let pinEntry = "";
+const padKeys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+const pad = document.getElementById("pinPad");
+padKeys.forEach(k=>{
+  const b=document.createElement("button");
+  b.textContent=k; b.style.visibility=k===""?"hidden":"visible";
+  b.onclick=()=>{
+    if(k==="⌫"){pinEntry=pinEntry.slice(0,-1);}
+    else if(k!==""){pinEntry+=k;}
+    document.querySelectorAll(".pin-dot").forEach((d,i)=>d.classList.toggle("on",i<pinEntry.length));
+    if(pinEntry.length===4){
+      if(pinEntry===PIN){document.getElementById("pinOverlay").style.display="none";}
+      else{pinEntry="";setTimeout(()=>document.querySelectorAll(".pin-dot").forEach(d=>d.classList.remove("on")),300);}
+    }
+  };
+  pad.appendChild(b);
+});
+
+const DOCS = {
+  muda_mfupi: {
+    title: "MKATABA WA AJIRA YA MUDA MFUPI / MSIMU",
+    fields: [
+      {k:"jina",l:"Jina Kamili *"},{k:"simu",l:"Namba ya Simu"},
+      {k:"anwani",l:"Anwani ya Makazi"},{k:"nida",l:"Namba ya NIDA"},
+      {k:"kazi",l:"Aina ya Kazi / Wadhifa"},{k:"kuanza",l:"Tarehe ya Kuanza",type:"date"},
+      {k:"kumaliza",l:"Tarehe ya Kumaliza",type:"date"},{k:"saa",l:"Saa za Kazi"},
+      {k:"malipo",l:"Kiasi cha Malipo (TZS)",type:"number"},
+      {k:"mzunguko",l:"Mzunguko wa Malipo",type:"select",opts:["Kwa siku","Kwa wiki","Kwa kazi"]},
+    ],
+    terms: `<ul>
+      <li>Ajira hii ni ya muda maalum na itaisha tarehe iliyotajwa bila taarifa ya ziada.</li>
+      <li>Mwajiri anaweza kusitisha mkataba wakati wowote kwa utovu wa nidhamu, ubora duni wa kazi, au ukosefu wa kazi.</li>
+      <li>Mfanyakazi atafuata Sera za Kazi za kampuni wakati wote.</li>
+      <li>Mfanyakazi atatunza usafi, heshima kwa wateja, na siri za biashara.</li>
+      <li>Malipo yatafanywa baada ya kazi kukamilika na kukaguliwa.</li>
+      <li>Ajira hii haileti haki ya ajira ya kudumu.</li>
+    </ul>`
+  },
+  kudumu: {
+    title: "MKATABA WA AJIRA YA KUDUMU",
+    fields: [
+      {k:"jina",l:"Jina Kamili *"},{k:"simu",l:"Namba ya Simu"},
+      {k:"anwani",l:"Anwani ya Makazi"},{k:"nida",l:"Namba ya NIDA"},
+      {k:"ndugu",l:"Ndugu wa Karibu (jina na simu)"},
+      {k:"wadhifa",l:"Wadhifa (mfano: Mpishi, Mhudumu)"},{k:"kuanza",l:"Tarehe ya Kuanza",type:"date"},
+      {k:"saa",l:"Saa za Kazi"},{k:"mapumziko",l:"Siku za Mapumziko"},
+      {k:"mshahara",l:"Mshahara wa Mwezi (TZS)",type:"number"},
+      {k:"tarehe_malipo",l:"Tarehe ya Malipo Kila Mwezi"},
+    ],
+    terms: `<ul>
+      <li><b>Majaribio:</b> Miezi 3 ya kwanza ni ya majaribio — kusitisha kwa taarifa ya siku 7.</li>
+      <li><b>Wajibu wa Mfanyakazi:</b> Kufika kwa wakati, bidii na uaminifu, usafi wa hali ya juu, heshima kwa wateja, kutunza siri za biashara, kutoa taarifa mapema asipoweza kufika.</li>
+      <li><b>Wajibu wa Mwajiri:</b> Kulipa mshahara kwa wakati, mazingira salama, heshima, na mafunzo.</li>
+      <li><b>Kusitisha:</b> Baada ya majaribio — taarifa ya maandishi ya siku 30 kwa upande wowote. Wizi, udanganyifu, au vurugu = kufukuzwa mara moja.</li>
+      <li>Mfanyakazi anayeondoka atarudisha vifaa vyote vya kampuni.</li>
+    </ul>`
+  },
+  sera: {
+    title: "SERA ZA KAZI ZA KAMPUNI — KUKUBALI",
+    fields: [
+      {k:"jina",l:"Jina la Mfanyakazi *"},{k:"simu",l:"Namba ya Simu"},
+      {k:"wadhifa",l:"Wadhifa"},
+    ],
+    terms: `<ol>
+      <li><b>Mahudhurio:</b> Fika dakika 15 kabla ya zamu. Kuchelewa bila taarifa mara 3/mwezi = onyo la maandishi.</li>
+      <li><b>Usafi wa Chakula:</b> Nawa mikono kwa sabuni, vaa mavazi safi, funika nywele, osha vyombo mara baada ya matumizi. Mgonjwa asishike chakula.</li>
+      <li><b>Wateja:</b> Mteja ni kipaumbele. Tabasamu na heshima. Usibishane — mwite Mwajiri.</li>
+      <li><b>Fedha:</b> Pesa zihesabiwe kila siku. Lipa Namba ithibitishwe kabla ya kukabidhi chakula. Wizi = kufukuzwa mara moja + hatua za kisheria.</li>
+      <li><b>Nidhamu:</b> Hakuna lugha chafu, ugomvi, pombe au madawa kazini. Simu za binafsi kwa kiasi.</li>
+      <li><b>Siri:</b> Mapishi, bei, mauzo, na taarifa za wateja ni siri — hata baada ya kuacha kazi.</li>
+      <li><b>Likizo:</b> Ruhusa ya dharura kwa huruma. Likizo ndefu ipangwe wiki 2 kabla.</li>
+      <li><b>Hatua za Kinidhamu:</b> 1) Onyo la mdomo 2) Onyo la maandishi 3) Kusimamishwa bila malipo 4) Kufukuzwa. Makosa makubwa yataruka hatua.</li>
+    </ol>
+    <p style="margin-top:8px"><b>Kwa kutia sahihi, ninathibitisha nimesoma, nimeelewa, na ninakubali kufuata Sera zote za Kazi.</b></p>`
+  }
+};
+
+let currentDoc = "muda_mfupi";
+let sigPads = {};
+
+function switchDoc(doc, btn){
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  currentDoc = doc;
+  if(doc==="records"){
+    document.getElementById("formArea").style.display="none";
+    document.getElementById("recordsArea").style.display="block";
+    loadRecords();
+  } else {
+    document.getElementById("formArea").style.display="block";
+    document.getElementById("recordsArea").style.display="none";
+    renderForm(doc);
+  }
+}
+
+function renderForm(docKey){
+  const d = DOCS[docKey];
+  let fieldsHtml = d.fields.map(f=>{
+    if(f.type==="select"){
+      return `<label>${f.l}</label><select id="f_${f.k}">${f.opts.map(o=>`<option>${o}</option>`).join("")}</select>`;
+    }
+    return `<label>${f.l}</label><input id="f_${f.k}" type="${f.type||"text"}" placeholder="${f.l.replace(" *","")}">`;
+  }).join("");
+
+  document.getElementById("formArea").innerHTML = `
+    <div class="card">
+      <h2>${d.title}</h2>
+      <h3>Taarifa / Details</h3>
+      ${fieldsHtml}
+      <h3>Masharti / Terms</h3>
+      <div class="terms">${d.terms}</div>
+      <h3>Sahihi ya Mfanyakazi / Employee Signature</h3>
+      <div class="sig-area"><canvas id="sigEmployee"></canvas><button class="sig-clear no-print" onclick="clearSig('sigEmployee')">Futa</button></div>
+      <h3>Sahihi ya Mwajiri / Employer Signature</h3>
+      <div class="sig-area"><canvas id="sigEmployer"></canvas><button class="sig-clear no-print" onclick="clearSig('sigEmployer')">Futa</button></div>
+      <button class="btn btn-gold no-print" onclick="saveContract()">💾 Hifadhi Mkataba / Save Contract</button>
+      <button class="btn btn-grey no-print" onclick="window.print()">🖨️ Print / PDF (hiari)</button>
+      <div class="status" id="saveStatus"></div>
+    </div>`;
+  initSig("sigEmployee");
+  initSig("sigEmployer");
+}
+
+function initSig(id){
+  const c = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  c.width = c.offsetWidth * dpr;
+  c.height = 130 * dpr;
+  const ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = "#0B1F45";
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  let drawing = false, hasInk = false;
+  function pos(e){
+    const r = c.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+  function start(e){ drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+  function move(e){ if(!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasInk = true; e.preventDefault(); }
+  function end(){ drawing = false; }
+  c.addEventListener("mousedown", start); c.addEventListener("mousemove", move); window.addEventListener("mouseup", end);
+  c.addEventListener("touchstart", start, {passive:false}); c.addEventListener("touchmove", move, {passive:false}); c.addEventListener("touchend", end);
+  sigPads[id] = { canvas: c, hasInk: () => hasInk, reset: () => { hasInk = false; } };
+}
+function clearSig(id){
+  const p = sigPads[id];
+  const ctx = p.canvas.getContext("2d");
+  ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+  p.reset();
+}
+
+async function saveContract(){
+  const st = document.getElementById("saveStatus");
+  const d = DOCS[currentDoc];
+  const formData = {};
+  d.fields.forEach(f => { formData[f.k] = (document.getElementById("f_"+f.k)||{}).value || ""; });
+  if(!formData.jina || !formData.jina.trim()){
+    st.className = "status err"; st.textContent = "× Jaza jina la mfanyakazi / Enter employee name"; return;
+  }
+  if(!sigPads.sigEmployee.hasInk()){
+    st.className = "status err"; st.textContent = "× Mfanyakazi lazima atie sahihi / Employee must sign"; return;
+  }
+  st.className = "status ok"; st.textContent = "Inahifadhi... / Saving...";
+  const rec = {
+    doc_type: currentDoc,
+    employee_name: formData.jina.trim(),
+    employee_phone: formData.simu || "",
+    form_data: formData,
+    employee_signature: sigPads.sigEmployee.canvas.toDataURL("image/png"),
+    employer_signature: sigPads.sigEmployer.hasInk() ? sigPads.sigEmployer.canvas.toDataURL("image/png") : null,
+  };
+  try {
+    const res = await fetch(SB_URL + "/rest/v1/signed_contracts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, Prefer: "return=minimal" },
+      body: JSON.stringify(rec)
+    });
+    if(res.ok){
+      st.className = "status ok";
+      st.textContent = "✓ Mkataba umehifadhiwa kikamilifu! / Contract saved successfully!";
+      setTimeout(()=>renderForm(currentDoc), 2500);
+    } else {
+      const t = await res.text();
+      st.className = "status err"; st.textContent = "× Hitilafu: " + t.slice(0,120);
+    }
+  } catch(e){
+    st.className = "status err"; st.textContent = "× Mtandao umekataa / Network error: " + e.message;
+  }
+}
+
+const typeLabels = { muda_mfupi: "📄 Muda Mfupi", kudumu: "📜 Kudumu", sera: "📕 Sera" };
+async function loadRecords(){
+  const list = document.getElementById("recordsList");
+  try {
+    const res = await fetch(SB_URL + "/rest/v1/signed_contracts?select=id,doc_type,employee_name,employee_phone,signed_at&order=signed_at.desc&limit=100", {
+      headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
+    });
+    const rows = await res.json();
+    if(!rows.length){ list.innerHTML = '<p style="text-align:center;color:rgba(11,31,69,0.4);padding:20px;font-size:13px">Hakuna mikataba bado / No signed contracts yet</p>'; return; }
+    list.innerHTML = rows.map(r => `
+      <div class="rec">
+        <div class="rec-icon">${(typeLabels[r.doc_type]||"📄").split(" ")[0]}</div>
+        <div class="rec-info">
+          <div class="rec-name">${r.employee_name}</div>
+          <div class="rec-meta">${typeLabels[r.doc_type]||r.doc_type} · ${new Date(r.signed_at).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})}${r.employee_phone?" · "+r.employee_phone:""}</div>
+        </div>
+        <button class="rec-btn" onclick="viewRecord('${r.id}')">Angalia</button>
+      </div>`).join("");
+  } catch(e){
+    list.innerHTML = '<p style="text-align:center;color:#C62828;padding:20px;font-size:13px">Hitilafu ya mtandao / Network error</p>';
+  }
+}
+
+async function viewRecord(id){
+  try {
+    const res = await fetch(SB_URL + "/rest/v1/signed_contracts?id=eq." + id + "&select=*", {
+      headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
+    });
+    const [r] = await res.json();
+    if(!r) return;
+    const d = DOCS[r.doc_type];
+    const w = window.open("", "_blank");
+    const fieldsHtml = d ? d.fields.map(f => `<tr><td style="font-weight:bold;padding:5px 12px 5px 0;color:#555;font-size:12px;text-transform:uppercase">${f.l.replace(" *","")}</td><td style="padding:5px 0">${(r.form_data||{})[f.k]||"—"}</td></tr>`).join("") : "";
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${r.employee_name} — ${d?d.title:r.doc_type}</title>
+      <style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.terms{font-size:13px;line-height:1.7}@media print{button{display:none}}</style></head><body>
+      <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
+      <p style="text-align:center;font-size:11px;color:#777">Mbezi Luis, Goba Road, Dar es Salaam · +255 655 709 024</p>
+      <h1 style="font-size:15px;margin-top:18px">${d?d.title:r.doc_type}</h1>
+      <h2>Taarifa</h2><table>${fieldsHtml}</table>
+      <h2>Masharti</h2><div class="terms">${d?d.terms:""}</div>
+      <h2>Sahihi ya Mfanyakazi</h2>${r.employee_signature?`<img class="sig" src="${r.employee_signature}">`:"<p>—</p>"}
+      <h2>Sahihi ya Mwajiri</h2>${r.employer_signature?`<img class="sig" src="${r.employer_signature}">`:"<p>—</p>"}
+      <p style="margin-top:18px;font-size:12px;color:#777">Ilisainiwa: ${new Date(r.signed_at).toLocaleString("sw-TZ")}</p>
+      <button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer">🖨️ Print / Save PDF</button>
+      </body></html>`);
+    w.document.close();
+  } catch(e){ alert("Hitilafu: " + e.message); }
+}
+
+renderForm("muda_mfupi");
+</script>
+</body>
+</html>
