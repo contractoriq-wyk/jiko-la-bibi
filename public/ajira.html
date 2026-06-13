@@ -41,13 +41,6 @@ input:focus,select:focus{border-color:#B8860B}
 .rec-name{font-size:13px;font-weight:700}
 .rec-meta{font-size:11px;color:rgba(11,31,69,0.5);margin-top:1px}
 .rec-btn{background:rgba(21,101,192,0.1);color:#1565C0;border:1px solid rgba(21,101,192,0.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
-.pin-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0B1F45,#1565C0);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-.pin-overlay h2{color:#fff;font-size:18px}
-.pin-dots{display:flex;gap:12px}
-.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.3)}
-.pin-dot.on{background:#D4AF37;border-color:#D4AF37}
-.pin-pad{display:grid;grid-template-columns:repeat(3,70px);gap:10px}
-.pin-pad button{height:70px;border-radius:14px;font-size:22px;font-weight:700;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.15);cursor:pointer}
 @media print{
   body{background:#fff;padding:0}
   .hdr,.tabs,.no-print,.sig-clear,.btn,.status{display:none !important}
@@ -63,21 +56,16 @@ input:focus,select:focus{border-color:#B8860B}
 </head>
 <body>
 
-<div class="pin-overlay" id="pinOverlay">
-  <h2>🔐 Ajira Digital — Ingiza PIN</h2>
-  <div class="pin-dots" id="pinDots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
-  <div class="pin-pad" id="pinPad"></div>
-</div>
-
 <div class="hdr no-print">
   <h1>Ajira Digital 📋</h1>
-  <p>Unyamwezini Jiko La Bibi JJJ — Mikataba na Sera bila Karatasi</p>
+  <p>Unyamwezini Jiko La Bibi JJJ — Karibu! Jaza fomu ya ajira hapa / Welcome! Apply &amp; sign here</p>
 </div>
 
 <div class="wrap">
   <div class="tabs no-print">
     <button class="on" data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
     <button data-doc="kudumu" onclick="switchDoc('kudumu',this)">📜 Kudumu<br><small>Long-term</small></button>
+    <button data-doc="ubia" onclick="switchDoc('ubia',this)">🤝 Ushirikiano<br><small>Partnership</small></button>
     <button data-doc="sera" onclick="switchDoc('sera',this)">📕 Sera za Kazi<br><small>Policies</small></button>
   </div>
 
@@ -90,33 +78,11 @@ input:focus,select:focus{border-color:#B8860B}
   <!-- FORM AREA -->
   <div id="formArea"></div>
 
-  <!-- RECORDS AREA -->
 </div>
 
 <script>
 const SB_URL = "https://dodnrnefvtbkzusquubu.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZG5ybmVmdnRia3p1c3F1dWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDU0ODMsImV4cCI6MjA5NDg4MTQ4M30.XpRGKWnaFJydgcysrckL2rgTuGvAH5f6zlEz_UXS6eM";
-const PIN = "112021";
-
-/* ── PIN GATE ── */
-let pinEntry = "";
-const padKeys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
-const pad = document.getElementById("pinPad");
-padKeys.forEach(k=>{
-  const b=document.createElement("button");
-  b.textContent=k; b.style.visibility=k===""?"hidden":"visible";
-  b.onclick=()=>{
-    if(k==="⌫"){pinEntry=pinEntry.slice(0,-1);}
-    else if(k!==""){pinEntry+=k;}
-    document.querySelectorAll(".pin-dot").forEach((d,i)=>d.classList.toggle("on",i<pinEntry.length));
-    if(pinEntry.length===6){
-      if(pinEntry===PIN){document.getElementById("pinOverlay").style.display="none";}
-      else{pinEntry="";setTimeout(()=>document.querySelectorAll(".pin-dot").forEach(d=>d.classList.remove("on")),300);}
-    }
-  };
-  pad.appendChild(b);
-});
-
 /* ── DOC TEMPLATES ── */
 const DOCS = {
   muda_mfupi: {
@@ -155,6 +121,28 @@ const DOCS = {
       <li><b>Wajibu wa Mwajiri:</b> Kulipa mshahara kwa wakati, mazingira salama, heshima, na mafunzo.</li>
       <li><b>Kusitisha:</b> Baada ya majaribio — taarifa ya maandishi ya siku 30 kwa upande wowote. Wizi, udanganyifu, au vurugu = kufukuzwa mara moja.</li>
       <li>Mfanyakazi anayeondoka atarudisha vifaa vyote vya kampuni.</li>
+    </ul>`
+  },
+  ubia: {
+    title: "MKATABA WA USHIRIKIANO WA MGAHAWA / RESTAURANT PARTNERSHIP",
+    fields: [
+      {k:"jina",l:"Jina la Mshirika / Partner Name *"},
+      {k:"biashara",l:"Jina la Biashara / Business Name"},
+      {k:"simu",l:"Namba ya Simu *"},
+      {k:"email",l:"Email (kama ipo)"},
+      {k:"aina",l:"Aina ya Ushirikiano",type:"select",opts:["Msambazaji wa Malighafi / Supplier","Matukio na Sherehe / Events & Catering","Usafirishaji / Delivery Partner","Uwekezaji / Investment","Matangazo / Marketing & Promotion","Nyingine / Other"]},
+      {k:"maelezo",l:"Maelezo ya Ushirikiano / Partnership Details"},
+      {k:"kuanza",l:"Tarehe ya Kuanza",type:"date"},
+      {k:"muda",l:"Muda wa Mkataba (mfano: miezi 6, mwaka 1)"},
+    ],
+    terms: `<ul>
+      <li>Pande zote mbili zitafanya kazi kwa uaminifu na uwazi kwa manufaa ya pande zote.</li>
+      <li>Masharti ya kifedha (bei, malipo, mgawanyo) yatajadiliwa na kuandikwa kwenye kiambatisho tofauti kabla ya kazi kuanza.</li>
+      <li>Kila upande utatunza siri za biashara za upande mwingine — mapishi, bei, wateja, na taarifa za fedha.</li>
+      <li>Mshirika atahakikisha ubora wa bidhaa/huduma zinazotolewa kulingana na viwango vya afya na usalama.</li>
+      <li>Upande wowote unaweza kusitisha ushirikiano kwa taarifa ya maandishi ya siku thelathini (30).</li>
+      <li>Migogoro itatatuliwa kwanza kwa mazungumzo ya pande zote kabla ya hatua nyingine yoyote.</li>
+      <li>Mkataba huu hauunda kampuni ya pamoja wala uwakilishi wa kisheria — kila upande unabaki huru.</li>
     </ul>`
   },
   sera: {
