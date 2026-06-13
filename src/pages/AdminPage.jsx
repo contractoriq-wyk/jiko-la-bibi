@@ -1090,7 +1090,7 @@ function AjiraTab() {
   const {t} = useT();
   const [records,setRecords]=useState([]);
   const [loading,setLoading]=useState(true);
-  const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera" };
+  const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera", ubia:"🤝 Ushirikiano" };
 
   useEffect(()=>{
     async function loadContracts(){
@@ -1123,7 +1123,7 @@ function AjiraTab() {
   const counts = {
     total: records.length,
     kudumu: records.filter(r=>r.doc_type==="kudumu").length,
-    sera: records.filter(r=>r.doc_type==="sera").length,
+    ubia: records.filter(r=>r.doc_type==="ubia").length,
   };
 
   return (
@@ -1131,7 +1131,7 @@ function AjiraTab() {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
         <Chip label="Mikataba Yote" value={counts.total} color={t.gold} icon="📋"/>
         <Chip label="Ya Kudumu" value={counts.kudumu} color={t.gr} icon="📜"/>
-        <Chip label="Sera Signed" value={counts.sera} color={t.bl} icon="📕"/>
+        <Chip label="Ushirikiano" value={counts.ubia} color={t.pu} icon="🤝"/>
       </div>
 
       <a href="/ajira" target="_blank" rel="noopener" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:12,textDecoration:"none",boxSizing:"border-box",boxShadow:"0 4px 16px "+t.gold+"44"}}>
