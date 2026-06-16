@@ -66,6 +66,7 @@ input:focus,select:focus{border-color:#B8860B}
     <button class="on" data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
     <button data-doc="kudumu" onclick="switchDoc('kudumu',this)">📜 Kudumu<br><small>Long-term</small></button>
     <button data-doc="ubia" onclick="switchDoc('ubia',this)">🤝 Ushirikiano<br><small>Partnership</small></button>
+    <button data-doc="wadau" onclick="switchDoc('wadau',this)">📋 Wadau Waanzilishi<br><small>Founders</small></button>
     <button data-doc="sera" onclick="switchDoc('sera',this)">📕 Sera za Kazi<br><small>Policies</small></button>
   </div>
 
@@ -145,6 +146,43 @@ const DOCS = {
       <li>Mkataba huu hauunda kampuni ya pamoja wala uwakilishi wa kisheria — kila upande unabaki huru.</li>
     </ul>`
   },
+  wadau: {
+    title: "MKATABA WA WADAU WAANZILISHI — MUUNDO WA VITENGO",
+    fields: [
+      {k:"jina",l:"Jina Kamili la Mdau / Partner Full Name *"},
+      {k:"simu",l:"Namba ya Simu *"},
+      {k:"nida",l:"Namba ya NIDA"},
+      {k:"kitengo",l:"Kitengo Unachosimamia / Department You Lead",type:"select",opts:[
+        "1. Operesheni za Jikoni / Kitchen Operations",
+        "2. Ugavi na Ununuzi / Supply & Procurement",
+        "3. Mauzo na Wateja / Sales & Customer Experience",
+        "4. Fedha na Utawala / Finance & Administration",
+        "5. Ukuaji na Masoko / Growth & Marketing"
+      ]},
+      {k:"mchango",l:"Mchango Wako (mtaji/ujuzi/kazi) / Your Contribution"},
+      {k:"tarehe",l:"Tarehe ya Makubaliano",type:"date"},
+    ],
+    terms: `<p style="margin-bottom:8px"><b>Sisi wadau watano (5) waanzilishi wa Unyamwezini Jiko La Bibi JJJ tunakubaliana kufuata muundo huu wa uongozi wa kijeshi (military-style) ili kufanikisha biashara yetu. Kila mdau anasimamia kitengo kimoja na anawajibika kikamilifu kwa kitengo chake.</b></p>
+    <p style="font-weight:bold;color:#B8860B;margin:10px 0 4px">VITENGO VITANO / THE FIVE DEPARTMENTS</p>
+    <ul>
+      <li><b>1. Operesheni za Jikoni / Kitchen Operations</b> — Kamanda wa Mstari wa Mbele. Anasimamia: ubora wa chakula, viwango vya mapishi, ratiba ya kupika, kiasi cha sahani, usafi wa jikoni, na usalama wa chakula. Malalamiko ya ladha au mwonekano wa chakula ni jukumu lake.</li>
+      <li><b>2. Ugavi na Ununuzi / Supply & Procurement</b> — Afisa wa Ugavi. Anasimamia: ununuzi wa malighafi kwa bei nzuri, wasambazaji, kufuatilia stoki ili kisiishe, kupunguza upotevu, na uhifadhi. Anaingiza gharama kwenye Msimamizi.</li>
+      <li><b>3. Mauzo na Wateja / Sales & Customer Experience</b> — Afisa wa Uwanjani. Anasimamia: kupokea na kutimiza oda (WhatsApp, ana kwa ana, tovuti), kasi ya huduma, kuridhika kwa wateja, na kushughulikia malalamiko. Anaishi kwenye tabu ya Maagizo.</li>
+      <li><b>4. Fedha na Utawala / Finance & Administration</b> — Mhazini Mkuu. Anasimamia: hesabu za pesa kila siku, kuingiza mauzo na gharama kwenye Msimamizi, mishahara (Wafanyakazi), malengo, mikataba (Ajira), leseni, na ripoti. Hakuna jambo la kifedha bila idhini yake.</li>
+      <li><b>5. Ukuaji na Masoko / Growth & Marketing</b> — Afisa wa Ujasusi na Upanuzi. Anasimamia: mitandao ya kijamii, matangazo, tovuti, ushirikiano na wadau wapya, bidhaa mpya, na kufuatilia washindani. Anajenga kesho wakati wengine wanaendesha leo.</li>
+    </ul>
+    <p style="font-weight:bold;color:#B8860B;margin:10px 0 4px">KANUNI ZA UONGOZI / LEADERSHIP RULES</p>
+    <ul>
+      <li>Kila mdau ana lane yake wazi — tatizo likitokea, tunajua nani anahusika. Hakuna "nilidhani wewe unashughulikia."</li>
+      <li>Kila mdau atajifunza misingi ya kitengo cha mwenzake (cross-training) — mtu akiugua, kazi isisimame.</li>
+      <li>Maamuzi makubwa ya biashara yatafanywa kwa makubaliano ya wadau wengi (angalau 3 kati ya 5).</li>
+      <li>Mgawanyo wa faida na majukumu ya kifedha yataandikwa kwenye kiambatisho tofauti na kukubaliwa na wote.</li>
+      <li>Kila mdau atatunza siri za biashara na kufanya kazi kwa uaminifu kwa manufaa ya wote.</li>
+      <li>Mdau anayetaka kuondoka atatoa taarifa ya maandishi ya siku sitini (60) na mgawanyo wake utajadiliwa kwa haki.</li>
+      <li>Migogoro itatatuliwa kwa mazungumzo ya pande zote kabla ya hatua nyingine yoyote.</li>
+    </ul>
+    <p style="margin-top:8px"><b>Kwa kutia sahihi, ninakubali kusimamia kitengo changu kwa uadilifu na kufuata kanuni zote za uongozi za Unyamwezini Jiko La Bibi JJJ.</b></p>`
+  },
   sera: {
     title: "SERA ZA KAZI ZA KAMPUNI — KUKUBALI",
     fields: [
@@ -160,6 +198,7 @@ const DOCS = {
       <li><b>Siri:</b> Mapishi, bei, mauzo, na taarifa za wateja ni siri — hata baada ya kuacha kazi.</li>
       <li><b>Likizo:</b> Ruhusa ya dharura kwa huruma. Likizo ndefu ipangwe wiki 2 kabla.</li>
       <li><b>Hatua za Kinidhamu:</b> 1) Onyo la mdomo 2) Onyo la maandishi 3) Kusimamishwa bila malipo 4) Kufukuzwa. Makosa makubwa yataruka hatua.</li>
+      <li><b>Muundo wa Uongozi:</b> Biashara ina vitengo vitano — Jikoni, Ugavi, Mauzo, Fedha, na Masoko. Kila mfanyakazi atajua kitengo chake na msimamizi wake, na atatoa taarifa kwa msimamizi wa kitengo chake. Heshima itolewe kwa wasimamizi wote.</li>
     </ol>
     <p style="margin-top:8px"><b>Kwa kutia sahihi, ninathibitisha nimesoma, nimeelewa, na ninakubali kufuata Sera zote za Kazi.</b></p>`
   }
