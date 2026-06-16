@@ -1090,7 +1090,7 @@ function AjiraTab() {
   const {t} = useT();
   const [records,setRecords]=useState([]);
   const [loading,setLoading]=useState(true);
-  const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera", ubia:"🤝 Ushirikiano" };
+  const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera", ubia:"🤝 Ushirikiano", wadau:"📋 Wadau Waanzilishi" };
 
   useEffect(()=>{
     async function loadContracts(){
