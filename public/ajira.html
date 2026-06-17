@@ -52,6 +52,24 @@ input:focus,select:focus{border-color:#B8860B}
 .print-header{display:none}
 .print-header h1{font-family:Georgia,serif;font-size:20px;color:#0B1F45}
 .print-header p{font-size:11px;color:#666}
+
+body::before{
+  content:"UNYAMWEZINI JIKO LA BIBI JJJ";
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(-35deg);
+  font-size:min(7vw,52px);
+  font-weight:900;
+  font-family:Georgia,serif;
+  color:rgba(184,134,11,0.08);
+  white-space:nowrap;
+  pointer-events:none;
+  z-index:0;
+  letter-spacing:2px;
+  user-select:none;
+}
+.wrap,.hdr{position:relative;z-index:1}
+
 </style>
 </head>
 <body>
