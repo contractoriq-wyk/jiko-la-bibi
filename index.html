@@ -1,6 +1,78 @@
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0B1F45">
-<link rel="apple-touch-icon" href="/logo.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jiko La Bibi">
+<!doctype html>
+<html lang="sw">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="google" content="notranslate" />
+    <title>Unyamwezini Jiko La Bibi JJJ — Taste of Tanzania in DAR</title>
+    <meta name="description" content="Unyamwezini Jiko La Bibi JJJ — chakula halisi cha Tanzania Dar es Salaam. Pickup, Delivery, Kula Hapa, na Matukio. Order authentic Tanzanian food in Dar es Salaam." />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Unyamwezini Jiko La Bibi JJJ" />
+    <meta property="og:description" content="Taste of Tanzania in DAR — Pickup, Delivery, Kula Hapa, na Matukio." />
+    <meta property="og:type" content="restaurant.restaurant" />
+    <meta property="og:image" content="/logo.png" />
+    <meta property="og:url" content="https://jikolabibijjj.com" />
+
+    <!-- PWA: Tap-to-install home screen shortcut -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0B1F45">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Jiko La Bibi">
+
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="stylesheet" href="/improvements.css" />
+
+    <!-- Tabler Icons (used throughout the app: ti-map-pin, ti-clock, etc.) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+
+    <!-- JSON-LD Restaurant schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Restaurant",
+      "name": "Unyamwezini Jiko La Bibi JJJ",
+      "image": "https://jikolabibijjj.com/logo.png",
+      "servesCuisine": "Tanzanian",
+      "priceRange": "TZS 500 - TZS 10000",
+      "telephone": "+255655709024",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Mbezi Luis, Goba Road",
+        "addressLocality": "Dar es Salaam",
+        "addressCountry": "TZ"
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+        "opens": "07:00",
+        "closes": "21:00"
+      },
+      "sameAs": [
+        "https://instagram.com/Unyamwezini",
+        "https://facebook.com/Unyamwezini",
+        "https://tiktok.com/@Unyamwezini"
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Social media injection -->
+    <script>
+      (function() {
+        try {
+          var footer = document.createElement('div');
+          footer.className = 'social-links';
+          footer.innerHTML = '<a href="https://instagram.com/Unyamwezini" target="_blank" rel="noopener">Instagram</a>' +
+            ' · <a href="https://facebook.com/Unyamwezini" target="_blank" rel="noopener">Facebook</a>' +
+            ' · <a href="https://tiktok.com/@Unyamwezini" target="_blank" rel="noopener">TikTok</a>';
+        } catch (e) {}
+      })();
+    </script>
+  </body>
+</html>
