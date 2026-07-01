@@ -200,6 +200,82 @@ function PolicyPage() {
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   PWA INSTALL PROMPT — "Tap n Go" home screen shortcut
+══════════════════════════════════════════════════════ */
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [show, setShow] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem("jiko-install-dismissed") === "1") { setDismissed(true); return; }
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (standalone) return; // already installed
+    setIsIOS(ios);
+    if (ios) { setTimeout(() => setShow(true), 2500); return; }
+    function onPrompt(e) {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShow(true);
+    }
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  function dismiss() {
+    setShow(false);
+    setDismissed(true);
+    localStorage.setItem("jiko-install-dismissed", "1");
+  }
+  async function install() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      setShow(false);
+    }
+  }
+
+  if (!show || dismissed) return null;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 76, left: 12, right: 12, zIndex: 90,
+      background: "linear-gradient(135deg,#0B1F45,#06132E)",
+      border: "1px solid rgba(212,175,55,0.4)", borderRadius: 16,
+      padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
+      boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+    }}>
+      <img src="/logo.png" alt="" width={40} height={40}
+        style={{ borderRadius: "50%", border: "2px solid #D4AF37", flexShrink: 0, objectFit: "cover" }}
+        onError={e => e.target.style.display = "none"} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: "#FDF5E4", fontSize: 13, fontWeight: 700, fontFamily: "sans-serif" }}>
+          {isIOS ? "Weka kwenye Home Screen" : "Sakinisha App Yetu"}
+        </div>
+        <div style={{ color: "rgba(253,245,228,0.6)", fontSize: 11, fontFamily: "sans-serif", marginTop: 2 }}>
+          {isIOS
+            ? <>Bonyeza <b>Share ⬆️</b> chini, kisha <b>"Add to Home Screen"</b></>
+            : "Tap n Go — fungua bila kutafuta kwenye browser"}
+        </div>
+      </div>
+      {!isIOS && (
+        <button onClick={install} style={{
+          background: "#D4AF37", color: "#0B1F45", border: "none", borderRadius: 10,
+          padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          fontFamily: "sans-serif", flexShrink: 0,
+        }}>Sakinisha</button>
+      )}
+      <button onClick={dismiss} style={{
+        background: "none", border: "none", color: "rgba(253,245,228,0.5)",
+        fontSize: 18, cursor: "pointer", flexShrink: 0, padding: "0 2px",
+      }}>✕</button>
+    </div>
+  );
+}
+
 export default function App() {
   const { count } = useCart();
   const [page, setPage] = useState("home");
@@ -249,6 +325,7 @@ export default function App() {
       {page==="policy" && <PolicyPage />}
       {page==="admin"  && <AdminPage onExit={() => navigate("home")} />}
 
+      <InstallPrompt/>
       <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />
 
       {configItem   && <ItemModal item={configItem} onClose={() => setConfigItem(null)} />}
