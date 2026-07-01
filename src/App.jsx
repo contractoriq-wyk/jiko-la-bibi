@@ -200,6 +200,32 @@ function PolicyPage() {
   );
 }
 
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error, info) { console.error("App crashed:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", padding: "2rem",
+          background: "#F9F3E8", textAlign: "center", fontFamily: "sans-serif" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🍽️</div>
+          <h2 style={{ color: "#0B1F45", fontSize: 18, marginBottom: 8 }}>Samahani, tatizo dogo</h2>
+          <p style={{ color: "rgba(11,31,69,0.6)", fontSize: 13, marginBottom: 16 }}>Something went wrong. Please refresh.</p>
+          <button onClick={() => window.location.reload()} style={{
+            background: "#0B1F45", color: "#D4AF37", border: "none", borderRadius: 10,
+            padding: "10px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            Onyesha Tena / Refresh
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /* ══════════════════════════════════════════════════════
    PWA INSTALL PROMPT — "Tap n Go" home screen shortcut
 ══════════════════════════════════════════════════════ */
@@ -207,38 +233,49 @@ function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [show, setShow] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem("jiko-install-dismissed") === "1") { setDismissed(true); return; }
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-    if (standalone) return; // already installed
-    setIsIOS(ios);
-    if (ios) { setTimeout(() => setShow(true), 2500); return; }
-    function onPrompt(e) {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShow(true);
+    try {
+      if (typeof window === "undefined") return;
+      if (localStorage.getItem("jiko-install-dismissed") === "1") return;
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent || "") && !window.MSStream;
+      let standalone = false;
+      try {
+        standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || !!window.navigator.standalone;
+      } catch (e) {}
+      if (standalone) return;
+      setIsIOS(ios);
+      if (ios) {
+        const timer = setTimeout(() => setShow(true), 2500);
+        return () => clearTimeout(timer);
+      }
+      function onPrompt(e) {
+        try { e.preventDefault(); } catch (err) {}
+        setDeferredPrompt(e);
+        setShow(true);
+      }
+      window.addEventListener("beforeinstallprompt", onPrompt);
+      return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    } catch (err) {
+      console.warn("InstallPrompt init failed:", err);
     }
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
   function dismiss() {
     setShow(false);
-    setDismissed(true);
-    localStorage.setItem("jiko-install-dismissed", "1");
+    try { localStorage.setItem("jiko-install-dismissed", "1"); } catch (e) {}
   }
   async function install() {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setShow(false);
-    }
+    try {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+      }
+    } catch (e) {}
+    setShow(false);
   }
 
-  if (!show || dismissed) return null;
+  if (!show) return null;
 
   return (
     <div style={{
@@ -250,15 +287,13 @@ function InstallPrompt() {
     }}>
       <img src="/logo.png" alt="" width={40} height={40}
         style={{ borderRadius: "50%", border: "2px solid #D4AF37", flexShrink: 0, objectFit: "cover" }}
-        onError={e => e.target.style.display = "none"} />
+        onError={e => { e.target.style.display = "none"; }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ color: "#FDF5E4", fontSize: 13, fontWeight: 700, fontFamily: "sans-serif" }}>
           {isIOS ? "Weka kwenye Home Screen" : "Sakinisha App Yetu"}
         </div>
         <div style={{ color: "rgba(253,245,228,0.6)", fontSize: 11, fontFamily: "sans-serif", marginTop: 2 }}>
-          {isIOS
-            ? <>Bonyeza <b>Share ⬆️</b> chini, kisha <b>"Add to Home Screen"</b></>
-            : "Tap n Go — fungua bila kutafuta kwenye browser"}
+          {isIOS ? "Bonyeza Share, kisha Add to Home Screen" : "Tap n Go \u2014 fungua bila kutafuta"}
         </div>
       </div>
       {!isIOS && (
@@ -314,6 +349,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <div style={{ minHeight:"100vh", background:"#F9F3E8", paddingBottom:"70px" }}>
       <style>{GLOBAL_CSS}</style>
 
@@ -332,5 +368,6 @@ export default function App() {
       {cartOpen     && <CartDrawer onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />}
       {checkoutOpen && <CheckoutModal onClose={() => setCheckoutOpen(false)} />}
     </div>
+    </ErrorBoundary>
   );
 }
