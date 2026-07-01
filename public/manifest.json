@@ -1,0 +1,51 @@
+{
+  "name": "Unyamwezini Jiko La Bibi JJJ",
+  "short_name": "Jiko La Bibi",
+  "description": "Taste of Tanzania in Dar — Order food, view menu, and more",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F9F3E8",
+  "theme_color": "#0B1F45",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Menyu / Menu",
+      "short_name": "Menyu",
+      "url": "/menu",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Oda / Order",
+      "short_name": "Oda",
+      "url": "/menu",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Ajira / Careers",
+      "short_name": "Ajira",
+      "url": "/ajira",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    }
+  ]
+}
