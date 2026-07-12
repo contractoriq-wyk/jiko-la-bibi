@@ -31,6 +31,13 @@ const DARK = {
 const ThemeCtx = createContext({t:LIGHT, dark:false, toggle:()=>{}});
 const useT = () => useContext(ThemeCtx);
 const fmt = n => "TZS " + Number(n||0).toLocaleString();
+const goalColor = (current, goal, t) => {
+  if(!goal || goal<=0) return t.gold;
+  const p = current/goal;
+  if(p>=0.9) return t.gr;
+  if(p>=0.5) return t.gold;
+  return t.rd;
+};
 const pct = (a,b) => b ? Math.min(100,Math.round(a/b*100)) : 0;
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -147,11 +154,26 @@ function IconBadge({emoji, color}) {
 }
 
 /* ═══ INTERACTIVE TREND CHART (drag to scrub) ═══ */
-function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
+function TrendChart({data, textColor, dimColor, bgColor, borderColor}) {
+  const {t} = useT();
   const [hoverIdx, setHoverIdx] = useState(null);
   const svgRef = useRef(null);
   const W = 300, H = 100, padTop = 10, padBottom = 18;
   const maxRev = Math.max(...data.map(d=>d.rev), 1);
+  const avg = data.reduce((s,d)=>s+d.rev,0) / Math.max(data.length,1);
+
+  function statusColor(rev){
+    if(avg<=0) return t.gold;
+    if(rev >= avg*1.1) return t.gr;
+    if(rev <= avg*0.85) return t.rd;
+    return t.gold;
+  }
+  function statusOf(rev){
+    if(avg<=0) return "neutral";
+    if(rev >= avg*1.1) return "good";
+    if(rev <= avg*0.85) return "bad";
+    return "neutral";
+  }
 
   function idxFromClientX(clientX) {
     const rect = svgRef.current.getBoundingClientRect();
@@ -168,10 +190,8 @@ function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
   const pts = data.map((d,i) => {
     const x = (i/(data.length-1)) * W;
     const y = H - padBottom - (d.rev/maxRev) * (H - padTop - padBottom);
-    return {x, y, ...d};
+    return {x, y, ...d, color: statusColor(d.rev), status: statusOf(d.rev)};
   });
-  const linePts = pts.map(p=>p.x+","+p.y).join(" ");
-  const areaPts = "0,"+(H-padBottom)+" "+linePts+" "+W+","+(H-padBottom);
   const active = hoverIdx !== null ? pts[hoverIdx] : null;
 
   return (
@@ -187,16 +207,28 @@ function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
         onTouchStart={handleMove}
         onTouchEnd={handleEnd}
       >
-        <polygon points={areaPts} fill={color} opacity="0.08"/>
-        <polyline points={linePts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* Average reference line */}
+        <line x1={0} y1={H-padBottom-(avg/maxRev)*(H-padTop-padBottom)} x2={W} y2={H-padBottom-(avg/maxRev)*(H-padTop-padBottom)} stroke={dimColor} strokeWidth="1" strokeDasharray="2,3" opacity="0.4"/>
+        {/* Per-segment colored area + line, colored by the ending point's performance vs average */}
+        {pts.slice(1).map((p,i)=>{
+          const prev = pts[i];
+          const segColor = p.color;
+          const areaPts = prev.x+","+(H-padBottom)+" "+prev.x+","+prev.y+" "+p.x+","+p.y+" "+p.x+","+(H-padBottom);
+          return (
+            <g key={i}>
+              <polygon points={areaPts} fill={segColor} opacity="0.10"/>
+              <line x1={prev.x} y1={prev.y} x2={p.x} y2={p.y} stroke={segColor} strokeWidth="2.2" strokeLinecap="round"/>
+            </g>
+          );
+        })}
         {pts.map((p,i)=>{
           if(i%5!==0 && i!==pts.length-1) return null;
-          return <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={color}/>;
+          return <circle key={i} cx={p.x} cy={p.y} r="2.8" fill={p.color}/>;
         })}
         {active && (
           <>
-            <line x1={active.x} y1={padTop-4} x2={active.x} y2={H-padBottom} stroke={color} strokeWidth="1" strokeDasharray="3,3" opacity="0.6"/>
-            <circle cx={active.x} cy={active.y} r="4.5" fill={color} stroke={bgColor} strokeWidth="2"/>
+            <line x1={active.x} y1={padTop-4} x2={active.x} y2={H-padBottom} stroke={active.color} strokeWidth="1" strokeDasharray="3,3" opacity="0.6"/>
+            <circle cx={active.x} cy={active.y} r="4.5" fill={active.color} stroke={bgColor} strokeWidth="2"/>
           </>
         )}
       </svg>
@@ -206,14 +238,19 @@ function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
           left: Math.min(Math.max(active.x/W*100, 12), 88)+"%",
           top: -8,
           transform: "translate(-50%, -100%)",
-          background: bgColor, border:"1px solid "+color, borderRadius:8,
+          background: bgColor, border:"1px solid "+active.color, borderRadius:8,
           padding:"6px 10px", whiteSpace:"nowrap", pointerEvents:"none",
           boxShadow:"0 4px 14px rgba(0,0,0,0.25)", zIndex:5,
         }}>
           <div style={{fontFamily:"sans-serif", fontSize:9, color:dimColor, textTransform:"uppercase"}}>{active.label}</div>
-          <div style={{fontFamily:"Georgia,serif", fontSize:13, fontWeight:900, color:color}}>{fmt(active.rev)}</div>
+          <div style={{fontFamily:"Georgia,serif", fontSize:13, fontWeight:900, color:active.color}}>{fmt(active.rev)}</div>
         </div>
       )}
+      <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:6}}>
+        <span style={{fontSize:9,color:dimColor,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr,display:"inline-block"}}/>Juu/Above</span>
+        <span style={{fontSize:9,color:dimColor,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gold,display:"inline-block"}}/>Wastani/Avg</span>
+        <span style={{fontSize:9,color:dimColor,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.rd,display:"inline-block"}}/>Chini/Below</span>
+      </div>
     </div>
   );
 }
@@ -506,7 +543,7 @@ function LeoTab({onGoTo}) {
       </div>
       {goals.daily>0&&(
         <Card style={{padding:"1rem",display:"flex",justifyContent:"space-around",alignItems:"center"}}>
-          <Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={t.gold} size={80}/>
+          <Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={goalColor(todayGross,goals.daily,t)} size={80}/>
           <div style={{textAlign:"center"}}><div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:900,color:t.gold}}>{fmt(goals.daily)}</div><div style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",marginTop:2}}>Daily Goal</div></div>
         </Card>
       )}
@@ -724,7 +761,10 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
   if(range==="custom"||prevGross===null||!loaded) return null;
   const period = getPreviousPeriod(); if(!period) return null;
   const change = prevGross>0 ? Math.round((currentGross-prevGross)/prevGross*100) : (currentGross>0?100:0);
+  const flat = Math.abs(change) <= 3;
   const up = change >= 0;
+  const trendColor = flat ? t.gold : (up ? t.gr : t.rd);
+  const arrow = flat ? "→" : (up ? "▲" : "▼");
   return (
     <Card style={{padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
       <div>
@@ -732,8 +772,8 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
         <div style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,marginTop:2}}>Previous: TZS {Number(prevGross).toLocaleString()}</div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:5}}>
-        <span style={{fontSize:18,color:up?t.gr:t.rd}}>{up?"▲":"▼"}</span>
-        <span style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:900,color:up?t.gr:t.rd}}>{Math.abs(change)}%</span>
+        <span style={{fontSize:18,color:trendColor}}>{arrow}</span>
+        <span style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:900,color:trendColor}}>{Math.abs(change)}%</span>
       </div>
     </Card>
   );
@@ -839,8 +879,8 @@ function RipodiTab() {
           <Chip label="Mauzo" value={sales.length} color={t.bl} icon="🧾"/>
         </div>
         <ComparisonRow range={range} cStart={cStart} cEnd={cEnd} currentGross={gross}/>
-        {wkGoal&&<Card style={{padding:"1rem"}}><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>Weekly Goal</p><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Wiki</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(wkGoal)}</span></div><Bar value={gross} max={wkGoal} color={t.bl}/></Card>}
-        {moGoal&&<Card style={{padding:"1rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Mwezi</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(moGoal)}</span></div><Bar value={gross} max={moGoal} color={t.gr}/></Card>}
+        {wkGoal&&<Card style={{padding:"1rem"}}><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>Weekly Goal</p><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Wiki</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:goalColor(gross,wkGoal,t)}}>{fmt(gross)} / {fmt(wkGoal)}</span></div><Bar value={gross} max={wkGoal} color={goalColor(gross,wkGoal,t)}/></Card>}
+        {moGoal&&<Card style={{padding:"1rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Mwezi</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:goalColor(gross,moGoal,t)}}>{fmt(gross)} / {fmt(moGoal)}</span></div><Bar value={gross} max={moGoal} color={goalColor(gross,moGoal,t)}/></Card>}
         {sales.length>0 || costs.length>0 ? <Card style={{padding:"1rem"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,background:t.bg4,borderRadius:10,padding:"8px 12px"}}>
             <i className="ti ti-search" style={{fontSize:15,color:t.dim2}}/>
@@ -974,9 +1014,14 @@ function MalengoTab() {
       {(goals.daily||goals.weekly||goals.monthly)>0&&<Card glow style={{padding:"1.4rem",marginBottom:10}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 16px"}}>Current Progress / Maendeleo ya Sasa</p>
         <div style={{display:"flex",justifyContent:"space-around"}}>
-          {goals.daily>0&&<Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={t.gold} size={82}/>}
-          {goals.weekly>0&&<Ring label="Wiki/Week" current={wkG} goal={goals.weekly} color={t.bl} size={82}/>}
-          {goals.monthly>0&&<Ring label="Mwezi/Month" current={moG} goal={goals.monthly} color={t.gr} size={82}/>}
+          {goals.daily>0&&<Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={goalColor(todayGross,goals.daily,t)} size={82}/>}
+          {goals.weekly>0&&<Ring label="Wiki/Week" current={wkG} goal={goals.weekly} color={goalColor(wkG,goals.weekly,t)} size={82}/>}
+          {goals.monthly>0&&<Ring label="Mwezi/Month" current={moG} goal={goals.monthly} color={goalColor(moG,goals.monthly,t)} size={82}/>}
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:14}}>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr,display:"inline-block"}}/>90%+</span>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gold,display:"inline-block"}}/>50-89%</span>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.rd,display:"inline-block"}}/>&lt;50%</span>
         </div>
       </Card>}
       {suggestion ? (
@@ -1240,7 +1285,7 @@ function AkiliTab() {
           <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:900,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{Math.abs(weekOverWeek.pct)}%</span>
           <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>wiki hii vs wiki iliyopita / this week vs last</span>
         </div>
-        <TrendChart data={trendData} color={t.gold} textColor={t.text} dimColor={t.dim2} bgColor={t.bg2} borderColor={t.border}/>
+        <TrendChart data={trendData} textColor={t.text} dimColor={t.dim2} bgColor={t.bg2} borderColor={t.border}/>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
           <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[0]?.label}</span>
           <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>👈 Gusa na buruta kuona tarehe / Touch &amp; drag to explore</span>
@@ -1290,8 +1335,10 @@ function AkiliTab() {
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Mauzo kwa Siku ya Wiki / Revenue by Weekday</p>
         {dayHourAnalysis.dayChart.map(d=>{
           const maxRev = Math.max(...dayHourAnalysis.dayChart.map(x=>x.rev),1);
+          const weekAvg = dayHourAnalysis.dayChart.reduce((s,x)=>s+x.rev,0)/dayHourAnalysis.dayChart.length;
           const dayEmojis = {"Jumapili":"😴","Jumatatu":"🌱","Jumanne":"⚡","Jumatano":"🔆","Alhamisi":"🚀","Ijumaa":"🎉","Jumamosi":"🏆"};
           const isBest = d.rev===maxRev && d.rev>0;
+          const perfColor = weekAvg<=0 ? t.gold : d.rev>=weekAvg*1.1 ? t.gr : d.rev<=weekAvg*0.85 ? t.rd : t.gold;
           return (
             <div key={d.name} style={{marginBottom:7}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:t.dim,marginBottom:2}}>
@@ -1300,12 +1347,17 @@ function AkiliTab() {
                   <span>{d.name}</span>
                   {isBest && <span style={{fontSize:9,background:t.gold+"20",color:t.gold,padding:"1px 6px",borderRadius:5,fontWeight:700}}>BORA</span>}
                 </span>
-                <span style={{fontWeight:700}}>{fmt(d.rev)}</span>
+                <span style={{fontWeight:700,color:perfColor}}>{fmt(d.rev)}</span>
               </div>
-              <Bar value={d.rev} max={maxRev} color={d.rev===maxRev?t.gold:t.bl} h={5}/>
+              <Bar value={d.rev} max={maxRev} color={perfColor} h={5}/>
             </div>
           );
         })}
+        <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:8}}>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr,display:"inline-block"}}/>Juu ya Wastani</span>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gold,display:"inline-block"}}/>Wastani</span>
+          <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.rd,display:"inline-block"}}/>Chini ya Wastani</span>
+        </div>
       </Card>}
       {slowMoving.length>0 && <Card style={{padding:"1rem"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><IconBadge emoji="⚠️" color={t.rd}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Bidhaa Zisizouzwa / Slow-Moving Items</p></div>
@@ -1354,7 +1406,7 @@ function AkiliTab() {
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
               <div style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.text}}>{fmt(item.rev)}</div>
-              {item.margin!==0&&<span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:item.margin>0?t.gr:t.rd}}>{item.margin}%</span>}
+              {item.margin!==0&&<span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:item.margin<0?t.rd:item.margin<15?t.gold:t.gr}}>{item.margin}%</span>}
             </div>
           </div>
           );
