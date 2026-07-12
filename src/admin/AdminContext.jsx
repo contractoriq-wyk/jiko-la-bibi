@@ -22,6 +22,7 @@ export function AdminProvider({ children }) {
   const [stock,setStock]=useState(()=>load("jiko-stock",{}));
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
   const [staff,setStaff]=useState(()=>load("jiko-staff",[]));
+  const [warnings,setWarnings]=useState(()=>load("jiko-warnings",[]));
   const [stockQty,setStockQtyState]=useState(()=>load("jiko-stock-qty",{}));
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
@@ -36,7 +37,7 @@ export function AdminProvider({ children }) {
     if (!supabase) return;
     const today = todayStr();
     async function init() {
-      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust},{data:stf}] = await Promise.all([
+      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust},{data:stf},{data:warn}] = await Promise.all([
         supabase.from("price_overrides").select("item_id,price"),
         supabase.from("stock_status").select("item_id,out_of_stock"),
         supabase.from("sales").select("*").eq("sale_date",today).order("created_at",{ascending:false}),
@@ -44,7 +45,8 @@ export function AdminProvider({ children }) {
         supabase.from("item_costs").select("*"),
         supabase.from("customer_orders").select("*").order("created_at",{ascending:false}).limit(100),
         supabase.from("custom_menu_items").select("*").eq("active",true).order("sort_order",{ascending:true}),
-        supabase.from("staff_members").select("*").eq("active",true).order("name",{ascending:true}),
+        supabase.from("staff_members").select("*").order("name",{ascending:true}),
+        supabase.from("staff_warnings").select("*").order("warning_date",{ascending:false}),
       ]);
       if(pr?.length){const p={};pr.forEach(r=>{p[r.item_id]=r.price;});setPrices(p);save("jiko-prices",p);}
       if(sr?.length){const s={};sr.forEach(r=>{s[r.item_id]=r.out_of_stock;});setStock(s);save("jiko-stock",s);}
@@ -60,6 +62,10 @@ export function AdminProvider({ children }) {
       if(stf && stf.length > 0) {
         setStaff(stf);
         save("jiko-staff", stf);
+      }
+      if(warn && warn.length > 0) {
+        setWarnings(warn);
+        save("jiko-warnings", warn);
       }
       setSynced(true);
     }
@@ -176,8 +182,9 @@ export function AdminProvider({ children }) {
     }
   }
   async function deleteStaff(id){
+    // Soft-delete: mark inactive but KEEP in list so employment history (incl. warnings) is preserved
     setStaff(prev => {
-      const next = prev.filter(s => s.id !== id);
+      const next = prev.map(s => s.id === id ? {...s, active:false} : s);
       save("jiko-staff", next);
       return next;
     });
@@ -186,9 +193,54 @@ export function AdminProvider({ children }) {
       catch(e){ console.warn("Staff delete failed:", e); }
     }
   }
+  async function reactivateStaff(id){
+    setStaff(prev => {
+      const next = prev.map(s => s.id === id ? {...s, active:true} : s);
+      save("jiko-staff", next);
+      return next;
+    });
+    if(supabase){
+      try { await supabase.from("staff_members").update({active:true, updated_at: new Date().toISOString()}).eq("id", id); }
+      catch(e){ console.warn("Staff reactivate failed:", e); }
+    }
+  }
   async function payStaff(staffMember, amount, date, period){
     const desc = staffMember.name + (period ? " — " + period : "");
     await recordCost("staff", desc, amount, date, "daily");
+  }
+
+  /* ─── STAFF WARNINGS / MAONYO — verbal or written policy violation records ─── */
+  async function addWarning(staffId, staffName, type, reason, date){
+    const localId = "tmp_"+Date.now();
+    const rec = {id:localId, staff_id:staffId, staff_name:staffName, type:type||"verbal", reason:reason||"", warning_date:date||today()};
+    setWarnings(prev => {
+      const next = [rec, ...prev];
+      save("jiko-warnings", next);
+      return next;
+    });
+    if(supabase){
+      try {
+        const {data} = await supabase.from("staff_warnings").insert({
+          staff_id: staffId, staff_name: staffName, type: type||"verbal", reason: reason||"", warning_date: date||today()
+        }).select().single();
+        if(data) setWarnings(prev => {
+          const next = prev.map(w => w.id===localId ? data : w);
+          save("jiko-warnings", next);
+          return next;
+        });
+      } catch(e){ console.warn("Add warning failed:", e); }
+    }
+  }
+  async function deleteWarning(id){
+    setWarnings(prev => {
+      const next = prev.filter(w=>w.id!==id);
+      save("jiko-warnings", next);
+      return next;
+    });
+    if(supabase){
+      try { await supabase.from("staff_warnings").delete().eq("id", id); }
+      catch(e){ console.warn("Delete warning failed:", e); }
+    }
   }
 
   /* ─── CUSTOM MENU ITEMS (added from Msimamizi) ─── */
@@ -267,7 +319,8 @@ export function AdminProvider({ children }) {
       setGoal,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
-      staff,addStaff,updateStaff,deleteStaff,payStaff,
+      staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
+      warnings,addWarning,deleteWarning,
       stockQty,setStockQty,
       fetchRange,exportAll,importAll,
       isOutOfStock:(id)=>!!stock[id],
