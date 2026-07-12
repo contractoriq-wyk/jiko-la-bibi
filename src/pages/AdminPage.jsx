@@ -857,21 +857,57 @@ function RipodiTab() {
 /* ═══ TAB 4: MALENGO ═══ */
 function MalengoTab() {
   const {t} = useT();
-  const {goals,setGoal,todayGross,allSales} = useAdmin();
+  const {goals,setGoal,todayGross,allSales,fetchRange} = useAdmin();
   const [dv,setDv]=useState(String(goals.daily||""));
   const [wv,setWv]=useState(String(goals.weekly||""));
   const [mv,setMv]=useState(String(goals.monthly||""));
   const [saved,setSaved]=useState(false);
+  const [growthPct,setGrowthPct]=useState(15);
+  const [loaded30,setLoaded30]=useState(false);
   // Keep input fields synced with saved goals so values persist when switching tabs
   useEffect(()=>{
     if(goals.daily) setDv(String(goals.daily));
     if(goals.weekly) setWv(String(goals.weekly));
     if(goals.monthly) setMv(String(goals.monthly));
   },[goals.daily,goals.weekly,goals.monthly]);
+  // Ensure last 30 days of real sales data is loaded so suggestions are based on actual history
+  useEffect(()=>{
+    if(!loaded30){
+      fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0], today());
+      setLoaded30(true);
+    }
+  },[loaded30]);
   const ws=new Date();ws.setDate(ws.getDate()-ws.getDay());
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   const wkG=allSales.filter(s=>s.sale_date>=ws.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
   const moG=allSales.filter(s=>s.sale_date>=ms.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
+
+  // ═══ DATA-DRIVEN GOAL SUGGESTIONS ═══
+  // Uses real sales history from the last 30 days to calculate a typical operating-day average,
+  // then applies a modest growth target so goals push the business forward (prosperity), not just repeat the past.
+  const suggestion = useMemo(()=>{
+    const cutoff = new Date(Date.now()-30*86400000).toISOString().split("T")[0];
+    const recent = allSales.filter(s=>s.sale_date>=cutoff);
+    const byDate = {};
+    recent.forEach(s=>{ byDate[s.sale_date]=(byDate[s.sale_date]||0)+s.total_price; });
+    const activeDays = Object.keys(byDate).length;
+    if(activeDays===0) return null;
+    const total30 = recent.reduce((s,r)=>s+r.total_price,0);
+    const avgPerActiveDay = total30/activeDays;
+    const growth = 1+(growthPct/100);
+    const sDaily = Math.round(avgPerActiveDay*growth/500)*500; // round to nearest 500 TZS
+    const sWeekly = sDaily*6;   // Jumatatu–Jumamosi, biashara imefungwa Jumapili
+    const sMonthly = sDaily*26; // ~6 siku/wiki x ~4.33 wiki
+    return { activeDays, avgPerActiveDay, sDaily, sWeekly, sMonthly };
+  },[allSales,growthPct]);
+
+  function applySuggestion(){
+    if(!suggestion) return;
+    setDv(String(suggestion.sDaily));
+    setWv(String(suggestion.sWeekly));
+    setMv(String(suggestion.sMonthly));
+  }
+
   function save(){if(dv)setGoal("daily",dv);if(wv)setGoal("weekly",wv);if(mv)setGoal("monthly",mv);setSaved(true);setTimeout(()=>setSaved(false),2000);}
   const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"2px solid ",background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   return (
@@ -884,6 +920,48 @@ function MalengoTab() {
           {goals.monthly>0&&<Ring label="Mwezi/Month" current={moG} goal={goals.monthly} color={t.gr} size={82}/>}
         </div>
       </Card>}
+      {suggestion ? (
+        <Card glow style={{padding:"1.2rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <IconBadge emoji="🎯" color={t.gold}/>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Pendekezo la Malengo / Suggested Goals</p>
+          </div>
+          <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,margin:"8px 0 12px",lineHeight:1.6}}>
+            Kutokana na siku {suggestion.activeDays} za mauzo halisi kati ya siku 30 zilizopita, wastani wa mauzo kwa siku ni <b style={{color:t.gold}}>{fmt(Math.round(suggestion.avgPerActiveDay))}</b>. / Based on {suggestion.activeDays} real operating days in the last 30, your average is {fmt(Math.round(suggestion.avgPerActiveDay))}/day.
+          </p>
+          <div style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px",color:t.dim2,marginBottom:6}}>
+              <span>Ukuaji Unaotarajiwa / Growth Target</span><span style={{fontWeight:700,color:t.gold}}>+{growthPct}%</span>
+            </div>
+            <div style={{display:"flex",gap:5}}>
+              {[5,10,15,20,25].map(p=>(
+                <button key={p} onClick={()=>setGrowthPct(p)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:"1px solid "+(growthPct===p?t.gold:t.border),background:growthPct===p?t.gold+"18":"transparent",color:growthPct===p?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:11,fontWeight:growthPct===p?700:400,cursor:"pointer"}}>+{p}%</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+            <div style={{background:t.gold+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Siku</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gold,marginTop:2}}>{fmt(suggestion.sDaily)}</div>
+            </div>
+            <div style={{background:t.bl+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Wiki</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.bl,marginTop:2}}>{fmt(suggestion.sWeekly)}</div>
+            </div>
+            <div style={{background:t.gr+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Mwezi</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gr,marginTop:2}}>{fmt(suggestion.sMonthly)}</div>
+            </div>
+          </div>
+          <button onClick={applySuggestion} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <i className="ti ti-wand"/> Tumia Pendekezo / Apply Suggestion
+          </button>
+        </Card>
+      ) : (
+        <Card style={{padding:"1.2rem"}}>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,margin:0,textAlign:"center"}}>Bado hakuna mauzo ya kutosha kufanya pendekezo. Rekodi mauzo zaidi kwanza. / Not enough sales data yet to suggest goals. Record more sales first.</p>
+        </Card>
+      )}
       <Card style={{padding:"1.2rem"}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 16px"}}>Set Goals / Weka Malengo</p>
         {[[t.gold,"Daily Goal / Lengo la Kila Siku",dv,setDv],[t.bl,"Weekly Goal / Lengo la Wiki",wv,setWv],[t.gr,"Monthly Goal / Lengo la Mwezi",mv,setMv]].map(([color,label,val,setter])=><div key={label} style={{marginBottom:14}}>
