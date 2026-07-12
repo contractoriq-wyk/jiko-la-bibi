@@ -368,7 +368,7 @@ function PinGate({onAuth}) {
 }
 
 /* ═══ DAILY WHATSAPP SUMMARY ═══ */
-function buildDailyReportText(daySales, gross, overhead, net, dateLabel) {
+function buildDailyReportText(daySales, gross, overhead, net, dateLabel, dayCosts) {
   const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
   const itemMap = {};
   daySales.forEach(s => {
@@ -379,6 +379,18 @@ function buildDailyReportText(daySales, gross, overhead, net, dateLabel) {
   const top = Object.entries(itemMap).sort((a,b)=>b[1].rev-a[1].rev).slice(0,3);
   const topLines = top.map(([name,d],i)=>`${i+1}. ${name} — x${d.qty} (${fmt(d.rev)})`).join("\n");
 
+  // Cost breakdown — shows WHERE the money went, so a negative balance is never a mystery
+  let costLines = "";
+  if (dayCosts && dayCosts.length > 0) {
+    const catMap = {};
+    dayCosts.forEach(c => {
+      const label = (c.description && c.description.trim()) || c.category || "Nyingine";
+      catMap[label] = (catMap[label]||0) + c.amount;
+    });
+    const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    costLines = sorted.map(([label,amt])=>`   • ${label}: ${fmt(amt)}`).join("\n");
+  }
+
   return [
     `📊 *RIPOTI — ${dateStr}*`,
     ``,
@@ -386,6 +398,9 @@ function buildDailyReportText(daySales, gross, overhead, net, dateLabel) {
     `💸 Gharama: ${fmt(overhead)}`,
     net !== null ? `📈 Faida Halisi: ${fmt(net)}` : ``,
     `🧾 Idadi ya Mauzo: ${daySales.length}`,
+    ``,
+    costLines ? `💸 *Chanzo cha Gharama / Cost Breakdown:*` : ``,
+    costLines,
     ``,
     top.length > 0 ? `⭐ *Bidhaa Bora:*` : ``,
     topLines,
@@ -414,7 +429,16 @@ function LeoTab({onGoTo}) {
     const fmtD=d=>d.toISOString().split("T")[0];
     if(reportMode==="today") return {start:today(),end:today(),label:"Leo — "+today()};
     if(reportMode==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);const ys=fmtD(y);return {start:ys,end:ys,label:"Jana — "+ys};}
-    if(reportMode==="week"){const s=new Date(now);s.setDate(s.getDate()-s.getDay());return {start:fmtD(s),end:today(),label:"Wiki Hii ("+fmtD(s)+" hadi "+today()+")"};}
+    if(reportMode==="week"){
+      // Wiki inaanza Jumatatu (Monday), inaisha Jumamosi (Saturday) — Jumapili (Sunday) haifanyi kazi
+      const day = now.getDay(); // 0=Sunday..6=Saturday
+      const mondayOffset = day===0 ? -6 : 1-day;
+      const monday = new Date(now); monday.setDate(now.getDate()+mondayOffset);
+      const saturday = new Date(monday); saturday.setDate(monday.getDate()+5);
+      const todayD = new Date(fmtD(now));
+      const end = todayD < saturday ? fmtD(todayD) : fmtD(saturday);
+      return {start:fmtD(monday),end,label:"Wiki Hii, Jumatatu-Jumamosi ("+fmtD(monday)+" hadi "+end+")"};
+    }
     if(reportMode==="month"){const s=new Date(now.getFullYear(),now.getMonth(),1);return {start:fmtD(s),end:today(),label:"Mwezi Huu ("+fmtD(s)+" hadi "+today()+")"};}
     return {start:reportDate,end:reportDate,label:reportDate};
   }
@@ -424,7 +448,8 @@ function LeoTab({onGoTo}) {
       const {start,end,label} = getReportRange();
       let text;
       if(start===today()&&end===today()){
-        text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label);
+        const todayCosts = allCosts.filter(c=>c.cost_date===today());
+        text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label,todayCosts);
       } else {
         await fetchRange(start,end);
         const rangeSales=allSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
@@ -432,7 +457,7 @@ function LeoTab({onGoTo}) {
         const gross=rangeSales.reduce((s,r)=>s+r.total_price,0);
         const overhead=rangeCosts.reduce((s,c)=>s+c.amount,0);
         const net=gross-overhead;
-        text = buildDailyReportText(rangeSales,gross,overhead,net,label);
+        text = buildDailyReportText(rangeSales,gross,overhead,net,label,rangeCosts);
       }
       setPreviewText(text);
     } finally { setWaSending(false); }
