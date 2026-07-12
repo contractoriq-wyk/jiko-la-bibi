@@ -1616,7 +1616,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
             {isFormer && <span style={{fontSize:9,background:t.dim2+"20",color:t.dim2,padding:"1px 7px",borderRadius:5,fontWeight:700,textTransform:"uppercase"}}>Zamani</span>}
-            {myWarnings.length>0 && <button onClick={()=>setShowWarnList(!showWarnList)} style={{fontSize:9,background:t.rd+"18",color:t.rd,padding:"1px 7px",borderRadius:5,fontWeight:700,border:"1px solid "+t.rd+"40",cursor:"pointer"}}>⚠️ {myWarnings.length}</span>}
+            {myWarnings.length>0 && <button onClick={()=>setShowWarnList(!showWarnList)} style={{fontSize:9,background:t.rd+"18",color:t.rd,padding:"1px 7px",borderRadius:5,fontWeight:700,border:"1px solid "+t.rd+"40",cursor:"pointer"}}>⚠️ {myWarnings.length}</button>}
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
           {s.monthly_salary>0 && !isFormer && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}{!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":""}</div>}
