@@ -1022,15 +1022,19 @@ function MalengoTab() {
   const [malengoPreview,setMalengoPreview]=useState(null);
   function pct(cur,goal){ return goal>0 ? Math.round(cur/goal*100) : 0; }
   function sendMalengoReport(){
+    // Use the CURRENT input box values (dv/wv/mv), not the saved `goals` object —
+    // this guarantees the report always matches exactly what's on screen right now,
+    // even if you haven't tapped "Save Goals" yet.
+    const dGoal = parseInt(dv)||0, wGoal = parseInt(wv)||0, mGoal = parseInt(mv)||0;
     const lines = [
       `🎯 *RIPOTI YA MALENGO / GOALS REPORT*`,
-      `📅 ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"long",year:"numeric",timeZone:"America/New_York"})} (EST/Baltimore)`,
+      `📅 ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"long",year:"numeric",timeZone:"America/New_York"})}`,
       ``,
     ];
-    if(goals.daily>0) lines.push(`📆 Leo/Today: ${fmt(todayGross)} / ${fmt(goals.daily)} (${pct(todayGross,goals.daily)}%)`);
-    if(goals.weekly>0) lines.push(`🗓️ Wiki/Week: ${fmt(wkG)} / ${fmt(goals.weekly)} (${pct(wkG,goals.weekly)}%)`);
-    if(goals.monthly>0) lines.push(`📈 Mwezi/Month: ${fmt(moG)} / ${fmt(goals.monthly)} (${pct(moG,goals.monthly)}%)`);
-    if(!goals.daily && !goals.weekly && !goals.monthly) lines.push(`Hakuna malengo yaliyowekwa bado. / No goals set yet.`);
+    if(dGoal>0) lines.push(`📆 Leo/Today: ${fmt(todayGross)} / ${fmt(dGoal)} (${pct(todayGross,dGoal)}%)`);
+    if(wGoal>0) lines.push(`🗓️ Wiki/Week: ${fmt(wkG)} / ${fmt(wGoal)} (${pct(wkG,wGoal)}%)`);
+    if(mGoal>0) lines.push(`📈 Mwezi/Month: ${fmt(moG)} / ${fmt(mGoal)} (${pct(moG,mGoal)}%)`);
+    if(!dGoal && !wGoal && !mGoal) lines.push(`Hakuna malengo yaliyowekwa bado. / No goals set yet.`);
     if(suggestion && suggestion.lastMonthTotal>0){
       lines.push(``,`🏆 ${suggestion.lastMonthName}: ${fmt(suggestion.lastMonthTotal)}`);
     }
