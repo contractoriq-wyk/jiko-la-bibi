@@ -282,11 +282,10 @@ function PinGate({onAuth}) {
 }
 
 /* ═══ DAILY WHATSAPP SUMMARY ═══ */
-function sendDailyWhatsApp(todaySales, gross, overhead, net) {
-  const dateStr = new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
-  // Top 3 items today by revenue
+function sendDailyWhatsApp(daySales, gross, overhead, net, dateLabel) {
+  const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
   const itemMap = {};
-  todaySales.forEach(s => {
+  daySales.forEach(s => {
     if (!itemMap[s.item_name]) itemMap[s.item_name] = {qty:0, rev:0};
     itemMap[s.item_name].qty += s.quantity;
     itemMap[s.item_name].rev += s.total_price;
@@ -295,14 +294,14 @@ function sendDailyWhatsApp(todaySales, gross, overhead, net) {
   const topLines = top.map(([name,d],i)=>`${i+1}. ${name} — x${d.qty} (${fmt(d.rev)})`).join("\n");
 
   const lines = [
-    `📊 *RIPOTI YA LEO — ${dateStr}*`,
+    `📊 *RIPOTI — ${dateStr}*`,
     ``,
     `💰 Mapato Ghafi: ${fmt(gross)}`,
     `💸 Gharama: ${fmt(overhead)}`,
     net !== null ? `📈 Faida Halisi: ${fmt(net)}` : ``,
-    `🧾 Idadi ya Mauzo: ${todaySales.length}`,
+    `🧾 Idadi ya Mauzo: ${daySales.length}`,
     ``,
-    top.length > 0 ? `⭐ *Bidhaa Bora Leo:*` : ``,
+    top.length > 0 ? `⭐ *Bidhaa Bora:*` : ``,
     topLines,
     ``,
     `— Unyamwezini Jiko La Bibi JJJ`,
@@ -314,8 +313,26 @@ function sendDailyWhatsApp(todaySales, gross, overhead, net) {
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
   const {t} = useT();
-  const {todaySales,todayGross,todayNet,todayOverhead,goals,updateSale,deleteSale} = useAdmin();
+  const {todaySales,todayGross,todayNet,todayOverhead,goals,updateSale,deleteSale,allSales,allCosts,fetchRange} = useAdmin();
   const [editRec,setEditRec]=useState(null);
+  const [reportDate,setReportDate]=useState(today());
+  const [waSending,setWaSending]=useState(false);
+  async function sendPickedDateWhatsApp(){
+    setWaSending(true);
+    try{
+      if(reportDate===today()){
+        sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet,"Leo — "+reportDate);
+      } else {
+        await fetchRange(reportDate,reportDate);
+        const daySales=allSales.filter(s=>s.sale_date===reportDate);
+        const dayCosts=allCosts.filter(c=>c.cost_date===reportDate);
+        const gross=daySales.reduce((s,r)=>s+r.total_price,0);
+        const overhead=dayCosts.reduce((s,c)=>s+c.amount,0);
+        const net=gross-overhead;
+        sendDailyWhatsApp(daySales,gross,overhead,net,reportDate);
+      }
+    } finally { setWaSending(false); }
+  }
   const h=new Date().getHours();
   const alerts=[];
   if(todayGross===0&&h>9) alerts.push({c:t.rd,msg:"No sales yet today — is the menu ready? / Hakuna mauzo bado leo."});
@@ -348,9 +365,15 @@ function LeoTab({onGoTo}) {
           <i className="ti ti-minus"/>Record Expense / Gharama
         </button>
       </div>
-      <button onClick={()=>sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet)} style={{width:"100%",background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-        <i className="ti ti-brand-whatsapp"/>Tuma Ripoti ya Leo / Send Today's Summary
-      </button>
+      <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Tuma Ripoti ya Siku Yoyote / Send Any Day's Report</p>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} max={today()} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none"}}/>
+        </div>
+        <button onClick={sendPickedDateWhatsApp} disabled={waSending} style={{width:"100%",background:waSending?t.bg4:"rgba(37,211,102,0.12)",color:waSending?t.dim2:"#25d366",border:"1px solid "+(waSending?t.border:"rgba(37,211,102,0.3)"),borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:waSending?"default":"pointer",marginTop:8,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <i className="ti ti-brand-whatsapp"/>{waSending?"Inapakia...":(reportDate===today()?"Tuma Ripoti ya Leo":"Tuma Ripoti ya "+reportDate)}
+        </button>
+      </Card>
       {todaySales.length>0&&(
         <Card style={{padding:"1rem"}}>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Today's Sales / Mauzo ya Leo ({todaySales.length}) — Tap ✏️ to edit</p>
