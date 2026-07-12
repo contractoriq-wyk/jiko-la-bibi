@@ -1218,17 +1218,40 @@ function AkiliTab() {
     const byDay = {}; // 0-6 -> revenue
     const byHour = {}; // 0-23 -> revenue
     s30.forEach(s=>{
-      if(!s.created_at) return;
-      const d = new Date(s.created_at);
-      const day = d.getDay();
-      const hour = d.getHours();
-      byDay[day] = (byDay[day]||0) + s.total_price;
-      byHour[hour] = (byHour[hour]||0) + s.total_price;
+      // "Best Day" MUST use sale_date (the intended/real day of the sale), never created_at.
+      // created_at is just when the record was TYPED IN — backfilling past sales in one sitting
+      // would otherwise wrongly attribute weeks of historical sales to whatever real-world day
+      // the data entry happened on (e.g. a bulk catch-up session on a Sunday making Sunday look
+      // like the best day, even if the business is closed Sundays).
+      if(s.sale_date){
+        const [y,m,d] = s.sale_date.split("-").map(Number);
+        const dayOfWeek = new Date(y, m-1, d).getDay(); // local calendar date, no UTC shift
+        byDay[dayOfWeek] = (byDay[dayOfWeek]||0) + s.total_price;
+      }
+      // "Best Hour" genuinely needs a clock time, which only created_at has. To avoid the same
+      // backfill-pollution problem, only count entries made the SAME calendar day they're for
+      // (i.e. real-time entries), so a bulk backfill session doesn't fake a "peak hour."
+      if(s.created_at && s.sale_date){
+        const entryDateStr = new Date(s.created_at).toISOString().split("T")[0];
+        if(entryDateStr===s.sale_date){
+          const hour = new Date(s.created_at).getHours();
+          byHour[hour] = (byHour[hour]||0) + s.total_price;
+        }
+      }
     });
     const dayEntries = Object.entries(byDay).sort((a,b)=>b[1]-a[1]);
-    const hourEntries = Object.entries(byHour).sort((a,b)=>b[1]-a[1]);
+    let hourEntries = Object.entries(byHour).sort((a,b)=>b[1]-a[1]);
+    let hourIsEstimate = false;
+    // Fallback: if literally no same-day (real-time) entries exist yet, use created_at hours anyway
+    // so the card isn't just empty — but flag it as an estimate since it may include backfilled data.
+    if(hourEntries.length===0){
+      const byHourFallback = {};
+      s30.forEach(s=>{ if(s.created_at){ const h=new Date(s.created_at).getHours(); byHourFallback[h]=(byHourFallback[h]||0)+s.total_price; } });
+      hourEntries = Object.entries(byHourFallback).sort((a,b)=>b[1]-a[1]);
+      hourIsEstimate = true;
+    }
     const bestDay = dayEntries[0] ? {name:dayNames[dayEntries[0][0]], rev:dayEntries[0][1]} : null;
-    const bestHour = hourEntries[0] ? {hour:parseInt(hourEntries[0][0]), rev:hourEntries[0][1]} : null;
+    const bestHour = hourEntries[0] ? {hour:parseInt(hourEntries[0][0]), rev:hourEntries[0][1], isEstimate:hourIsEstimate} : null;
     const dayChart = dayNames.map((name,i)=>({name,rev:byDay[i]||0}));
     return { bestDay, bestHour, dayChart };
   },[s30]);
@@ -1742,7 +1765,7 @@ function AkiliTab() {
           {dayHourAnalysis.bestHour && <div style={{flex:1,background:t.bl+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
             <div style={{fontSize:20,marginBottom:4}}>⏰</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:t.bl}}>{dayHourAnalysis.bestHour.hour}:00</div>
-            <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:2}}>Saa Bora / Peak Hour</div>
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:2}}>Saa Bora / Peak Hour{dayHourAnalysis.bestHour.isEstimate?" (makadirio)":""}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:3}}>{fmt(dayHourAnalysis.bestHour.rev)}</div>
           </div>}
         </div>
