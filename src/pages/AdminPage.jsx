@@ -315,21 +315,33 @@ function LeoTab({onGoTo}) {
   const {t} = useT();
   const {todaySales,todayGross,todayNet,todayOverhead,goals,updateSale,deleteSale,allSales,allCosts,fetchRange} = useAdmin();
   const [editRec,setEditRec]=useState(null);
+  const [reportMode,setReportMode]=useState("today");
   const [reportDate,setReportDate]=useState(today());
+  const [quickRange,setQuickRange]=useState("today");
   const [waSending,setWaSending]=useState(false);
+  function getReportRange(){
+    const now=new Date();
+    const fmtD=d=>d.toISOString().split("T")[0];
+    if(reportMode==="today") return {start:today(),end:today(),label:"Leo — "+today()};
+    if(reportMode==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);const ys=fmtD(y);return {start:ys,end:ys,label:"Jana — "+ys};}
+    if(reportMode==="week"){const s=new Date(now);s.setDate(s.getDate()-s.getDay());return {start:fmtD(s),end:today(),label:"Wiki Hii ("+fmtD(s)+" hadi "+today()+")"};}
+    if(reportMode==="month"){const s=new Date(now.getFullYear(),now.getMonth(),1);return {start:fmtD(s),end:today(),label:"Mwezi Huu ("+fmtD(s)+" hadi "+today()+")"};}
+    return {start:reportDate,end:reportDate,label:reportDate};
+  }
   async function sendPickedDateWhatsApp(){
     setWaSending(true);
     try{
-      if(reportDate===today()){
-        sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet,"Leo — "+reportDate);
+      const {start,end,label} = getReportRange();
+      if(start===today()&&end===today()){
+        sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet,label);
       } else {
-        await fetchRange(reportDate,reportDate);
-        const daySales=allSales.filter(s=>s.sale_date===reportDate);
-        const dayCosts=allCosts.filter(c=>c.cost_date===reportDate);
-        const gross=daySales.reduce((s,r)=>s+r.total_price,0);
-        const overhead=dayCosts.reduce((s,c)=>s+c.amount,0);
+        await fetchRange(start,end);
+        const rangeSales=allSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
+        const rangeCosts=allCosts.filter(c=>c.cost_date>=start&&c.cost_date<=end);
+        const gross=rangeSales.reduce((s,r)=>s+r.total_price,0);
+        const overhead=rangeCosts.reduce((s,c)=>s+c.amount,0);
         const net=gross-overhead;
-        sendDailyWhatsApp(daySales,gross,overhead,net,reportDate);
+        sendDailyWhatsApp(rangeSales,gross,overhead,net,label);
       }
     } finally { setWaSending(false); }
   }
@@ -366,12 +378,15 @@ function LeoTab({onGoTo}) {
         </button>
       </div>
       <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Tuma Ripoti ya Siku Yoyote / Send Any Day's Report</p>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} max={today()} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none"}}/>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Tuma Ripoti / Send Report</p>
+        <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
+          {[["today","Leo"],["yesterday","Jana"],["week","Wiki Hii"],["month","Mwezi Huu"],["custom","Chagua Tarehe"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setReportMode(k)} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+(reportMode===k?t.gold:t.border),background:reportMode===k?t.gold+"18":"transparent",color:reportMode===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",fontWeight:reportMode===k?700:400,cursor:"pointer"}}>{l}</button>
+          ))}
         </div>
-        <button onClick={sendPickedDateWhatsApp} disabled={waSending} style={{width:"100%",background:waSending?t.bg4:"rgba(37,211,102,0.12)",color:waSending?t.dim2:"#25d366",border:"1px solid "+(waSending?t.border:"rgba(37,211,102,0.3)"),borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:waSending?"default":"pointer",marginTop:8,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <i className="ti ti-brand-whatsapp"/>{waSending?"Inapakia...":(reportDate===today()?"Tuma Ripoti ya Leo":"Tuma Ripoti ya "+reportDate)}
+        {reportMode==="custom" && <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} max={today()} style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>}
+        <button onClick={sendPickedDateWhatsApp} disabled={waSending} style={{width:"100%",background:waSending?t.bg4:"rgba(37,211,102,0.12)",color:waSending?t.dim2:"#25d366",border:"1px solid "+(waSending?t.border:"rgba(37,211,102,0.3)"),borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:waSending?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <i className="ti ti-brand-whatsapp"/>{waSending?"Inapakia...":"Tuma Ripoti / Send Report"}
         </button>
       </Card>
       {todaySales.length>0&&(
@@ -1011,6 +1026,36 @@ function MenuTab() {
 function MaagizoTab() {
   const {t} = useT();
   const {orders,addOrder,updateOrderStatus} = useAdmin();
+  // Repeat customer detection — group all orders by phone number
+  const repeatCustomers = useMemo(()=>{
+    const byPhone = {};
+    orders.forEach(o=>{
+      const phone = (o.customer_phone||"").trim();
+      if(!phone) return;
+      if(!byPhone[phone]) byPhone[phone]={phone,name:o.customer_name,count:0,total:0,lastOrder:o.created_at||o.time};
+      byPhone[phone].count += 1;
+      byPhone[phone].total += (o.total||0);
+      const ts = o.created_at||o.time;
+      if(ts && ts>byPhone[phone].lastOrder) { byPhone[phone].lastOrder=ts; byPhone[phone].name=o.customer_name; }
+    });
+    return Object.values(byPhone).filter(c=>c.count>=2).sort((a,b)=>b.count-a.count).slice(0,10);
+  },[orders]);
+  const repeatCustomers = useMemo(()=>{
+    const byPhone = {};
+    orders.forEach(o=>{
+      const phone=(o.customer_phone||"").trim();
+      if(!phone) return;
+      if(!byPhone[phone]) byPhone[phone]={phone,name:o.customer_name,count:0,total:0,lastOrder:o.created_at||o.time};
+      byPhone[phone].count+=1;
+      byPhone[phone].total+=(o.total||0);
+      const ts=o.created_at||o.time;
+      if(ts && (!byPhone[phone].lastOrder || ts>byPhone[phone].lastOrder)){
+        byPhone[phone].lastOrder=ts;
+        byPhone[phone].name=o.customer_name;
+      }
+    });
+    return Object.values(byPhone).filter(c=>c.count>=2).sort((a,b)=>b.count-a.count).slice(0,10);
+  },[orders]);
   const [show,setShow]=useState(false);
   const [f,setF]=useState({customer:"",phone:"",items:"",total:"",service:"pickup",notes:""});
   const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
@@ -1024,6 +1069,23 @@ function MaagizoTab() {
         <Chip label="Pending" value={td.filter(o=>o.status==="pending").length} color={t.rd} icon="⏳"/>
         <Chip label="Done" value={td.filter(o=>o.status==="done").length} color={t.gr} icon="✅"/>
       </div>
+{repeatCustomers.length>0 && <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 4px"}}>⭐ Wateja wa Kudumu / Repeat Customers</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:"0 0 10px"}}>Wameagiza mara 2+ / Ordered 2+ times</p>
+        {repeatCustomers.map(c=>(
+          <div key={c.phone} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
+            <div style={{width:32,height:32,borderRadius:"50%",background:t.gold+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:t.gold,flexShrink:0}}>{c.count}×</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{c.name}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{c.phone}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold}}>{fmt(c.total)}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>jumla/total</div>
+            </div>
+          </div>
+        ))}
+      </Card>}
       <button onClick={()=>setShow(!show)} style={{width:"100%",background:t.gold,color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 16px "+t.gold+"44"}}>
         {show?"✕ Close / Funga":"+ New Order / Agizo Jipya"}
       </button>
