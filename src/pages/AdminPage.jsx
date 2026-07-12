@@ -855,6 +855,8 @@ function RipodiTab() {
 }
 
 /* ═══ TAB 4: MALENGO ═══ */
+const BUSINESS_START_DATE = "2026-05-06"; // Siku ya kwanza ya biashara / Business launch date
+
 function MalengoTab() {
   const {t} = useT();
   const {goals,setGoal,todayGross,allSales,fetchRange} = useAdmin();
@@ -863,42 +865,55 @@ function MalengoTab() {
   const [mv,setMv]=useState(String(goals.monthly||""));
   const [saved,setSaved]=useState(false);
   const [growthPct,setGrowthPct]=useState(15);
-  const [loaded30,setLoaded30]=useState(false);
+  const [loadedAll,setLoadedAll]=useState(false);
   // Keep input fields synced with saved goals so values persist when switching tabs
   useEffect(()=>{
     if(goals.daily) setDv(String(goals.daily));
     if(goals.weekly) setWv(String(goals.weekly));
     if(goals.monthly) setMv(String(goals.monthly));
   },[goals.daily,goals.weekly,goals.monthly]);
-  // Ensure last 30 days of real sales data is loaded so suggestions are based on actual history
+  // Load the ENTIRE sales history since business launch so suggestions reflect the whole journey, not just a recent slice
   useEffect(()=>{
-    if(!loaded30){
-      fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0], today());
-      setLoaded30(true);
+    if(!loadedAll){
+      fetchRange(BUSINESS_START_DATE, today());
+      setLoadedAll(true);
     }
-  },[loaded30]);
+  },[loadedAll]);
   const ws=new Date();ws.setDate(ws.getDate()-ws.getDay());
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   const wkG=allSales.filter(s=>s.sale_date>=ws.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
   const moG=allSales.filter(s=>s.sale_date>=ms.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
 
-  // ═══ DATA-DRIVEN GOAL SUGGESTIONS ═══
-  // Uses real sales history from the last 30 days to calculate a typical operating-day average,
-  // then applies a modest growth target so goals push the business forward (prosperity), not just repeat the past.
+  // ═══ DATA-DRIVEN GOAL SUGGESTIONS — ALL-TIME HISTORY ═══
+  // Daily/Weekly use the full lifetime average per operating day (since business launch).
+  // Monthly is anchored explicitly to LAST MONTH'S actual total, so the goal is literally "beat last month."
   const suggestion = useMemo(()=>{
-    const cutoff = new Date(Date.now()-30*86400000).toISOString().split("T")[0];
-    const recent = allSales.filter(s=>s.sale_date>=cutoff);
+    const all = allSales.filter(s=>s.sale_date>=BUSINESS_START_DATE);
     const byDate = {};
-    recent.forEach(s=>{ byDate[s.sale_date]=(byDate[s.sale_date]||0)+s.total_price; });
+    all.forEach(s=>{ byDate[s.sale_date]=(byDate[s.sale_date]||0)+s.total_price; });
     const activeDays = Object.keys(byDate).length;
     if(activeDays===0) return null;
-    const total30 = recent.reduce((s,r)=>s+r.total_price,0);
-    const avgPerActiveDay = total30/activeDays;
+    const totalAll = all.reduce((s,r)=>s+r.total_price,0);
+    const avgPerActiveDay = totalAll/activeDays;
     const growth = 1+(growthPct/100);
+
+    // Last full calendar month's actual total (for "beat last month")
+    const now = new Date();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const lmStartStr = lastMonthStart.toISOString().split("T")[0];
+    const lmEndStr = lastMonthEnd.toISOString().split("T")[0];
+    const lastMonthTotal = all.filter(s=>s.sale_date>=lmStartStr&&s.sale_date<=lmEndStr).reduce((s,r)=>s+r.total_price,0);
+    const lastMonthName = lastMonthStart.toLocaleDateString("sw-TZ",{month:"long",year:"numeric"});
+
     const sDaily = Math.round(avgPerActiveDay*growth/500)*500; // round to nearest 500 TZS
     const sWeekly = sDaily*6;   // Jumatatu–Jumamosi, biashara imefungwa Jumapili
-    const sMonthly = sDaily*26; // ~6 siku/wiki x ~4.33 wiki
-    return { activeDays, avgPerActiveDay, sDaily, sWeekly, sMonthly };
+    // Monthly goal: beat last month by the chosen growth % (falls back to daily*26 if no data last month yet)
+    const sMonthly = lastMonthTotal>0
+      ? Math.round(lastMonthTotal*growth/500)*500
+      : sDaily*26;
+
+    return { activeDays, avgPerActiveDay, sDaily, sWeekly, sMonthly, lastMonthTotal, lastMonthName, totalAll };
   },[allSales,growthPct]);
 
   function applySuggestion(){
@@ -927,8 +942,15 @@ function MalengoTab() {
             <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Pendekezo la Malengo / Suggested Goals</p>
           </div>
           <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,margin:"8px 0 12px",lineHeight:1.6}}>
-            Kutokana na siku {suggestion.activeDays} za mauzo halisi kati ya siku 30 zilizopita, wastani wa mauzo kwa siku ni <b style={{color:t.gold}}>{fmt(Math.round(suggestion.avgPerActiveDay))}</b>. / Based on {suggestion.activeDays} real operating days in the last 30, your average is {fmt(Math.round(suggestion.avgPerActiveDay))}/day.
+            Kutokana na siku {suggestion.activeDays} za mauzo halisi tangu {BUSINESS_START_DATE} (mauzo yote / all-time), wastani wa mauzo kwa siku ni <b style={{color:t.gold}}>{fmt(Math.round(suggestion.avgPerActiveDay))}</b>. Jumla ya mauzo yote: <b style={{color:t.gold}}>{fmt(suggestion.totalAll)}</b>.
           </p>
+          {suggestion.lastMonthTotal>0 && (
+            <div style={{background:t.gold+"10",border:"1px solid "+t.gold+"33",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+              <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim,margin:0,lineHeight:1.6}}>
+                🏆 <b>{suggestion.lastMonthName}</b> ulipata <b style={{color:t.gold}}>{fmt(suggestion.lastMonthTotal)}</b>. Lengo la mwezi huu limewekwa kupita hilo kwa +{growthPct}%. / Last month you made {fmt(suggestion.lastMonthTotal)} — this month's goal is set to beat it by +{growthPct}%.
+              </p>
+            </div>
+          )}
           <div style={{marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px",color:t.dim2,marginBottom:6}}>
               <span>Ukuaji Unaotarajiwa / Growth Target</span><span style={{fontWeight:700,color:t.gold}}>+{growthPct}%</span>
@@ -949,7 +971,7 @@ function MalengoTab() {
               <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.bl,marginTop:2}}>{fmt(suggestion.sWeekly)}</div>
             </div>
             <div style={{background:t.gr+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
-              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Mwezi</div>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Mwezi{suggestion.lastMonthTotal>0?" 🏆":""}</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gr,marginTop:2}}>{fmt(suggestion.sMonthly)}</div>
             </div>
           </div>
@@ -1541,16 +1563,31 @@ function BackupTab() {
 }
 
 /* ═══ TAB: WAFANYAKAZI & WAKANDARASI / STAFF & CONTRACTORS ═══ */
-function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay}) {
+function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay, myWarnings, onAddWarning, onDeleteWarning, onReactivate, isFormer}) {
   const {t} = useT();
   const isContractor = s.type === "contractor";
   const isSeasonal = s.type === "seasonal";
-  const accent = isContractor ? t.pu : (isSeasonal ? t.bl : t.gr);
+  const accent = isFormer ? t.dim2 : (isContractor ? t.pu : (isSeasonal ? t.bl : t.gr));
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   const setF = k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const setPF = k=>e=>setPayForm(p=>({...p,[k]:e.target.value}));
   const rateLabel = isContractor ? "Kiwango cha Kazi / Job Rate (TZS)" : "Mshahara wa Mwezi / Monthly Salary (TZS)";
   const periodLabel = isContractor ? "Kazi iliyofanyika / Job done" : (isSeasonal ? "Maelezo / Description" : "Kipindi / Period (e.g. Mwezi wa 6)");
+  const [showWarnForm,setShowWarnForm]=useState(false);
+  const [showWarnList,setShowWarnList]=useState(false);
+  const [warnType,setWarnType]=useState("verbal");
+  const [warnReason,setWarnReason]=useState("");
+  const [warnDate,setWarnDate]=useState(today());
+
+  function submitWarning(){
+    if(!warnReason.trim()) return;
+    onAddWarning(s.id, s.name, warnType, warnReason.trim(), warnDate);
+    setWarnReason("");
+    setWarnType("verbal");
+    setWarnDate(today());
+    setShowWarnForm(false);
+    setShowWarnList(true);
+  }
 
   if(isEditing) return (
     <Card glow style={{padding:"1rem",borderLeft:"3px solid "+accent}}>
@@ -1573,13 +1610,45 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
   );
 
   return (
-    <Card style={{padding:"12px 14px",borderLeft:"3px solid "+accent}}>
+    <Card style={{padding:"12px 14px",borderLeft:"3px solid "+accent,opacity:isFormer?0.7:1}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{s.name}</div>
+            {isFormer && <span style={{fontSize:9,background:t.dim2+"20",color:t.dim2,padding:"1px 7px",borderRadius:5,fontWeight:700,textTransform:"uppercase"}}>Zamani</span>}
+            {myWarnings.length>0 && <button onClick={()=>setShowWarnList(!showWarnList)} style={{fontSize:9,background:t.rd+"18",color:t.rd,padding:"1px 7px",borderRadius:5,fontWeight:700,border:"1px solid "+t.rd+"40",cursor:"pointer"}}>⚠️ {myWarnings.length}</span>}
+          </div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
-          {s.monthly_salary>0 && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}{!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":""}</div>}
+          {s.monthly_salary>0 && !isFormer && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{fmt(s.monthly_salary)}{!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":""}</div>}
           {s.notes && <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:3,fontStyle:"italic"}}>{s.notes}</div>}
+
+          {showWarnList && myWarnings.length>0 && <div style={{marginTop:8,padding:10,background:t.rd+"08",borderRadius:8,border:"1px solid "+t.rd+"22"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"0.5px",margin:"0 0 6px"}}>Maonyo / Warnings History</p>
+            {myWarnings.map(w=>(
+              <div key={w.id} style={{display:"flex",alignItems:"flex-start",gap:6,padding:"5px 0",borderBottom:"1px solid "+t.rd+"15"}}>
+                <span style={{fontSize:9,fontWeight:700,color:w.type==="written"?t.rd:t.gold,background:(w.type==="written"?t.rd:t.gold)+"18",padding:"1px 6px",borderRadius:4,flexShrink:0,marginTop:1}}>{w.type==="written"?"MAANDISHI":"MDOMO"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:t.text}}>{w.reason}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{w.warning_date}</div>
+                </div>
+                <button onClick={()=>onDeleteWarning(w.id)} style={{background:"none",border:"none",color:t.dim2,fontSize:12,cursor:"pointer",padding:0,flexShrink:0}}>✕</button>
+              </div>
+            ))}
+          </div>}
+
+          {showWarnForm && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
+            <div style={{display:"flex",gap:6,marginBottom:6}}>
+              <button onClick={()=>setWarnType("verbal")} style={{flex:1,padding:7,borderRadius:8,border:"1.5px solid "+(warnType==="verbal"?t.gold:t.border),background:warnType==="verbal"?t.gold+"18":"transparent",color:warnType==="verbal"?t.gold:t.dim2,fontSize:11,fontWeight:700,cursor:"pointer"}}>Onyo la Mdomo</button>
+              <button onClick={()=>setWarnType("written")} style={{flex:1,padding:7,borderRadius:8,border:"1.5px solid "+(warnType==="written"?t.rd:t.border),background:warnType==="written"?t.rd+"18":"transparent",color:warnType==="written"?t.rd:t.dim2,fontSize:11,fontWeight:700,cursor:"pointer"}}>Onyo la Maandishi</button>
+            </div>
+            <input value={warnReason} onChange={e=>setWarnReason(e.target.value)} placeholder="Sababu / Reason for warning *" style={{...inp,marginBottom:6,fontSize:12}}/>
+            <input type="date" value={warnDate} onChange={e=>setWarnDate(e.target.value)} style={{...inp,marginBottom:8,fontSize:12}}/>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={submitWarning} disabled={!warnReason.trim()} style={{flex:1,background:!warnReason.trim()?t.bg4:t.rd,color:!warnReason.trim()?t.dim2:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:!warnReason.trim()?"default":"pointer"}}>Hifadhi Onyo</button>
+              <button onClick={()=>setShowWarnForm(false)} style={{background:t.bg4,color:t.dim,border:"none",borderRadius:8,padding:"9px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>}
+
           {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
             <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
             <input value={payForm.period} onChange={setPF("period")} placeholder={periodLabel} style={{...inp,marginBottom:6,fontSize:12}}/>
@@ -1591,9 +1660,13 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
           </div>}
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-          <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
-          <button onClick={()=>onStartEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
-          <button onClick={()=>onDelete(s)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🗑️ Toa</button>
+          {!isFormer && <>
+            <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
+            <button onClick={()=>onStartEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
+            <button onClick={()=>setShowWarnForm(!showWarnForm)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>⚠️ Onyo</button>
+            <button onClick={()=>onDelete(s)} style={{background:t.dim2+"15",color:t.dim2,border:"1px solid "+t.dim2+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🚪 Toa</button>
+          </>}
+          {isFormer && <button onClick={()=>onReactivate(s)} style={{background:t.gr+"15",color:t.gr,border:"1px solid "+t.gr+"40",borderRadius:7,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>↩️ Rejesha</button>}
         </div>
       </div>
     </Card>
@@ -1602,10 +1675,11 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
 
 function WafanyakaziTab() {
   const {t} = useT();
-  const {staff, addStaff, updateStaff, deleteStaff, payStaff, allCosts} = useAdmin();
+  const {staff, addStaff, updateStaff, deleteStaff, payStaff, reactivateStaff, warnings, addWarning, deleteWarning, allCosts} = useAdmin();
   const [showAdd,setShowAdd]=useState(false);
   const [editingId,setEditingId]=useState(null);
   const [showPay,setShowPay]=useState(null);
+  const [showFormer,setShowFormer]=useState(false);
   const [form,setForm]=useState({name:"",role:"",type:"long_term",monthly_salary:"",phone:"",notes:""});
   const [payForm,setPayForm]=useState({amount:"",date:today(),period:""});
   const setF=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
@@ -1613,10 +1687,15 @@ function WafanyakaziTab() {
   const longTerm = staff.filter(s => s.type === "long_term" && s.active !== false);
   const seasonal = staff.filter(s => s.type === "seasonal" && s.active !== false);
   const contractors = staff.filter(s => s.type === "contractor" && s.active !== false);
+  const formerStaff = staff.filter(s => s.active === false);
   const totalPayroll = longTerm.reduce((s,m)=>s+(m.monthly_salary||0), 0);
   const m = new Date();
   const monthStart = new Date(m.getFullYear(), m.getMonth(), 1).toISOString().split("T")[0];
   const paidThisMonth = allCosts.filter(c => c.category==="staff" && c.cost_date>=monthStart).reduce((s,c)=>s+c.amount,0);
+  const totalWarnings = warnings.length;
+  const writtenWarnings = warnings.filter(w=>w.type==="written").length;
+
+  function warningsFor(staffId){ return warnings.filter(w=>w.staff_id===staffId); }
 
   function startAdd(){
     setForm({name:"",role:"",type:"long_term",monthly_salary:"",phone:"",notes:""});
@@ -1647,17 +1726,26 @@ function WafanyakaziTab() {
     setShowPay(null);
   }
   function delMember(s){
-    if(confirm("Toa "+s.name+" kwenye orodha? / Remove "+s.name+"?")) deleteStaff(s.id);
+    if(confirm("Toa "+s.name+" — atahamishwa kwenye Zamani/Former. Historia yote (maonyo, malipo) itabaki. / Remove "+s.name+"? They'll move to Former Staff — all history (warnings, payments) stays."))
+      deleteStaff(s.id);
+  }
+  function doReactivate(s){
+    if(confirm("Rejesha "+s.name+" kama mfanyakazi hai? / Restore "+s.name+" as active staff?"))
+      reactivateStaff(s.id);
   }
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
-  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay};
+  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay,onAddWarning:addWarning,onDeleteWarning:deleteWarning};
 
   return (
     <div style={{padding:"1rem"}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
         <Chip label="Mshahara Wote / Total Payroll" value={fmt(totalPayroll)} color={t.gold} icon="💼"/>
         <Chip label="Lipwa Mwezi Huu / Paid This Month" value={fmt(paidThisMonth)} color={t.gr} icon="✅"/>
       </div>
+      {totalWarnings>0 && <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <Chip label="Maonyo Yote / Total Warnings" value={totalWarnings} color={t.gold} icon="⚠️"/>
+        <Chip label="Maandishi / Written" value={writtenWarnings} color={t.rd} icon="📝"/>
+      </div>}
 
       <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 16px "+t.gold+"44"}}>
         + Ongeza Mfanyakazi au Mkandarasi / Add Staff or Contractor
@@ -1687,20 +1775,30 @@ function WafanyakaziTab() {
 
       {longTerm.length > 0 && <>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.gr,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🟢 Wa Kudumu / Long-term ({longTerm.length})</p>
-        {longTerm.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
+        {longTerm.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} myWarnings={warningsFor(s.id)} {...cardProps}/>)}
       </>}
 
       {seasonal.length > 0 && <>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.bl,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🔵 Wa Msimu / Seasonal ({seasonal.length})</p>
-        {seasonal.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
+        {seasonal.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} myWarnings={warningsFor(s.id)} {...cardProps}/>)}
       </>}
 
       {contractors.length > 0 && <>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.pu,textTransform:"uppercase",letterSpacing:"1.5px",margin:"14px 0 8px"}}>🟣 Wakandarasi / Contractors ({contractors.length})</p>
-        {contractors.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} {...cardProps}/>)}
+        {contractors.map(s => <StaffMemberCard key={s.id} s={s} isEditing={editingId===s.id} myWarnings={warningsFor(s.id)} {...cardProps}/>)}
       </>}
 
       {staff.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:13,padding:"2rem 0"}}>Hakuna mfanyakazi bado. / No staff yet. Tap + above to add.</p>}
+
+      {formerStaff.length > 0 && <div style={{marginTop:18}}>
+        <button onClick={()=>setShowFormer(!showFormer)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:t.bg4,border:"1px solid "+t.border,borderRadius:12,padding:"11px 14px",cursor:"pointer"}}>
+          <span style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.dim,textTransform:"uppercase",letterSpacing:"1px"}}>⚪ Zamani / Former Staff ({formerStaff.length})</span>
+          <i className={"ti ti-chevron-"+(showFormer?"up":"down")} style={{color:t.dim2}}/>
+        </button>
+        {showFormer && <div style={{marginTop:8}}>
+          {formerStaff.map(s => <StaffMemberCard key={s.id} s={s} isEditing={false} isFormer myWarnings={warningsFor(s.id)} onReactivate={doReactivate} {...cardProps}/>)}
+        </div>}
+      </div>}
     </div>
   );
 }
