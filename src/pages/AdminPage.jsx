@@ -44,7 +44,7 @@ const pct = (a,b) => b ? Math.min(100,Math.round(a/b*100)) : 0;
 const today = () => new Date().toISOString().split("T")[0];
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-7 · 12 Jul 2026, 15:53 UTC";
+const APP_VERSION = "V2.6-7 · 12 Jul 2026, 01:53 PM ET";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -274,6 +274,25 @@ function ThemeToggle() {
   );
 }
 
+/* ═══ STAFF COST VIEW TOGGLE — shared between Akili & Ripoti ═══ */
+function StaffCostToggle({includeStaffCosts, onToggle}) {
+  const {t} = useT();
+  return (
+    <Card style={{padding:"10px 14px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+        <IconBadge emoji={includeStaffCosts?"👥":"🏭"} color={includeStaffCosts?t.bl:t.gr}/>
+        <div style={{minWidth:0}}>
+          <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.text}}>{includeStaffCosts?"Na Wafanyakazi":"Bila Wafanyakazi"}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{includeStaffCosts?"With Staff Payments":"Without Staff Payments"}</div>
+        </div>
+      </div>
+      <div onClick={onToggle} style={{width:52,height:28,borderRadius:14,background:includeStaffCosts?t.bl:t.gr,cursor:"pointer",position:"relative",transition:"background 0.3s",flexShrink:0,padding:"0 3px",display:"flex",alignItems:"center"}}>
+        <div style={{width:22,height:22,borderRadius:"50%",background:"#fff",position:"absolute",left:includeStaffCosts?3:27,transition:"left 0.3s",boxShadow:"0 2px 6px rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{includeStaffCosts?"👥":"🏭"}</div>
+      </div>
+    </Card>
+  );
+}
+
 /* ═══ EDIT MODAL ═══ */
 function EditModal({type, record, onSave, onDelete, onClose}) {
   const {t} = useT();
@@ -414,7 +433,7 @@ function PinGate({onAuth}) {
 
 /* ═══ DAILY WHATSAPP SUMMARY ═══ */
 function buildDailyReportText(daySales, gross, overhead, net, dateLabel, dayCosts) {
-  const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
+  const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric", timeZone:"America/New_York"});
   const itemMap = {};
   daySales.forEach(s => {
     if (!itemMap[s.item_name]) itemMap[s.item_name] = {qty:0, rev:0};
@@ -790,7 +809,7 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
 /* ═══ TAB 3: RIPOTI ═══ */
 function RipodiTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,loading,goals,updateSale,deleteSale,updateCost,deleteCost} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,loading,goals,updateSale,deleteSale,updateCost,deleteCost,includeStaffCosts,toggleIncludeStaffCosts} = useAdmin();
   const [range,setRange]=useState("today");
   const [cStart,setCStart]=useState(today());
   const [cEnd,setCEnd]=useState(today());
@@ -810,7 +829,10 @@ function RipodiTab() {
   const sales=allSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
   const costs=allCosts.filter(c=>c.cost_date>=start&&c.cost_date<=end);
   const gross=sales.reduce((s,r)=>s+r.total_price,0);
-  const overhead=costs.reduce((s,c)=>s+c.amount,0);
+  const overheadFull=costs.reduce((s,c)=>s+c.amount,0);
+  const staffCostsInRange=costs.filter(c=>c.category==="staff").reduce((s,c)=>s+c.amount,0);
+  // "overhead" respects the Na/Bila Wafanyakazi toggle — drives the topline Gharama/Faida chips
+  const overhead = includeStaffCosts ? overheadFull : (overheadFull - staffCostsInRange);
   const itemCostTotal=sales.reduce((s,r)=>s+(itemCosts[r.item_id]||0)*r.quantity,0);
   const net=gross-itemCostTotal-overhead;
   const dailyCosts=costs.filter(c=>!c.spending_type||c.spending_type==="daily");
@@ -847,7 +869,7 @@ function RipodiTab() {
         @media print{button{display:none}}
       </style></head><body>
       <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
-      <p class="sub">Z-REPORT &middot; ${start}${start!==end?" hadi "+end:""} &middot; Imetengenezwa: ${new Date().toLocaleString("sw-TZ")}</p>
+      <p class="sub">Z-REPORT &middot; ${start}${start!==end?" hadi "+end:""} &middot; Imetengenezwa: ${new Date().toLocaleString("sw-TZ", {timeZone:"America/New_York"})}</p>
       <div class="totals">
         <div><div class="label">Mapato Ghafi</div><div class="val" style="color:#B8860B">${fmt(gross)}</div></div>
         <div><div class="label">Gharama</div><div class="val" style="color:#C62828">${fmt(overhead)}</div></div>
@@ -865,6 +887,7 @@ function RipodiTab() {
   }
   return (
     <div style={{padding:"1rem"}}>
+      <StaffCostToggle includeStaffCosts={includeStaffCosts} onToggle={toggleIncludeStaffCosts}/>
       <Card style={{padding:"1rem"}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Period / Kipindi</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:range==="custom"?8:0}}>
@@ -977,7 +1000,7 @@ function MalengoTab() {
     const lmStartStr = lastMonthStart.toISOString().split("T")[0];
     const lmEndStr = lastMonthEnd.toISOString().split("T")[0];
     const lastMonthTotal = all.filter(s=>s.sale_date>=lmStartStr&&s.sale_date<=lmEndStr).reduce((s,r)=>s+r.total_price,0);
-    const lastMonthName = lastMonthStart.toLocaleDateString("sw-TZ",{month:"long",year:"numeric"});
+    const lastMonthName = lastMonthStart.toLocaleDateString("sw-TZ",{month:"long",year:"numeric",timeZone:"America/New_York"});
 
     const sDaily = Math.round(avgPerActiveDay*growth/500)*500; // round to nearest 500 TZS
     const sWeekly = sDaily*6;   // Jumatatu–Jumamosi, biashara imefungwa Jumapili
@@ -1001,7 +1024,7 @@ function MalengoTab() {
   function sendMalengoReport(){
     const lines = [
       `🎯 *RIPOTI YA MALENGO / GOALS REPORT*`,
-      `📅 ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"long",year:"numeric"})}`,
+      `📅 ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"long",year:"numeric",timeZone:"America/New_York"})} (EST/Baltimore)`,
       ``,
     ];
     if(goals.daily>0) lines.push(`📆 Leo/Today: ${fmt(todayGross)} / ${fmt(goals.daily)} (${pct(todayGross,goals.daily)}%)`);
@@ -1103,22 +1126,25 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts} = useAdmin();
   const [loaded,setLoaded]=useState(false);
   useEffect(()=>{if(!loaded){fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0],today());setLoaded(true);}},[]);
   const s30=allSales.filter(s=>s.sale_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
   const c30=allCosts.filter(c=>c.cost_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
   const gross=s30.reduce((s,r)=>s+r.total_price,0);
-  const costs=c30.reduce((s,c)=>s+c.amount,0);
+  const costsFull30=c30.reduce((s,c)=>s+c.amount,0);
+  const staffCostsForToggle30 = c30.filter(c=>c.category==="staff").reduce((s,c)=>s+c.amount,0);
+  // "costs" respects the global Na/Bila Wafanyakazi toggle — drives Faida/Margin/Health/Insights view-wide
+  const costs = includeStaffCosts ? costsFull30 : (costsFull30 - staffCostsForToggle30);
   const net=gross-costs;
   const margin=gross?Math.round(net/gross*100):0;
 
   // ═══ DIRA YA BIASHARA / BUSINESS COMPASS ═══
   // Revenue-to-cost ratio, shown as "1 : X" — X<1 losing, ~1 breaking even, >1 progressing.
   // Two versions: including staff payroll, and excluding it (so payroll-heavy months don't hide operational health).
-  const staffCosts30 = c30.filter(c=>c.category==="staff").reduce((s,c)=>s+c.amount,0);
-  const costsExStaff30 = costs - staffCosts30;
-  const compassFull = costs>0 ? gross/costs : (gross>0?99:0);
+  const staffCosts30 = staffCostsForToggle30;
+  const costsExStaff30 = costsFull30 - staffCosts30;
+  const compassFull = costsFull30>0 ? gross/costsFull30 : (gross>0?99:0);
   const compassExStaff = costsExStaff30>0 ? gross/costsExStaff30 : (gross>0?99:0);
   const compassTarget = goals.compassTarget || 2;
   const [editingTarget,setEditingTarget]=useState(false);
@@ -1258,7 +1284,7 @@ function AkiliTab() {
   function sendAkiliReport(){
     const lines = [
       `🧠 *RIPOTI YA AKILI / ANALYTICS REPORT*`,
-      `📅 ${new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})} hadi ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})} (Siku 30)`,
+      `📅 ${new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})} hadi ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"})} (Siku 30)`,
       ``,
       `💰 Mapato Ghafi: ${fmt(gross)}`,
       `📈 Faida Halisi: ${fmt(net)}`,
@@ -1297,8 +1323,8 @@ function AkiliTab() {
     setSharingImage(true);
     try {
       const W=800, PAD=36;
-      const dateStart = new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"});
-      const dateEnd = new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"});
+      const dateStart = new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"});
+      const dateEnd = new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"});
       const rowsForItems = Math.min(itemStats.length,5);
       const rowsForSlow = Math.min(slowMoving.length,6);
       const rowsForInsights = insights.length;
@@ -1577,7 +1603,8 @@ function AkiliTab() {
 
   return (
     <div style={{padding:"1rem"}}>
-      <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})} hadi {new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})} (Siku 30 / Last 30 Days)</p>
+      <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})} hadi {new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"})} (Siku 30 / EST)</p>
+      <StaffCostToggle includeStaffCosts={includeStaffCosts} onToggle={toggleIncludeStaffCosts}/>
       {/* ═══ DIRA YA BIASHARA / BUSINESS COMPASS — bold, always visible, never masked ═══ */}
       <Card glow style={{padding:"1.3rem",marginBottom:10,border:"2px solid "+compassZone(costs>0?compassFull:1).color+"55"}}>
         <div style={{textAlign:"center",marginBottom:12}}>
@@ -1641,7 +1668,7 @@ function AkiliTab() {
       <Card style={{padding:"1rem"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
           <IconBadge emoji="📈" color={t.gold}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})})</p>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})})</p>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,margin:"10px 0 14px"}}>
           <span style={{fontSize:16,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{weekOverWeek.pct>=0?"▲":"▼"}</span>
@@ -1680,7 +1707,7 @@ function AkiliTab() {
         })}
       </Card>}
       {dayHourAnalysis.bestDay && <Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><IconBadge emoji="🕐" color={t.bl}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Siku na Saa Bora / Best Day &amp; Hour ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})})</p></div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><IconBadge emoji="🕐" color={t.bl}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Siku na Saa Bora / Best Day &amp; Hour ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})})</p></div>
         <div style={{display:"flex",gap:10,marginBottom:14}}>
           <div style={{flex:1,background:t.gold+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
             <div style={{fontSize:20,marginBottom:4}}>📅</div>
@@ -1950,7 +1977,7 @@ function MaagizoTab() {
       {td.map(o=><Card key={o.id} style={{padding:"12px 14px",borderLeft:"3px solid "+(o.status==="done"?t.gr:t.gold),opacity:o.status==="done"?0.65:1,display:"flex",gap:8,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{o.customer}</div>
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit"})} · {o.service}{o.phone?" · "+o.phone:""}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit",timeZone:"America/New_York"})} · {o.service}{o.phone?" · "+o.phone:""}</div>
           <div style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,marginTop:4}}>{o.items}</div>
           {o.total>0&&<div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.gold,marginTop:4}}>{fmt(o.total)}</div>}
         </div>
@@ -2340,7 +2367,7 @@ function AjiraTab() {
       const r = data;
       const w = window.open("","_blank");
       const fields = Object.entries(r.form_data||{}).map(([k,v])=>"<tr><td style='font-weight:bold;padding:5px 12px 5px 0;color:#555;font-size:12px;text-transform:uppercase'>"+k+"</td><td style='padding:5px 0'>"+(v||"—")+"</td></tr>").join("");
-      w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>"+r.employee_name+"</title><style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45;position:relative}body::before{content:'UNYAMWEZINI JIKO LA BIBI JJJ';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:46px;font-weight:900;font-family:Georgia,serif;color:rgba(184,134,11,0.10);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:2px}h1,h2,table,img,p{position:relative;z-index:1}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.confid{margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;font-style:italic;text-align:center}@media print{button{display:none}}</style></head><body><h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1><p style='text-align:center;font-size:11px;color:#777'>Mkataba uliosainiwa / Signed contract</p><h2>Aina: "+(r.doc_type)+"</h2><h2>Taarifa</h2><table>"+fields+"</table><h2>Sahihi ya Mfanyakazi</h2>"+(r.employee_signature?"<img class='sig' src='"+r.employee_signature+"'>":"<p>—</p>")+"<h2>Sahihi ya Mwajiri</h2>"+(r.employer_signature?"<img class='sig' src='"+r.employer_signature+"'>":"<p>—</p>")+"<p style='margin-top:18px;font-size:12px;color:#777'>Ilisainiwa: "+new Date(r.signed_at).toLocaleString()+"</p><p class='confid'>Hati ya Siri ya Unyamwezini Jiko La Bibi JJJ \u2014 Hairuhusiwi kunakili au kutumia bila idhini.</p><button onclick='window.print()' style='margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer'>🖨️ Print / PDF</button></body></html>");
+      w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>"+r.employee_name+"</title><style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45;position:relative}body::before{content:'UNYAMWEZINI JIKO LA BIBI JJJ';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:46px;font-weight:900;font-family:Georgia,serif;color:rgba(184,134,11,0.10);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:2px}h1,h2,table,img,p{position:relative;z-index:1}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.confid{margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;font-style:italic;text-align:center}@media print{button{display:none}}</style></head><body><h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1><p style='text-align:center;font-size:11px;color:#777'>Mkataba uliosainiwa / Signed contract</p><h2>Aina: "+(r.doc_type)+"</h2><h2>Taarifa</h2><table>"+fields+"</table><h2>Sahihi ya Mfanyakazi</h2>"+(r.employee_signature?"<img class='sig' src='"+r.employee_signature+"'>":"<p>—</p>")+"<h2>Sahihi ya Mwajiri</h2>"+(r.employer_signature?"<img class='sig' src='"+r.employer_signature+"'>":"<p>—</p>")+"<p style='margin-top:18px;font-size:12px;color:#777'>Ilisainiwa: "+new Date(r.signed_at).toLocaleString("en-US",{timeZone:"America/New_York"})+" (EST)</p><p class='confid'>Hati ya Siri ya Unyamwezini Jiko La Bibi JJJ \u2014 Hairuhusiwi kunakili au kutumia bila idhini.</p><button onclick='window.print()' style='margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer'>🖨️ Print / PDF</button></body></html>");
       w.document.close();
     } catch(e){ alert("Error: "+e.message); }
   }
@@ -2372,7 +2399,7 @@ function AjiraTab() {
             <span style={{fontSize:18}}>{(typeLabels[r.doc_type]||"📄").split(" ")[0]}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{r.employee_name}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{typeLabels[r.doc_type]||r.doc_type} · {new Date(r.signed_at).toLocaleDateString()}{r.employee_phone?" · "+r.employee_phone:""}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{typeLabels[r.doc_type]||r.doc_type} · {new Date(r.signed_at).toLocaleDateString("en-US",{timeZone:"America/New_York"})}{r.employee_phone?" · "+r.employee_phone:""}</div>
             </div>
             <button onClick={()=>viewRecord(r.id)} style={{background:t.bl+"15",border:"1px solid "+t.bl+"40",color:t.bl,borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Angalia</button>
           </div>
