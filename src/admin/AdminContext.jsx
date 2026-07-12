@@ -22,6 +22,7 @@ export function AdminProvider({ children }) {
   const [stock,setStock]=useState(()=>load("jiko-stock",{}));
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
   const [staff,setStaff]=useState(()=>load("jiko-staff",[]));
+  const [stockQty,setStockQtyState]=useState(()=>load("jiko-stock-qty",{}));
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
   const [itemCosts,setItemCosts]=useState({});
@@ -103,6 +104,11 @@ export function AdminProvider({ children }) {
     setLoading(false);
   },[]);
 
+  function setStockQty(itemId,qty){
+    const next={...stockQty,[itemId]:parseInt(qty)||0};
+    setStockQtyState(next);
+    save("jiko-stock-qty",next);
+  }
   function setGoal(type,amount){const next={...goals,[type]:parseInt(amount)||0};setGoalsState(next);save("jiko-goals",next);}
 
   async function recordSale(item,qty,service,date){
@@ -262,6 +268,7 @@ export function AdminProvider({ children }) {
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       staff,addStaff,updateStaff,deleteStaff,payStaff,
+      stockQty,setStockQty,
       fetchRange,exportAll,importAll,
       isOutOfStock:(id)=>!!stock[id],
     }}>
