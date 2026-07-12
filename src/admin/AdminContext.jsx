@@ -32,6 +32,12 @@ export function AdminProvider({ children }) {
   const [allCosts,setAllCosts]=useState([]);
   const [loading,setLoading]=useState(false);
   const [goals,setGoalsState]=useState(()=>load("jiko-goals",{daily:0,weekly:0,monthly:0,compassTarget:2}));
+  const [includeStaffCosts,setIncludeStaffCosts]=useState(()=>load("jiko-include-staff",true));
+  function toggleIncludeStaffCosts(){
+    const next = !includeStaffCosts;
+    setIncludeStaffCosts(next);
+    save("jiko-include-staff", next);
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -318,6 +324,7 @@ export function AdminProvider({ children }) {
       prices,stock,orders,todaySales,allSales,allCosts,todayCosts,itemCosts,synced,loading,goals,
       todayGross,todayNet,todayOverhead,todayItemCost,
       setGoal,setCompassTarget,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
+      includeStaffCosts,toggleIncludeStaffCosts,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
