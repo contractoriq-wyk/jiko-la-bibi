@@ -146,6 +146,78 @@ function IconBadge({emoji, color}) {
   );
 }
 
+/* ═══ INTERACTIVE TREND CHART (drag to scrub) ═══ */
+function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  const svgRef = React.useRef(null);
+  const W = 300, H = 100, padTop = 10, padBottom = 18;
+  const maxRev = Math.max(...data.map(d=>d.rev), 1);
+
+  function idxFromClientX(clientX) {
+    const rect = svgRef.current.getBoundingClientRect();
+    const relX = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const ratio = relX / rect.width;
+    return Math.round(ratio * (data.length - 1));
+  }
+  function handleMove(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    setHoverIdx(idxFromClientX(clientX));
+  }
+  function handleEnd() { setHoverIdx(null); }
+
+  const pts = data.map((d,i) => {
+    const x = (i/(data.length-1)) * W;
+    const y = H - padBottom - (d.rev/maxRev) * (H - padTop - padBottom);
+    return {x, y, ...d};
+  });
+  const linePts = pts.map(p=>p.x+","+p.y).join(" ");
+  const areaPts = "0,"+(H-padBottom)+" "+linePts+" "+W+","+(H-padBottom);
+  const active = hoverIdx !== null ? pts[hoverIdx] : null;
+
+  return (
+    <div style={{position:"relative", touchAction:"none"}}>
+      <svg
+        ref={svgRef}
+        width="100%" height={H} viewBox={"0 0 "+W+" "+H}
+        preserveAspectRatio="none"
+        style={{overflow:"visible", cursor:"pointer", userSelect:"none"}}
+        onMouseMove={handleMove}
+        onMouseLeave={handleEnd}
+        onTouchMove={handleMove}
+        onTouchStart={handleMove}
+        onTouchEnd={handleEnd}
+      >
+        <polygon points={areaPts} fill={color} opacity="0.08"/>
+        <polyline points={linePts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {pts.map((p,i)=>{
+          if(i%5!==0 && i!==pts.length-1) return null;
+          return <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={color}/>;
+        })}
+        {active && (
+          <>
+            <line x1={active.x} y1={padTop-4} x2={active.x} y2={H-padBottom} stroke={color} strokeWidth="1" strokeDasharray="3,3" opacity="0.6"/>
+            <circle cx={active.x} cy={active.y} r="4.5" fill={color} stroke={bgColor} strokeWidth="2"/>
+          </>
+        )}
+      </svg>
+      {active && (
+        <div style={{
+          position:"absolute",
+          left: Math.min(Math.max(active.x/W*100, 12), 88)+"%",
+          top: -8,
+          transform: "translate(-50%, -100%)",
+          background: bgColor, border:"1px solid "+color, borderRadius:8,
+          padding:"6px 10px", whiteSpace:"nowrap", pointerEvents:"none",
+          boxShadow:"0 4px 14px rgba(0,0,0,0.25)", zIndex:5,
+        }}>
+          <div style={{fontFamily:"sans-serif", fontSize:9, color:dimColor, textTransform:"uppercase"}}>{active.label}</div>
+          <div style={{fontFamily:"Georgia,serif", fontSize:13, fontWeight:900, color:color}}>{fmt(active.rev)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ═══ THEME TOGGLE ═══ */
 function ThemeToggle() {
   const {dark, toggle, t} = useT();
@@ -296,7 +368,7 @@ function PinGate({onAuth}) {
 }
 
 /* ═══ DAILY WHATSAPP SUMMARY ═══ */
-function sendDailyWhatsApp(daySales, gross, overhead, net, dateLabel) {
+function buildDailyReportText(daySales, gross, overhead, net, dateLabel) {
   const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
   const itemMap = {};
   daySales.forEach(s => {
@@ -307,7 +379,7 @@ function sendDailyWhatsApp(daySales, gross, overhead, net, dateLabel) {
   const top = Object.entries(itemMap).sort((a,b)=>b[1].rev-a[1].rev).slice(0,3);
   const topLines = top.map(([name,d],i)=>`${i+1}. ${name} — x${d.qty} (${fmt(d.rev)})`).join("\n");
 
-  const lines = [
+  return [
     `📊 *RIPOTI — ${dateStr}*`,
     ``,
     `💰 Mapato Ghafi: ${fmt(gross)}`,
@@ -320,9 +392,12 @@ function sendDailyWhatsApp(daySales, gross, overhead, net, dateLabel) {
     ``,
     `— Unyamwezini Jiko La Bibi JJJ`,
   ].filter(l => l !== undefined && l !== "").join("\n");
-
-  window.open("https://wa.me/?text=" + encodeURIComponent(lines), "_blank");
 }
+
+function sendTextToWhatsApp(text) {
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
 
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
@@ -333,6 +408,7 @@ function LeoTab({onGoTo}) {
   const [reportDate,setReportDate]=useState(today());
   const [quickRange,setQuickRange]=useState("today");
   const [waSending,setWaSending]=useState(false);
+  const [previewText,setPreviewText]=useState(null);
   function getReportRange(){
     const now=new Date();
     const fmtD=d=>d.toISOString().split("T")[0];
@@ -346,8 +422,9 @@ function LeoTab({onGoTo}) {
     setWaSending(true);
     try{
       const {start,end,label} = getReportRange();
+      let text;
       if(start===today()&&end===today()){
-        sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet,label);
+        text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label);
       } else {
         await fetchRange(start,end);
         const rangeSales=allSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
@@ -355,8 +432,9 @@ function LeoTab({onGoTo}) {
         const gross=rangeSales.reduce((s,r)=>s+r.total_price,0);
         const overhead=rangeCosts.reduce((s,c)=>s+c.amount,0);
         const net=gross-overhead;
-        sendDailyWhatsApp(rangeSales,gross,overhead,net,label);
+        text = buildDailyReportText(rangeSales,gross,overhead,net,label);
       }
+      setPreviewText(text);
     } finally { setWaSending(false); }
   }
   const h=new Date().getHours();
@@ -400,7 +478,7 @@ function LeoTab({onGoTo}) {
         </div>
         {reportMode==="custom" && <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} max={today()} style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>}
         <button onClick={sendPickedDateWhatsApp} disabled={waSending} style={{width:"100%",background:waSending?t.bg4:"rgba(37,211,102,0.12)",color:waSending?t.dim2:"#25d366",border:"1px solid "+(waSending?t.border:"rgba(37,211,102,0.3)"),borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:waSending?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <i className="ti ti-brand-whatsapp"/>{waSending?"Inapakia...":"Tuma Ripoti / Send Report"}
+          <i className="ti ti-eye"/>{waSending?"Inapakia...":"Angalia Ripoti / Preview Report"}
         </button>
       </Card>
       {todaySales.length>0&&(
@@ -410,6 +488,25 @@ function LeoTab({onGoTo}) {
         </Card>
       )}
       {editRec&&<EditModal type="sale" record={editRec} onSave={updateSale} onDelete={deleteSale} onClose={()=>setEditRec(null)}/>}
+      {previewText && (
+        <div style={{position:"fixed",inset:0,background:"rgba(3,11,24,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 16px"}} onClick={e=>{if(e.target===e.currentTarget)setPreviewText(null);}}>
+          <div style={{background:t.bg2,border:"1px solid "+t.border,borderRadius:"20px 20px 12px 12px",padding:18,width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Ona Ripoti Kabla ya Kutuma / Preview</span>
+              <button onClick={()=>setPreviewText(null)} style={{background:t.bg4,border:"none",color:t.dim,borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:14}}>✕</button>
+            </div>
+            <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:14}}>
+              <pre style={{fontFamily:"sans-serif",fontSize:13,color:t.text,whiteSpace:"pre-wrap",margin:0,lineHeight:1.6}}>{previewText}</pre>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setPreviewText(null)} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Hariri / Edit</button>
+              <button onClick={()=>{sendTextToWhatsApp(previewText);setPreviewText(null);}} style={{flex:2,background:"rgba(37,211,102,0.15)",color:"#25d366",border:"1px solid rgba(37,211,102,0.4)",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <i className="ti ti-brand-whatsapp"/>Tuma Sasa / Send Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -878,31 +975,10 @@ function AkiliTab() {
           <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:900,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{Math.abs(weekOverWeek.pct)}%</span>
           <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>wiki hii vs wiki iliyopita / this week vs last</span>
         </div>
-        <svg width="100%" height="90" viewBox="0 0 300 90" preserveAspectRatio="none" style={{overflow:"visible"}}>
-          {(()=>{
-            const maxRev = Math.max(...trendData.map(d=>d.rev),1);
-            const pts = trendData.map((d,i)=>{
-              const x = (i/(trendData.length-1))*300;
-              const y = 85 - (d.rev/maxRev)*80;
-              return x+","+y;
-            }).join(" ");
-            const areaPts = "0,85 "+pts+" 300,85";
-            return (
-              <>
-                <polygon points={areaPts} fill={t.gold} opacity="0.08"/>
-                <polyline points={pts} fill="none" stroke={t.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                {trendData.map((d,i)=>{
-                  if(i%5!==0 && i!==trendData.length-1) return null;
-                  const x=(i/(trendData.length-1))*300;
-                  const y=85-(d.rev/maxRev)*80;
-                  return <circle key={i} cx={x} cy={y} r="2.5" fill={t.gold}/>;
-                })}
-              </>
-            );
-          })()}
-        </svg>
+        <TrendChart data={trendData} color={t.gold} textColor={t.text} dimColor={t.dim2} bgColor={t.bg2} borderColor={t.border}/>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
           <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[0]?.label}</span>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>👈 Gusa na buruta kuona tarehe / Touch &amp; drag to explore</span>
           <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[trendData.length-1]?.label}</span>
         </div>
       </Card>
@@ -987,18 +1063,31 @@ function AkiliTab() {
         <Donut data={costData} size={140}/>
       </Card>}
       {itemStats.length>0&&<Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Top Items / Bidhaa Bora</p>
-        {itemStats.slice(0,5).map((item,i)=><div key={item.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-          <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:i===0?t.gold:t.dim2,width:18,flexShrink:0}}>{i+1}</span>
-          <div style={{flex:1}}>
-            <div style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.text,marginBottom:3}}>{item.name}</div>
-            <Bar value={item.rev} max={itemStats[0].rev} color={i===0?t.gold:t.bl} h={5}/>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+          <IconBadge emoji="🏆" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Top Items / Bidhaa Bora</p>
+        </div>
+        {itemStats.slice(0,5).map((item,i)=>{
+          const maxRev = itemStats[0].rev;
+          const ratio = maxRev>0 ? item.rev/maxRev : 0;
+          const tempEmoji = ratio>=0.66 ? "🔥" : ratio<=0.33 ? "❄️" : "🌤️";
+          const tempColor = ratio>=0.66 ? t.rd : ratio<=0.33 ? t.bl : t.gold;
+          return (
+          <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:i===0?t.gold:t.dim2,width:16,flexShrink:0}}>{i+1}</span>
+            <IconBadge emoji={tempEmoji} color={tempColor}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.text,marginBottom:3}}>{item.name}</div>
+              <Bar value={item.rev} max={itemStats[0].rev} color={i===0?t.gold:t.bl} h={5}/>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.text}}>{fmt(item.rev)}</div>
+              {item.margin!==0&&<span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:item.margin>0?t.gr:t.rd}}>{item.margin}%</span>}
+            </div>
           </div>
-          <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.text}}>{fmt(item.rev)}</div>
-            {item.margin!==0&&<span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:item.margin>0?t.gr:t.rd}}>{item.margin}%</span>}
-          </div>
-        </div>)}
+          );
+        })}
+        <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:4,marginBottom:0,fontStyle:"italic"}}>🔥 Inauzwa sana &nbsp; 🌤️ Wastani &nbsp; ❄️ Polepole</p>
       </Card>}
       {insights.length>0&&<div>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Business Insights / Ushauri</p>
