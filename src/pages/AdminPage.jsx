@@ -724,6 +724,7 @@ function RipodiTab() {
   const [fetched,setFetched]=useState(false);
   const [editRec,setEditRec]=useState(null);
   const [editType,setEditType]=useState("sale");
+  const [search,setSearch]=useState("");
   function getRangeDates(){
     const T2=new Date();const fmt=d=>d.toISOString().split("T")[0];
     if(range==="today")return{start:today(),end:today()};
@@ -741,6 +742,9 @@ function RipodiTab() {
   const net=gross-itemCostTotal-overhead;
   const dailyCosts=costs.filter(c=>!c.spending_type||c.spending_type==="daily");
   const bulkCosts=costs.filter(c=>c.spending_type==="bulk");
+  const searchLower = search.trim().toLowerCase();
+  const filteredSales = searchLower ? sales.filter(s=>(s.item_name||"").toLowerCase().includes(searchLower)) : sales;
+  const filteredCosts = searchLower ? costs.filter(c=>((c.description||"")+" "+(c.category||"")).toLowerCase().includes(searchLower)) : costs;
   const byDate=useMemo(()=>{const m={};sales.forEach(s=>{if(!m[s.sale_date])m[s.sale_date]={gross:0,count:0};m[s.sale_date].gross+=s.total_price;m[s.sale_date].count+=s.quantity;});return Object.entries(m).sort(([a],[b])=>b.localeCompare(a));},[sales]);
   const wkGoal=range==="last7"&&goals.weekly?goals.weekly:null;
   const moGoal=range==="month"&&goals.monthly?goals.monthly:null;
@@ -749,6 +753,42 @@ function RipodiTab() {
   function sendWA(){
     const lines=["RIPOTI — "+start+(start!==end?" hadi "+end:""),"Mapato Ghafi: "+fmt(gross),"Daily Costs: "+fmt(dailyCosts.reduce((s,c)=>s+c.amount,0)),"Bulk Purchases: "+fmt(bulkCosts.reduce((s,c)=>s+c.amount,0)),"Faida Halisi: "+fmt(net),"Mauzo: "+sales.length,"","Unyamwezini Jiko La Bibi JJJ"].join("\n");
     window.open("https://wa.me/?text="+encodeURIComponent(lines),"_blank");
+  }
+  function printZReport(){
+    const w = window.open("","_blank");
+    const salesRows = sales.map(s=>"<tr><td>"+s.sale_date+"</td><td>"+s.item_name+"</td><td style='text-align:center'>"+s.quantity+"</td><td style='text-align:right'>"+fmt(s.unit_price)+"</td><td style='text-align:right'>"+fmt(s.total_price)+"</td></tr>").join("");
+    const costRows = costs.map(c=>"<tr><td>"+c.cost_date+"</td><td>"+(c.description||c.category)+"</td><td>"+(c.category||"")+"</td><td style='text-align:right'>"+fmt(c.amount)+"</td></tr>").join("");
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Z-Report ${start} - ${end}</title>
+      <style>
+        body{font-family:Arial;max-width:800px;margin:0 auto;padding:30px;color:#0B1F45}
+        h1{font-family:Georgia;font-size:20px;text-align:center;margin-bottom:2px}
+        .sub{text-align:center;font-size:12px;color:#777;margin-bottom:20px}
+        h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+        th{text-align:left;border-bottom:2px solid #ddd;padding:6px 8px;font-size:10px;text-transform:uppercase;color:#666}
+        td{padding:6px 8px;border-bottom:1px solid #eee}
+        .totals{display:flex;justify-content:space-between;background:#f5f5f5;border-radius:8px;padding:14px 18px;margin-top:16px}
+        .totals div{text-align:center}
+        .totals .label{font-size:10px;color:#777;text-transform:uppercase}
+        .totals .val{font-size:16px;font-weight:bold;margin-top:2px}
+        @media print{button{display:none}}
+      </style></head><body>
+      <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
+      <p class="sub">Z-REPORT &middot; ${start}${start!==end?" hadi "+end:""} &middot; Imetengenezwa: ${new Date().toLocaleString("sw-TZ")}</p>
+      <div class="totals">
+        <div><div class="label">Mapato Ghafi</div><div class="val" style="color:#B8860B">${fmt(gross)}</div></div>
+        <div><div class="label">Gharama</div><div class="val" style="color:#C62828">${fmt(overhead)}</div></div>
+        <div><div class="label">Faida Halisi</div><div class="val" style="color:${net>=0?'#1B7A20':'#C62828'}">${fmt(net)}</div></div>
+        <div><div class="label">Mauzo</div><div class="val">${sales.length}</div></div>
+      </div>
+      <h2>Mauzo / Sales (${sales.length})</h2>
+      <table><tr><th>Tarehe</th><th>Bidhaa</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr>${salesRows||"<tr><td colspan=5 style='text-align:center;color:#999'>Hakuna mauzo</td></tr>"}</table>
+      <h2>Gharama / Expenses (${costs.length})</h2>
+      <table><tr><th>Tarehe</th><th>Maelezo</th><th>Aina</th><th>Kiasi</th></tr>${costRows||"<tr><td colspan=4 style='text-align:center;color:#999'>Hakuna gharama</td></tr>"}</table>
+      <p style="margin-top:24px;font-size:10px;color:#999;text-align:center">Unyamwezini Jiko La Bibi JJJ &middot; Mbezi Luis, Goba Road, Dar es Salaam</p>
+      <button onclick="window.print()" style="display:block;margin:24px auto 0;padding:12px 28px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer">🖨️ Print / Save PDF</button>
+      </body></html>`);
+    w.document.close();
   }
   return (
     <div style={{padding:"1rem"}}>
@@ -776,21 +816,38 @@ function RipodiTab() {
         <ComparisonRow range={range} cStart={cStart} cEnd={cEnd} currentGross={gross}/>
         {wkGoal&&<Card style={{padding:"1rem"}}><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>Weekly Goal</p><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Wiki</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(wkGoal)}</span></div><Bar value={gross} max={wkGoal} color={t.bl}/></Card>}
         {moGoal&&<Card style={{padding:"1rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Mwezi</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.gold}}>{fmt(gross)} / {fmt(moGoal)}</span></div><Bar value={gross} max={moGoal} color={t.gr}/></Card>}
-        {sales.length>0&&<Card style={{padding:"1rem"}}>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Sales / Mauzo ({sales.length}) — Tap ✏️ to edit</p>
-          {sales.slice(0,20).map((s,i)=><SaleRow key={s.id||i} sale={s} onEdit={r=>{setEditRec(r);setEditType("sale");}} i={i}/>)}
+        {sales.length>0 || costs.length>0 ? <Card style={{padding:"1rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:t.bg4,borderRadius:10,padding:"8px 12px"}}>
+            <i className="ti ti-search" style={{fontSize:15,color:t.dim2}}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tafuta bidhaa au gharama / Search item or expense..." style={{flex:1,background:"none",border:"none",outline:"none",fontFamily:"sans-serif",fontSize:13,color:t.text}}/>
+            {search && <button onClick={()=>setSearch("")} style={{background:"none",border:"none",color:t.dim2,fontSize:14,cursor:"pointer",padding:0}}>✕</button>}
+          </div>
+        </Card> : null}
+        {filteredSales.length>0&&<Card style={{padding:"1rem"}}>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Sales / Mauzo ({filteredSales.length}{search?" ya "+sales.length:""}) — Tap ✏️ to edit</p>
+          {filteredSales.slice(0,20).map((s,i)=><SaleRow key={s.id||i} sale={s} onEdit={r=>{setEditRec(r);setEditType("sale");}} i={i}/>)}
         </Card>}
-        {costs.length>0&&<Card style={{padding:"1rem"}}>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Expenses / Gharama ({costs.length}) — Tap ✏️ to edit</p>
+        {filteredCosts.length>0&&<Card style={{padding:"1rem"}}>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Expenses / Gharama ({filteredCosts.length}{search?" ya "+costs.length:""}) — Tap ✏️ to edit</p>
+          {!search && <>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text}}>Daily / Kila Siku</span><span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.bl}}>{fmt(dailyCosts.reduce((s,c)=>s+c.amount,0))}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text}}>Bulk / Jumla</span><span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.pu}}>{fmt(bulkCosts.reduce((s,c)=>s+c.amount,0))}</span></div>
-          {costs.slice(0,15).map((c,i)=><CostRow key={c.id||i} cost={c} onEdit={r=>{setEditRec(r);setEditType("cost");}} i={i}/>)}
+          </>}
+          {filteredCosts.slice(0,15).map((c,i)=><CostRow key={c.id||i} cost={c} onEdit={r=>{setEditRec(r);setEditType("cost");}} i={i}/>)}
+        </Card>}
+        {search && filteredSales.length===0 && filteredCosts.length===0 && <Card style={{padding:"1.5rem",textAlign:"center"}}>
+          <p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,margin:0}}>Hakuna matokeo ya "{search}" / No results for "{search}"</p>
         </Card>}
         {byDate.length>1&&<Card style={{padding:"1rem"}}>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>By Day / Kwa Siku</p>
           {byDate.map(([d,v])=><div key={d} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+t.border+"66"}}><span style={{fontFamily:"sans-serif",fontSize:"12px",color:t.text}}>{d}</span><div style={{textAlign:"right"}}><span style={{fontFamily:"sans-serif",fontSize:"12px",fontWeight:700,color:t.gold}}>{fmt(v.gross)}</span><span style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,marginLeft:6}}>{v.count}</span></div></div>)}
         </Card>}
-        <button onClick={sendWA} style={{width:"100%",background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>Send Report / Tuma Ripoti — WhatsApp</button>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={sendWA} style={{flex:1,background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>Send Report / Tuma Ripoti</button>
+          <button onClick={printZReport} style={{flex:1,background:t.gold+"12",color:t.gold,border:"1px solid "+t.gold+"44",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <i className="ti ti-printer"/> Z-Report
+          </button>
+        </div>
       </>}
       {editRec&&<EditModal type={editType} record={editRec} onSave={editType==="sale"?updateSale:updateCost} onDelete={editType==="sale"?deleteSale:deleteCost} onClose={()=>setEditRec(null)}/>}
     </div>
@@ -1050,10 +1107,17 @@ function AkiliTab() {
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Mauzo kwa Siku ya Wiki / Revenue by Weekday</p>
         {dayHourAnalysis.dayChart.map(d=>{
           const maxRev = Math.max(...dayHourAnalysis.dayChart.map(x=>x.rev),1);
+          const dayEmojis = {"Jumapili":"😴","Jumatatu":"🌱","Jumanne":"⚡","Jumatano":"🔆","Alhamisi":"🚀","Ijumaa":"🎉","Jumamosi":"🏆"};
+          const isBest = d.rev===maxRev && d.rev>0;
           return (
             <div key={d.name} style={{marginBottom:7}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:t.dim,marginBottom:2}}>
-                <span>{d.name}</span><span style={{fontWeight:700}}>{fmt(d.rev)}</span>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:t.dim,marginBottom:2}}>
+                <span style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:13}}>{dayEmojis[d.name]||"📆"}</span>
+                  <span>{d.name}</span>
+                  {isBest && <span style={{fontSize:9,background:t.gold+"20",color:t.gold,padding:"1px 6px",borderRadius:5,fontWeight:700}}>BORA</span>}
+                </span>
+                <span style={{fontWeight:700}}>{fmt(d.rev)}</span>
               </div>
               <Bar value={d.rev} max={maxRev} color={d.rev===maxRev?t.gold:t.bl} h={5}/>
             </div>
@@ -1295,7 +1359,7 @@ function MaagizoTab() {
 /* ═══ TAB: BACKUP / EXPORT ═══ */
 function BackupTab() {
   const {t} = useT();
-  const {exportAll, importAll} = useAdmin();
+  const {exportAll, importAll, allSales, allCosts} = useAdmin();
   const [status,setStatus]=useState("");
   const [importText,setImportText]=useState("");
   async function doExport(){
@@ -1308,6 +1372,39 @@ function BackupTab() {
     a.click();
     URL.revokeObjectURL(url);
     setStatus("✓ Downloaded / Imepakuliwa");
+    setTimeout(()=>setStatus(""),3000);
+  }
+  function csvEscape(val){
+    const s = String(val==null?"":val);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }
+  function downloadCSV(rows, headers, filename){
+    const lines = [headers.join(",")];
+    rows.forEach(r=>lines.push(headers.map(h=>csvEscape(r[h])).join(",")));
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function doExportSalesCSV(){
+    downloadCSV(
+      allSales,
+      ["sale_date","item_name","quantity","unit_price","total_price","service_type","created_at"],
+      "jiko-mauzo-"+today()+".csv"
+    );
+    setStatus("✓ Mauzo CSV imepakuliwa / Sales CSV downloaded");
+    setTimeout(()=>setStatus(""),3000);
+  }
+  function doExportCostsCSV(){
+    downloadCSV(
+      allCosts,
+      ["cost_date","category","description","amount","spending_type","created_at"],
+      "jiko-gharama-"+today()+".csv"
+    );
+    setStatus("✓ Gharama CSV imepakuliwa / Costs CSV downloaded");
     setTimeout(()=>setStatus(""),3000);
   }
   function onFile(e){
@@ -1333,6 +1430,18 @@ function BackupTab() {
           <i className="ti ti-download"/> Download Backup / Pakua
         </button>
 
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"16px 0 8px"}}>CSV kwa Excel / Accounting</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,marginBottom:10,lineHeight:1.5}}>
+          Faili za CSV zinafunguka moja kwa moja kwenye Excel/Sheets. / CSV files open directly in Excel/Sheets for your accountant.
+        </p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          <button onClick={doExportSalesCSV} style={{background:t.gr+"15",color:t.gr,border:"1px solid "+t.gr+"44",borderRadius:10,padding:11,fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <i className="ti ti-file-spreadsheet"/> Mauzo CSV
+          </button>
+          <button onClick={doExportCostsCSV} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"44",borderRadius:10,padding:11,fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <i className="ti ti-file-spreadsheet"/> Gharama CSV
+          </button>
+        </div>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"16px 0 12px"}}>Restore / Rejesha</p>
         <p style={{fontFamily:"sans-serif",fontSize:"12px",color:t.dim,marginBottom:10,lineHeight:1.5}}>
           Chagua faili la JSON kurejesha data. / Select a JSON backup file to restore data.
@@ -1604,18 +1713,23 @@ export default function AdminPage({onExit}) {
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
   function toggle(){const nd=!dark;setDark(nd);localStorage.setItem("jiko-theme",nd?"dark":"light");}
   const t = dark ? DARK : LIGHT;
-  const TABS=[
+  const PRIMARY_TABS=[
     {key:"leo",    icon:"ti-home",            label:"Leo",     sub:"Today"},
     {key:"ingiza", icon:"ti-plus",            label:"Ingiza",  sub:"Input"},
     {key:"ripoti", icon:"ti-chart-bar",       label:"Ripoti",  sub:"Reports"},
-    {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
     {key:"akili",  icon:"ti-brain",           label:"Akili",   sub:"Analytics"},
     {key:"menu",   icon:"ti-tools-kitchen-2", label:"Menyu",   sub:"Menu"},
     {key:"maagizo",icon:"ti-clipboard-list",  label:"Maagizo", sub:"Orders"},
+  ];
+  const MORE_TABS=[
+    {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
     {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
   ];
+  const ALL_TABS=[...PRIMARY_TABS,...MORE_TABS];
+  const [showMore,setShowMore]=useState(false);
+  const activeIsMore = MORE_TABS.some(tb=>tb.key===tab);
   if(!authed) return (
     <ThemeCtx.Provider value={{t,dark,toggle}}>
       <PinGate onAuth={()=>setAuthed(true)}/>
@@ -1634,12 +1748,34 @@ export default function AdminPage({onExit}) {
           </div>
         </div>
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
-          {TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+          {PRIMARY_TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
             <i className={"ti "+tb.icon} style={{fontSize:17,color:tab===tb.key?t.gold:t.dim2}}/>
             <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:tab===tb.key?t.gold:t.text,whiteSpace:"nowrap"}}>{tb.label}</span>
             <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:tab===tb.key?t.gold:t.dim,whiteSpace:"nowrap"}}>{tb.sub}</span>
           </button>)}
+          <button onClick={()=>setShowMore(true)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:activeIsMore?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+            <i className="ti ti-dots" style={{fontSize:17,color:activeIsMore?t.gold:t.dim2}}/>
+            <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:activeIsMore?t.gold:t.text,whiteSpace:"nowrap"}}>{activeIsMore ? (MORE_TABS.find(tb=>tb.key===tab)||{}).label : "Zaidi"}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:activeIsMore?t.gold:t.dim,whiteSpace:"nowrap"}}>More</span>
+          </button>
         </div>
+        {showMore && (
+          <div style={{position:"fixed",inset:0,background:"rgba(3,11,24,0.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)setShowMore(false);}}>
+            <div style={{background:t.bg2,borderRadius:"20px 20px 0 0",padding:"18px 14px 24px",width:"100%",maxWidth:520,boxShadow:"0 -10px 40px rgba(0,0,0,0.4)"}}>
+              <div style={{width:36,height:4,background:t.border,borderRadius:99,margin:"0 auto 16px"}}/>
+              <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px",paddingLeft:6}}>Zaidi / More Options</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {MORE_TABS.map(tb=>(
+                  <button key={tb.key} onClick={()=>{setTab(tb.key);setShowMore(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:"1.5px solid "+(tab===tb.key?t.gold:t.border),background:tab===tb.key?t.gold+"12":t.bg4,cursor:"pointer"}}>
+                    <i className={"ti "+tb.icon} style={{fontSize:24,color:tab===tb.key?t.gold:t.dim}}/>
+                    <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:tab===tb.key?t.gold:t.text}}>{tb.label}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{tb.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {tab==="leo"    &&<LeoTab onGoTo={setTab}/>}
         {tab==="ingiza" &&<IngizaTab/>}
         {tab==="ripoti" &&<RipodiTab/>}
