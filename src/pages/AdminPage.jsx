@@ -1112,6 +1112,20 @@ function AkiliTab() {
   const costs=c30.reduce((s,c)=>s+c.amount,0);
   const net=gross-costs;
   const margin=gross?Math.round(net/gross*100):0;
+
+  // ═══ DIRA YA BIASHARA / BUSINESS COMPASS ═══
+  // Revenue-to-cost ratio, shown as "1 : X" — X<1 losing, ~1 breaking even, >1 progressing.
+  // Two versions: including staff payroll, and excluding it (so payroll-heavy months don't hide operational health).
+  const staffCosts30 = c30.filter(c=>c.category==="staff").reduce((s,c)=>s+c.amount,0);
+  const costsExStaff30 = costs - staffCosts30;
+  const compassFull = costs>0 ? gross/costs : (gross>0?99:0);
+  const compassExStaff = costsExStaff30>0 ? gross/costsExStaff30 : (gross>0?99:0);
+  function compassZone(r){
+    if(r>=1.5) return {label:"Unaendelea Vizuri Sana", labelEn:"Thriving", color:t.gr};
+    if(r>=1.05) return {label:"Unaendelea", labelEn:"Progressing", color:t.gr};
+    if(r>=0.95) return {label:"Sawa Sawa", labelEn:"Breaking Even", color:t.gold};
+    return {label:"Unapoteza", labelEn:"Losing Ground", color:t.rd};
+  }
   const itemStats=useMemo(()=>{const m={};s30.forEach(s=>{if(!m[s.item_id])m[s.item_id]={id:s.item_id,name:s.item_name,qty:0,rev:0,cost:0};m[s.item_id].qty+=s.quantity;m[s.item_id].rev+=s.total_price;m[s.item_id].cost+=(itemCosts[s.item_id]||0)*s.quantity;});return Object.values(m).map(i=>({...i,profit:i.rev-i.cost,margin:i.rev?Math.round((i.rev-i.cost)/i.rev*100):0})).sort((a,b)=>b.rev-a.rev);},[s30,itemCosts]);
   const svcMap=useMemo(()=>{const m={pickup:0,delivery:0,dinein:0};s30.forEach(s=>{m[s.service_type]=(m[s.service_type]||0)+s.total_price;});return m;},[s30]);
   const costMap=useMemo(()=>{
@@ -1241,7 +1255,11 @@ function AkiliTab() {
       `💰 Mapato Ghafi: ${fmt(gross)}`,
       `📈 Faida Halisi: ${fmt(net)}`,
       `🎯 Margin: ${margin}%`,
-      `❤️ Afya ya Biashara / Health: ${Math.round(health)}/100`,
+      `❤️ Afya ya Biashara / Health: ${Math.round(health)}/100 (${healthGrade(health)})`,
+      ``,
+      `🧭 *Dira ya Biashara / Business Compass:*`,
+      `   Jumla/Full: 1:${compassFull>=99?"∞":compassFull.toFixed(2)} (${compassZone(compassFull).labelEn})`,
+      `   Bila Wafanyakazi/Excl. Staff: 1:${compassExStaff>=99?"∞":compassExStaff.toFixed(2)} (${compassZone(compassExStaff).labelEn})`,
       ``,
     ];
     if(itemStats.length>0){
@@ -1279,7 +1297,7 @@ function AkiliTab() {
       const hasSvc = svcData.length>0, hasCost = costData.length>0;
 
       // Dynamic height: base sections + variable-length lists
-      let H = 420; // header + health + stats + trend chart baseline
+      let H = 530; // header + health + compass + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
       H += 90; // best day/hour block
       H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
@@ -1336,6 +1354,26 @@ function AkiliTab() {
       ctx.fillText(health>=70?"Excellent / Nzuri Sana":health>=40?"Average / Wastani":"At Risk / Hatarini", hcx+70, hcy+26);
 
       y += 140;
+
+      // Dira ya Biashara / Business Compass — bold, always shown with real numbers (ratios don't leak absolute figures)
+      ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+      ctx.fillText("\\ud83e\\udded Dira ya Biashara / Business Compass", PAD, y);
+      y += 18;
+      const compW = (W-PAD*2-16)/2;
+      [{lbl:"Jumla / Full", r:compassFull},{lbl:"Bila Wafanyakazi / Excl. Staff", r:compassExStaff}].forEach((c,i)=>{
+        const cx0 = PAD + i*(compW+16);
+        const zoneColor = c.r>=1.05 ? "#1B7A20" : c.r>=0.95 ? "#B8860B" : "#C62828";
+        const zoneLabel = c.r>=1.5?"Unaendelea Vizuri":c.r>=1.05?"Unaendelea":c.r>=0.95?"Sawa Sawa":"Unapoteza";
+        ctx.fillStyle = zoneColor+"15";
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx0,y,compW,90,10) : ctx.rect(cx0,y,compW,90); ctx.fill();
+        ctx.fillStyle = "rgba(11,31,69,0.5)"; ctx.font="10px Arial"; ctx.textAlign="center";
+        ctx.fillText(c.lbl.toUpperCase(), cx0+compW/2, y+22);
+        ctx.fillStyle = zoneColor; ctx.font="bold 26px Georgia, serif";
+        ctx.fillText("1:"+(c.r>=99?"\u221e":c.r.toFixed(2)), cx0+compW/2, y+56);
+        ctx.font="bold 12px Arial";
+        ctx.fillText(zoneLabel, cx0+compW/2, y+76);
+      });
+      y += 110;
 
       // Stat boxes: Gross, Net, Margin (presenter-safe percentages)
       const stats = [
@@ -1532,6 +1570,31 @@ function AkiliTab() {
   return (
     <div style={{padding:"1rem"}}>
       <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})} hadi {new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})} (Siku 30 / Last 30 Days)</p>
+      {/* ═══ DIRA YA BIASHARA / BUSINESS COMPASS — bold, always visible, never masked ═══ */}
+      <Card glow style={{padding:"1.3rem",marginBottom:10,border:"2px solid "+compassZone(costs>0?compassFull:1).color+"55"}}>
+        <div style={{textAlign:"center",marginBottom:12}}>
+          <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1.5px",margin:0}}>🧭 Dira ya Biashara / Business Compass</p>
+          <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"2px 0 0"}}>Uwiano wa Mapato dhidi ya Gharama / Revenue-to-Cost Ratio</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{textAlign:"center",padding:"14px 8px",borderRadius:14,background:compassZone(compassFull).color+"12",border:"1px solid "+compassZone(compassFull).color+"33"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}}>Jumla / Full (na Wafanyakazi)</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:compassZone(compassFull).color,lineHeight:1}}>1:{compassFull>=99?"∞":compassFull.toFixed(2)}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:compassZone(compassFull).color,marginTop:6}}>{compassZone(compassFull).label}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{compassZone(compassFull).labelEn}</div>
+          </div>
+          <div style={{textAlign:"center",padding:"14px 8px",borderRadius:14,background:compassZone(compassExStaff).color+"12",border:"1px solid "+compassZone(compassExStaff).color+"33"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}}>Bila Wafanyakazi / Excl. Staff</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:compassZone(compassExStaff).color,lineHeight:1}}>1:{compassExStaff>=99?"∞":compassExStaff.toFixed(2)}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:compassZone(compassExStaff).color,marginTop:6}}>{compassZone(compassExStaff).label}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{compassZone(compassExStaff).labelEn}</div>
+          </div>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"12px 0 0",lineHeight:1.5}}>
+          1:1 = Kuvunja Sawa / Breaking Even &nbsp;\u00b7&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;\u00b7&nbsp; Zaidi ya 1:1 = Faida / Progressing
+        </p>
+      </Card>
+
       <Card glow style={{padding:"1.2rem",display:"flex",alignItems:"center",gap:16}}>
         <div style={{position:"relative",width:68,height:68,flexShrink:0}}>
           <svg width={68} height={68} style={{transform:"rotate(-90deg)"}}>
@@ -2374,6 +2437,7 @@ function ChuoTab() {
       </ChuoSection>
 
       <ChuoSection icon="🧠" color={t.pu} titleSw="Akili / Analytics" titleEn="Business intelligence dashboard" isOpen={open==="akili"} onToggle={()=>toggle("akili")}>
+        <ChuoBullet title="🧭 Dira ya Biashara / Business Compass" body="Uwiano wa mapato dhidi ya gharama, umeandikwa kama '1:X'. X chini ya 1 = unapoteza pesa. X karibu 1 = unavunja sawa. X zaidi ya 1 = unaendelea (X kubwa zaidi = bora zaidi). Kadi ya 'Jumla' inajumuisha mishahara; 'Bila Wafanyakazi' haijumuishi — hii inakusaidia kuona kama tatizo ni gharama za uendeshaji au mishahara. Hii HAIFICHWI kwenye Presenter Mode kwa sababu ni uwiano tu, si namba halisi. / The revenue-to-cost ratio, shown as '1:X'. X below 1 = losing money. X near 1 = breaking even. X above 1 = progressing (bigger X = better). The 'Full' card includes payroll; 'Excluding Staff' doesn't — this helps you see if a problem is operational costs or payroll specifically. This is NEVER hidden by Presenter Mode since it's just a ratio, not a real figure." />
         <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
         <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
