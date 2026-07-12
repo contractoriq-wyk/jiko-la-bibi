@@ -1359,7 +1359,7 @@ function AkiliTab() {
       const W=800, PAD=36;
       const dateStart = rangeStart;
       const dateEnd = rangeEnd;
-      const rowsForItems = Math.min(itemStats.length,5);
+      const rowsForItems = Math.min(itemStats.length,10);
       const rowsForSlow = Math.min(slowMoving.length,6);
       const rowsForInsights = insights.length;
       const hasSvc = svcData.length>0, hasCost = costData.length>0;
@@ -1498,7 +1498,7 @@ function AkiliTab() {
         ctx.fillText("Bidhaa Bora / Top Items", PAD, y);
         y += 16;
         const maxItemRev = itemStats[0].rev || 1;
-        itemStats.slice(0,5).forEach((it,i)=>{
+        itemStats.slice(0,10).forEach((it,i)=>{
           const barY = y + i*46 + 14;
           ctx.fillStyle = "#0B1F45"; ctx.font="13px Arial"; ctx.textAlign="left";
           ctx.fillText((i+1)+". "+it.name, PAD, barY);
@@ -1828,7 +1828,7 @@ function AkiliTab() {
           <IconBadge emoji="🏆" color={t.gold}/>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Top Items / Bidhaa Bora</p>
         </div>
-        {itemStats.slice(0,5).map((item,i)=>{
+        {itemStats.slice(0,10).map((item,i)=>{
           const maxRev = itemStats[0].rev;
           const ratio = maxRev>0 ? item.rev/maxRev : 0;
           const tempEmoji = ratio>=0.66 ? "🔥" : ratio<=0.33 ? "❄️" : "🌤️";
