@@ -31,7 +31,7 @@ export function AdminProvider({ children }) {
   const [allSales,setAllSales]=useState([]);
   const [allCosts,setAllCosts]=useState([]);
   const [loading,setLoading]=useState(false);
-  const [goals,setGoalsState]=useState(()=>load("jiko-goals",{daily:0,weekly:0,monthly:0}));
+  const [goals,setGoalsState]=useState(()=>load("jiko-goals",{daily:0,weekly:0,monthly:0,compassTarget:2}));
 
   useEffect(() => {
     if (!supabase) return;
@@ -116,6 +116,7 @@ export function AdminProvider({ children }) {
     save("jiko-stock-qty",next);
   }
   function setGoal(type,amount){const next={...goals,[type]:parseInt(amount)||0};setGoalsState(next);save("jiko-goals",next);}
+  function setCompassTarget(ratio){const next={...goals,compassTarget:parseFloat(ratio)||0};setGoalsState(next);save("jiko-goals",next);}
 
   async function recordSale(item,qty,service,date){
     const saleDate=date||todayStr();
@@ -316,7 +317,7 @@ export function AdminProvider({ children }) {
     <Ctx.Provider value={{
       prices,stock,orders,todaySales,allSales,allCosts,todayCosts,itemCosts,synced,loading,goals,
       todayGross,todayNet,todayOverhead,todayItemCost,
-      setGoal,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
+      setGoal,setCompassTarget,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
