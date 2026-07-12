@@ -1103,7 +1103,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget} = useAdmin();
   const [loaded,setLoaded]=useState(false);
   useEffect(()=>{if(!loaded){fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0],today());setLoaded(true);}},[]);
   const s30=allSales.filter(s=>s.sale_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
@@ -1120,8 +1120,16 @@ function AkiliTab() {
   const costsExStaff30 = costs - staffCosts30;
   const compassFull = costs>0 ? gross/costs : (gross>0?99:0);
   const compassExStaff = costsExStaff30>0 ? gross/costsExStaff30 : (gross>0?99:0);
+  const compassTarget = goals.compassTarget || 2;
+  const [editingTarget,setEditingTarget]=useState(false);
+  const [targetInput,setTargetInput]=useState(String(compassTarget));
+  function saveTarget(){
+    const v = parseFloat(targetInput);
+    if(v>0){ setCompassTarget(v); }
+    setEditingTarget(false);
+  }
   function compassZone(r){
-    if(r>=1.5) return {label:"Unaendelea Vizuri Sana", labelEn:"Thriving", color:t.gr};
+    if(r>=compassTarget) return {label:"Umefikia Lengo!", labelEn:"Target Reached!", color:t.gr};
     if(r>=1.05) return {label:"Unaendelea", labelEn:"Progressing", color:t.gr};
     if(r>=0.95) return {label:"Sawa Sawa", labelEn:"Breaking Even", color:t.gold};
     return {label:"Unapoteza", labelEn:"Losing Ground", color:t.rd};
@@ -1363,7 +1371,7 @@ function AkiliTab() {
       [{lbl:"Jumla / Full", r:compassFull},{lbl:"Bila Wafanyakazi / Excl. Staff", r:compassExStaff}].forEach((c,i)=>{
         const cx0 = PAD + i*(compW+16);
         const zoneColor = c.r>=1.05 ? "#1B7A20" : c.r>=0.95 ? "#B8860B" : "#C62828";
-        const zoneLabel = c.r>=1.5?"Unaendelea Vizuri":c.r>=1.05?"Unaendelea":c.r>=0.95?"Sawa Sawa":"Unapoteza";
+        const zoneLabel = c.r>=compassTarget?"Lengo Limefikiwa!":c.r>=1.05?"Unaendelea":c.r>=0.95?"Sawa Sawa":"Unapoteza";
         ctx.fillStyle = zoneColor+"15";
         ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx0,y,compW,90,10) : ctx.rect(cx0,y,compW,90); ctx.fill();
         ctx.fillStyle = "rgba(11,31,69,0.5)"; ctx.font="10px Arial"; ctx.textAlign="center";
@@ -1582,16 +1590,34 @@ function AkiliTab() {
             <div style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:compassZone(compassFull).color,lineHeight:1}}>1:{compassFull>=99?"∞":compassFull.toFixed(2)}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:compassZone(compassFull).color,marginTop:6}}>{compassZone(compassFull).label}</div>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{compassZone(compassFull).labelEn}</div>
+            <Bar value={Math.min(compassFull,compassTarget)} max={compassTarget} color={compassZone(compassFull).color} h={4}/>
           </div>
           <div style={{textAlign:"center",padding:"14px 8px",borderRadius:14,background:compassZone(compassExStaff).color+"12",border:"1px solid "+compassZone(compassExStaff).color+"33"}}>
             <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}}>Bila Wafanyakazi / Excl. Staff</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:30,fontWeight:900,color:compassZone(compassExStaff).color,lineHeight:1}}>1:{compassExStaff>=99?"∞":compassExStaff.toFixed(2)}</div>
             <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:compassZone(compassExStaff).color,marginTop:6}}>{compassZone(compassExStaff).label}</div>
             <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{compassZone(compassExStaff).labelEn}</div>
+            <Bar value={Math.min(compassExStaff,compassTarget)} max={compassTarget} color={compassZone(compassExStaff).color} h={4}/>
           </div>
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"12px 0 0",lineHeight:1.5}}>
-          1:1 = Kuvunja Sawa / Breaking Even &nbsp;\u00b7&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;\u00b7&nbsp; Zaidi ya 1:1 = Faida / Progressing
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:14,paddingTop:12,borderTop:"1px solid "+t.border}}>
+          {editingTarget ? (
+            <>
+              <span style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,fontWeight:700}}>Lengo/Target 1:</span>
+              <input type="number" step="0.1" min="1" value={targetInput} onChange={e=>setTargetInput(e.target.value)} autoFocus style={{width:60,padding:"5px 8px",borderRadius:8,border:"1px solid "+t.gold,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",textAlign:"center"}}/>
+              <button onClick={saveTarget} style={{background:t.gr,color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Hifadhi</button>
+              <button onClick={()=>{setEditingTarget(false);setTargetInput(String(compassTarget));}} style={{background:t.bg4,color:t.dim,border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,cursor:"pointer"}}>✕</button>
+            </>
+          ) : (
+            <button onClick={()=>setEditingTarget(true)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>Lengo Lako / Your Target: </span>
+              <span style={{fontFamily:"Georgia,serif",fontSize:13,fontWeight:900,color:t.gold}}>1:{compassTarget}</span>
+              <i className="ti ti-pencil" style={{fontSize:12,color:t.dim2}}/>
+            </button>
+          )}
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"10px 0 0",lineHeight:1.5}}>
+          1:1 = Kuvunja Sawa / Breaking Even &nbsp;\u00b7&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;\u00b7&nbsp; 1:{compassTarget}+ = Lengo Limefikiwa / Target Reached
         </p>
       </Card>
 
@@ -2437,7 +2463,7 @@ function ChuoTab() {
       </ChuoSection>
 
       <ChuoSection icon="🧠" color={t.pu} titleSw="Akili / Analytics" titleEn="Business intelligence dashboard" isOpen={open==="akili"} onToggle={()=>toggle("akili")}>
-        <ChuoBullet title="🧭 Dira ya Biashara / Business Compass" body="Uwiano wa mapato dhidi ya gharama, umeandikwa kama '1:X'. X chini ya 1 = unapoteza pesa. X karibu 1 = unavunja sawa. X zaidi ya 1 = unaendelea (X kubwa zaidi = bora zaidi). Kadi ya 'Jumla' inajumuisha mishahara; 'Bila Wafanyakazi' haijumuishi — hii inakusaidia kuona kama tatizo ni gharama za uendeshaji au mishahara. Hii HAIFICHWI kwenye Presenter Mode kwa sababu ni uwiano tu, si namba halisi. / The revenue-to-cost ratio, shown as '1:X'. X below 1 = losing money. X near 1 = breaking even. X above 1 = progressing (bigger X = better). The 'Full' card includes payroll; 'Excluding Staff' doesn't — this helps you see if a problem is operational costs or payroll specifically. This is NEVER hidden by Presenter Mode since it's just a ratio, not a real figure." />
+        <ChuoBullet title="🧭 Dira ya Biashara / Business Compass" body="Uwiano wa mapato dhidi ya gharama, umeandikwa kama '1:X'. X chini ya 1 = unapoteza pesa. X karibu 1 = unavunja sawa. X zaidi ya lengo lako = umefikia lengo. Kadi ya 'Jumla' inajumuisha mishahara; 'Bila Wafanyakazi' haijumuishi. Bonyeza 'Lengo Lako' chini ya kadi kuweka lengo lako mwenyewe (mfano 1:3) — utaonekana umefikia lengo pale uwiano utakapopanda zaidi ya namba hiyo. Hii HAIFICHWI kwenye Presenter Mode kwa sababu ni uwiano tu, si namba halisi. / The revenue-to-cost ratio, shown as '1:X'. X below 1 = losing money. X near 1 = breaking even. X above your target = target reached. The 'Full' card includes payroll; 'Excluding Staff' doesn't. Tap 'Your Target' under the card to set your own goal (e.g. 1:3) — you'll be marked as having reached target once the ratio climbs past that number. This is NEVER hidden by Presenter Mode since it's just a ratio, not a real figure." />
         <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
         <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
