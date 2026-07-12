@@ -1109,19 +1109,6 @@ function MaagizoTab() {
   const repeatCustomers = useMemo(()=>{
     const byPhone = {};
     orders.forEach(o=>{
-      const phone = (o.customer_phone||"").trim();
-      if(!phone) return;
-      if(!byPhone[phone]) byPhone[phone]={phone,name:o.customer_name,count:0,total:0,lastOrder:o.created_at||o.time};
-      byPhone[phone].count += 1;
-      byPhone[phone].total += (o.total||0);
-      const ts = o.created_at||o.time;
-      if(ts && ts>byPhone[phone].lastOrder) { byPhone[phone].lastOrder=ts; byPhone[phone].name=o.customer_name; }
-    });
-    return Object.values(byPhone).filter(c=>c.count>=2).sort((a,b)=>b.count-a.count).slice(0,10);
-  },[orders]);
-  const repeatCustomers = useMemo(()=>{
-    const byPhone = {};
-    orders.forEach(o=>{
       const phone=(o.customer_phone||"").trim();
       if(!phone) return;
       if(!byPhone[phone]) byPhone[phone]={phone,name:o.customer_name,count:0,total:0,lastOrder:o.created_at||o.time};
