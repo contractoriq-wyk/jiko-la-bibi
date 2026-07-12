@@ -98,7 +98,7 @@ function Ring({label, current, goal, color, size=70}) {
         </div>
       </div>
       <div style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>{label}</div>
-      <div style={{fontFamily:"sans-serif",fontSize:"9px",color:over?t.gr:t.dim2,marginTop:1}}>{maskMoney(current,presenterMode)}</div>
+      {!presenterMode && <div style={{fontFamily:"sans-serif",fontSize:"9px",color:over?t.gr:t.dim2,marginTop:1}}>{fmt(current)}</div>}
     </div>
   );
 }
@@ -542,9 +542,9 @@ function LeoTab({onGoTo}) {
       <div style={{background:t.heroBg,borderRadius:16,padding:"1.4rem",marginBottom:10,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,"+t.gold+","+t.gr+","+t.gold+")"}}/>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:"rgba(255,255,255,0.5)",margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"2px"}}>Mapato ya Leo / Today's Revenue</p>
-        <p style={{fontFamily:"Georgia,serif",fontSize:"40px",fontWeight:900,color:t.gold,margin:0,lineHeight:1}}>{maskMoney(todayGross,presenterMode)}</p>
+        <p style={{fontFamily:"Georgia,serif",fontSize:"40px",fontWeight:900,color:t.gold,margin:0,lineHeight:1}}>{presenterMode ? (goals.daily>0 ? pct(todayGross,goals.daily)+"% ya lengo" : "—") : fmt(todayGross)}</p>
         <div style={{display:"flex",gap:20,marginTop:10}}>
-          {[[maskMoney(todayOverhead,presenterMode),t.rd,"Gharama/Costs"],[todayNet===null?"--":maskMoney(todayNet,presenterMode),todayNet!==null&&todayNet>=0?t.gr:t.rd,"Faida/Profit"],[todaySales.length,"#fff","Mauzo/Sales"]].map(([v,c,l])=>(
+          {[[presenterMode?(todayGross>0?Math.round(todayOverhead/todayGross*100)+"%":"—"):fmt(todayOverhead),t.rd,"Gharama/Costs"],[todayNet===null?"--":(presenterMode?(todayGross>0?Math.round(todayNet/todayGross*100)+"%":"—"):fmt(todayNet)),todayNet!==null&&todayNet>=0?t.gr:t.rd,"Faida/Profit"],[todaySales.length,"#fff","Mauzo/Sales"]].map(([v,c,l])=>(
             <div key={l}><div style={{fontFamily:"sans-serif",fontSize:"9px",color:"rgba(255,255,255,0.4)",textTransform:"uppercase"}}>{l}</div><div style={{fontFamily:"sans-serif",fontSize:"13px",fontWeight:700,color:c}}>{v}</div></div>
           ))}
         </div>
@@ -552,7 +552,7 @@ function LeoTab({onGoTo}) {
       {goals.daily>0&&(
         <Card style={{padding:"1rem",display:"flex",justifyContent:"space-around",alignItems:"center"}}>
           <Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={goalColor(todayGross,goals.daily,t)} size={80}/>
-          <div style={{textAlign:"center"}}><div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:900,color:t.gold}}>{maskMoney(goals.daily,presenterMode)}</div><div style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",marginTop:2}}>Daily Goal</div></div>
+          <div style={{textAlign:"center"}}><div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:900,color:t.gold}}>{presenterMode?"Lengo/Target":fmt(goals.daily)}</div><div style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",marginTop:2}}>Daily Goal</div></div>
         </Card>
       )}
       {alerts.map((a,i)=><div key={i} style={{borderLeft:"3px solid "+a.c,background:a.c+"12",borderRadius:"0 10px 10px 0",padding:"8px 12px",marginBottom:6,fontFamily:"sans-serif",fontSize:"12px",color:a.c,lineHeight:1.4}}>{a.msg}</div>)}
@@ -881,9 +881,9 @@ function RipodiTab() {
       </Card>
       {(fetched||range==="today")&&<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-          <Chip label="Mapato Ghafi" value={maskMoney(gross,presenterMode)} color={t.gold} icon="💰"/>
-          <Chip label="Faida Halisi" value={maskMoney(net,presenterMode)} color={net>=0?t.gr:t.rd} icon={net>=0?"📈":"📉"}/>
-          <Chip label="Gharama Yote" value={maskMoney(overhead,presenterMode)} color={t.rd} icon="💸"/>
+          <Chip label="Mapato Ghafi" value={presenterMode?"100%":fmt(gross)} color={t.gold} icon="💰"/>
+          <Chip label="Faida Halisi" value={presenterMode?(gross?Math.round(net/gross*100):0)+"%":fmt(net)} color={net>=0?t.gr:t.rd} icon={net>=0?"📈":"📉"}/>
+          <Chip label="Gharama Yote" value={presenterMode?(gross?Math.round(overhead/gross*100):0)+"%":fmt(overhead)} color={t.rd} icon="💸"/>
           <Chip label="Mauzo" value={sales.length} color={t.bl} icon="🧾"/>
         </div>
         <ComparisonRow range={range} cStart={cStart} cEnd={cEnd} currentGross={gross}/>
@@ -1039,12 +1039,12 @@ function MalengoTab() {
             <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Pendekezo la Malengo / Suggested Goals</p>
           </div>
           <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,margin:"8px 0 12px",lineHeight:1.6}}>
-            Kutokana na siku {suggestion.activeDays} za mauzo halisi tangu {BUSINESS_START_DATE} (mauzo yote / all-time), wastani wa mauzo kwa siku ni <b style={{color:t.gold}}>{maskMoney(Math.round(suggestion.avgPerActiveDay),presenterMode)}</b>. Jumla ya mauzo yote: <b style={{color:t.gold}}>{maskMoney(suggestion.totalAll,presenterMode)}</b>.
+            Kutokana na siku {suggestion.activeDays} za mauzo halisi tangu {BUSINESS_START_DATE} (mauzo yote / all-time), {presenterMode ? <>wastani wa siku umehesabiwa kutoka <b style={{color:t.gold}}>{suggestion.activeDays}</b> siku za uendeshaji.</> : <>wastani wa mauzo kwa siku ni <b style={{color:t.gold}}>{fmt(Math.round(suggestion.avgPerActiveDay))}</b>. Jumla ya mauzo yote: <b style={{color:t.gold}}>{fmt(suggestion.totalAll)}</b>.</>}
           </p>
           {suggestion.lastMonthTotal>0 && (
             <div style={{background:t.gold+"10",border:"1px solid "+t.gold+"33",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
               <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim,margin:0,lineHeight:1.6}}>
-                🏆 <b>{suggestion.lastMonthName}</b> ulipata <b style={{color:t.gold}}>{maskMoney(suggestion.lastMonthTotal,presenterMode)}</b>. Lengo la mwezi huu limewekwa kupita hilo kwa +{growthPct}%. / Last month you made {maskMoney(suggestion.lastMonthTotal,presenterMode)} — this month's goal is set to beat it by +{growthPct}%.
+                🏆 <b>{suggestion.lastMonthName}</b> {presenterMode ? <>ilikuwa msingi (100%) wa lengo hili.</> : <>ulipata <b style={{color:t.gold}}>{fmt(suggestion.lastMonthTotal)}</b>.</>} Lengo la mwezi huu limewekwa kupita hilo kwa +{growthPct}%. / This month's goal is set to beat last month by +{growthPct}%.
               </p>
             </div>
           )}
@@ -1061,15 +1061,15 @@ function MalengoTab() {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
             <div style={{background:t.gold+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Siku</div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gold,marginTop:2}}>{maskMoney(suggestion.sDaily,presenterMode)}</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gold,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sDaily)}</div>
             </div>
             <div style={{background:t.bl+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Wiki</div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.bl,marginTop:2}}>{maskMoney(suggestion.sWeekly,presenterMode)}</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.bl,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sWeekly)}</div>
             </div>
             <div style={{background:t.gr+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Mwezi{suggestion.lastMonthTotal>0?" 🏆":""}</div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gr,marginTop:2}}>{maskMoney(suggestion.sMonthly,presenterMode)}</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gr,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sMonthly)}</div>
             </div>
           </div>
           <button onClick={applySuggestion} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
@@ -1274,10 +1274,30 @@ function AkiliTab() {
       const dateStart = new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"});
       const dateEnd = new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"});
       const rowsForItems = Math.min(itemStats.length,5);
-      const H = 1160 + rowsForItems*46;
+      const rowsForSlow = Math.min(slowMoving.length,6);
+      const rowsForInsights = insights.length;
+      const hasSvc = svcData.length>0, hasCost = costData.length>0;
+
+      // Dynamic height: base sections + variable-length lists
+      let H = 420; // header + health + stats + trend chart baseline
+      H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
+      H += 90; // best day/hour block
+      H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
+      H += rowsForSlow>0 ? (60+rowsForSlow*32) : 0;
+      H += rowsForInsights>0 ? (60+rowsForInsights*46) : 0;
+      H += 60; // footer margin
+
       const canvas = document.createElement("canvas");
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
+
+      function healthGrade(h){
+        if(h>=85) return "A";
+        if(h>=70) return "B";
+        if(h>=55) return "C";
+        if(h>=40) return "D";
+        return "F";
+      }
 
       // Background
       ctx.fillStyle = "#F0F4F8";
@@ -1299,26 +1319,28 @@ function AkiliTab() {
 
       let y = 165;
 
-      // Health score circle
+      // Health score circle + letter grade
       const hcx = 110, hcy = y+55, hr = 50;
       ctx.beginPath(); ctx.arc(hcx,hcy,hr,0,Math.PI*2); ctx.strokeStyle = hc+"22"; ctx.lineWidth=10; ctx.stroke();
       const healthFrac = Math.min(1,health/100);
       ctx.beginPath(); ctx.arc(hcx,hcy,hr,-Math.PI/2,-Math.PI/2+healthFrac*Math.PI*2); ctx.strokeStyle=hc; ctx.lineWidth=10; ctx.lineCap="round"; ctx.stroke();
-      ctx.fillStyle = hc; ctx.font = "bold 26px Georgia, serif"; ctx.textAlign="center";
-      ctx.fillText(String(Math.round(health)), hcx, hcy+9);
+      ctx.fillStyle = hc; ctx.font = "bold 24px Georgia, serif"; ctx.textAlign="center";
+      ctx.fillText(String(Math.round(health)), hcx, hcy);
+      ctx.font = "bold 15px Georgia, serif";
+      ctx.fillText("Daraja "+healthGrade(health), hcx, hcy+20);
       ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
       ctx.fillText("Afya ya Biashara", hcx+70, hcy-14);
       ctx.font = "13px Arial"; ctx.fillStyle="rgba(11,31,69,0.6)";
-      ctx.fillText("Business Health Score", hcx+70, hcy+6);
+      ctx.fillText("Business Health Score / Grade", hcx+70, hcy+6);
       ctx.font = "bold 13px Arial"; ctx.fillStyle = hc;
       ctx.fillText(health>=70?"Excellent / Nzuri Sana":health>=40?"Average / Wastani":"At Risk / Hatarini", hcx+70, hcy+26);
 
       y += 140;
 
-      // Stat boxes: Gross, Net, Margin
+      // Stat boxes: Gross, Net, Margin (presenter-safe percentages)
       const stats = [
-        {label:"Mapato Ghafi", val: presenterMode?"TZS \u2022\u2022\u2022,\u2022\u2022\u2022":fmt(gross), color:"#B8860B"},
-        {label:"Faida Halisi", val: presenterMode?"TZS \u2022\u2022\u2022,\u2022\u2022\u2022":fmt(net), color: net>=0?"#1B7A20":"#C62828"},
+        {label:"Mapato Ghafi", val: presenterMode?(weekOverWeek.pct>=0?"+":"")+weekOverWeek.pct+"%":fmt(gross), color:"#B8860B"},
+        {label:"Faida Halisi", val: presenterMode?margin+"%":fmt(net), color: net>=0?"#1B7A20":"#C62828"},
         {label:"Margin", val: margin+"%", color: margin>25?"#1B7A20":margin>0?"#B8860B":"#C62828"},
       ];
       const boxW = (W-PAD*2-20)/3;
@@ -1344,11 +1366,9 @@ function AkiliTab() {
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(PAD,y,chartW,chartH);
       ctx.strokeStyle = "rgba(11,31,69,0.08)"; ctx.lineWidth=1; ctx.strokeRect(PAD,y,chartW,chartH);
-      // average dashed line
       const avgY = y+chartH-10-(avgRev/maxRev)*(chartH-20);
       ctx.setLineDash([4,4]); ctx.strokeStyle="rgba(11,31,69,0.3)"; ctx.beginPath();
       ctx.moveTo(PAD,avgY); ctx.lineTo(PAD+chartW,avgY); ctx.stroke(); ctx.setLineDash([]);
-      // trend line, colored per segment
       for(let i=1;i<trendData.length;i++){
         const p0 = trendData[i-1], p1 = trendData[i];
         const x0 = PAD + ((i-1)/(trendData.length-1))*chartW;
@@ -1381,9 +1401,10 @@ function AkiliTab() {
           ctx.fillRect(PAD, barY+8, Math.max(barW,4), 8);
           ctx.textAlign="right";
           ctx.fillStyle = "rgba(11,31,69,0.7)"; ctx.font="12px Arial";
-          ctx.fillText(presenterMode?"\u2022\u2022\u2022":fmt(it.rev), W-PAD, barY+2);
+          const pctOfTop = Math.round((it.rev/maxItemRev)*100);
+          ctx.fillText(presenterMode?pctOfTop+"%":fmt(it.rev), W-PAD, barY+2);
         });
-        y += rowsForItems*46 + 20;
+        y += rowsForItems*46 + 30;
       }
 
       // Best day / hour
@@ -1394,10 +1415,87 @@ function AkiliTab() {
         ctx.font="13px Arial"; ctx.fillStyle="rgba(11,31,69,0.75)";
         if(dayHourAnalysis.bestDay) ctx.fillText("\ud83d\udcc5 Siku Bora: "+dayHourAnalysis.bestDay.name, PAD, y);
         if(dayHourAnalysis.bestHour) ctx.fillText("\u23f0 Saa Bora: "+dayHourAnalysis.bestHour.hour+":00", PAD+300, y);
-        y += 30;
+        y += 40;
+      }
+
+      // Service Mix + Cost Breakdown donuts, side by side
+      if(hasSvc || hasCost){
+        const donutY = y;
+        function drawDonut(cx, cyTop, data, title){
+          const total = data.reduce((s,d)=>s+d.value,0);
+          if(total<=0) return;
+          ctx.fillStyle = "#0B1F45"; ctx.font="bold 14px Arial"; ctx.textAlign="left";
+          ctx.fillText(title, cx-70, cyTop);
+          const cy = cyTop+80, R=55, ir=30;
+          let ang = -Math.PI/2;
+          data.forEach(d=>{
+            const sw = (d.value/total)*Math.PI*2;
+            ctx.beginPath();
+            ctx.moveTo(cx,cy);
+            ctx.arc(cx,cy,R,ang,ang+sw);
+            ctx.closePath();
+            ctx.fillStyle = d.color;
+            ctx.fill();
+            ang += sw;
+          });
+          ctx.fillStyle = "#F0F4F8"; ctx.beginPath(); ctx.arc(cx,cy,ir,0,Math.PI*2); ctx.fill();
+          // Legend below
+          let legY = cyTop+150;
+          data.forEach(d=>{
+            ctx.fillStyle = d.color; ctx.fillRect(cx-70, legY-9, 9, 9);
+            ctx.fillStyle = "rgba(11,31,69,0.75)"; ctx.font="11px Arial"; ctx.textAlign="left";
+            const p = Math.round(d.value/total*100);
+            ctx.fillText(d.label+" \u00b7 "+p+"%", cx-56, legY);
+            legY += 15;
+          });
+        }
+        if(hasSvc) drawDonut(PAD+130, donutY, svcData, "Aina ya Huduma / Service Mix");
+        if(hasCost) drawDonut(PAD+130+320, donutY, costData, "Gharama kwa Aina / Cost Breakdown");
+        y += 230;
+      }
+
+      // Slow-moving items
+      if(slowMoving.length>0){
+        ctx.fillStyle = "#C62828"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("\u26a0\ufe0f Bidhaa Zisizouzwa / Slow-Moving Items", PAD, y);
+        y += 24;
+        slowMoving.slice(0,6).forEach(item=>{
+          ctx.fillStyle = "rgba(11,31,69,0.8)"; ctx.font="12px Arial"; ctx.textAlign="left";
+          ctx.fillText(item.name, PAD, y);
+          ctx.fillStyle = "#C62828"; ctx.font="bold 11px Arial"; ctx.textAlign="right";
+          ctx.fillText(item.daysSince===null?"Hakuna 30+ siku":item.daysSince+" siku", W-PAD, y);
+          y += 26;
+        });
+        y += 20;
+      }
+
+      // Business Insights
+      if(insights.length>0){
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("Business Insights / Ushauri", PAD, y);
+        y += 22;
+        insights.forEach(ins=>{
+          const c = ins.c==="good"?"#1B7A20":ins.c==="danger"?"#C62828":ins.c==="warn"?"#B8860B":"#1565C0";
+          ctx.fillStyle = c; ctx.fillRect(PAD, y-12, 3, 34);
+          ctx.fillStyle = "rgba(11,31,69,0.8)"; ctx.font="12px Arial"; ctx.textAlign="left";
+          // simple wrap for long insight text
+          const words = ins.msg.split(" ");
+          let line = "", lineY = y;
+          const maxW = W-PAD*2-16;
+          words.forEach(w=>{
+            const test = line+w+" ";
+            if(ctx.measureText(test).width > maxW && line){
+              ctx.fillText(line, PAD+12, lineY);
+              line = w+" "; lineY += 16;
+            } else line = test;
+          });
+          ctx.fillText(line, PAD+12, lineY);
+          y = lineY + 30;
+        });
       }
 
       // Footer
+      y += 10;
       ctx.fillStyle = "rgba(11,31,69,0.4)"; ctx.font="11px Arial"; ctx.textAlign="center";
       ctx.fillText("Unyamwezini Jiko La Bibi JJJ \u00b7 " + APP_VERSION, W/2, H-20);
 
@@ -1422,6 +1520,15 @@ function AkiliTab() {
     }
   }
 
+
+  function healthGrade(h){
+    if(h>=85) return "A";
+    if(h>=70) return "B";
+    if(h>=55) return "C";
+    if(h>=40) return "D";
+    return "F";
+  }
+
   return (
     <div style={{padding:"1rem"}}>
       <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short"})} hadi {new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric"})} (Siku 30 / Last 30 Days)</p>
@@ -1431,12 +1538,15 @@ function AkiliTab() {
             <circle cx={34} cy={34} r={26} fill="none" stroke={hc} strokeWidth={7} strokeOpacity={0.12}/>
             <circle cx={34} cy={34} r={26} fill="none" stroke={hc} strokeWidth={7} strokeDasharray={health*1.63+" 163"} strokeLinecap="round" style={{filter:"drop-shadow(0 0 6px "+hc+"66)"}}/>
           </svg>
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontFamily:"Georgia,serif",fontSize:17,fontWeight:900,color:hc}}>{Math.round(health)}</span></div>
+          <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:hc,lineHeight:1}}>{Math.round(health)}</span>
+            <span style={{fontFamily:"Georgia,serif",fontSize:10,fontWeight:700,color:hc,lineHeight:1,marginTop:1}}>{healthGrade(health)}</span>
+          </div>
         </div>
         <div>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 2px"}}>Business Health / Afya ya Biashara</p>
-          <p style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:900,color:hc,margin:"0 0 2px"}}>{health>=70?"Excellent / Nzuri Sana":health>=40?"Average / Wastani":"At Risk / Hatarini"}</p>
-          <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:0}}>Gross: {maskMoney(gross,presenterMode)} · Net: {maskMoney(net,presenterMode)} · Margin: {margin}%</p>
+          <p style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:900,color:hc,margin:"0 0 2px"}}>{health>=70?"Excellent / Nzuri Sana":health>=40?"Average / Wastani":"At Risk / Hatarini"} · Daraja {healthGrade(health)}</p>
+          <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:0}}>Gross: {presenterMode?"100%":fmt(gross)} · Net: {presenterMode?(gross?Math.round(net/gross*100):0)+"%":fmt(net)} · Margin: {margin}%</p>
         </div>
       </Card>
       <Card style={{padding:"1rem"}}>
@@ -1537,8 +1647,8 @@ function AkiliTab() {
         <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim,marginTop:10,marginBottom:0,fontStyle:"italic"}}>💡 Fikiria kuondoa kwenye menyu, kupunguza bei, au kutangaza / Consider removing, discounting, or promoting these.</p>
       </Card>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"10px 0"}}>
-        <Chip label="Mapato Ghafi" value={maskMoney(gross,presenterMode)} color={t.gold} icon="💰"/>
-        <Chip label="Faida Halisi" value={maskMoney(net,presenterMode)} color={net>=0?t.gr:t.rd} icon="📊"/>
+        <Chip label="Mapato Ghafi" value={presenterMode?"100%":fmt(gross)} color={t.gold} icon="💰"/>
+        <Chip label="Faida Halisi" value={presenterMode?(gross?Math.round(net/gross*100):0)+"%":fmt(net)} color={net>=0?t.gr:t.rd} icon="📊"/>
         <Chip label="Margin %" value={margin+"%"} color={margin>25?t.gr:margin>0?t.gold:t.rd} icon="🎯"/>
         <Chip label="Mauzo/Sales" value={s30.length} color={t.bl} icon="🧾"/>
       </div>
@@ -1871,7 +1981,7 @@ function BackupTab() {
 }
 
 /* ═══ TAB: WAFANYAKAZI & WAKANDARASI / STAFF & CONTRACTORS ═══ */
-function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay, myWarnings, onAddWarning, onDeleteWarning, onReactivate, isFormer}) {
+function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay, myWarnings, onAddWarning, onDeleteWarning, onReactivate, isFormer, totalPayroll}) {
   const {t, presenterMode} = useT();
   const isContractor = s.type === "contractor";
   const isSeasonal = s.type === "seasonal";
@@ -1927,7 +2037,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             {myWarnings.length>0 && <button onClick={()=>setShowWarnList(!showWarnList)} style={{fontSize:9,background:t.rd+"18",color:t.rd,padding:"1px 7px",borderRadius:5,fontWeight:700,border:"1px solid "+t.rd+"40",cursor:"pointer"}}>⚠️ {myWarnings.length}</button>}
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{s.role||"—"}{s.phone?" · "+s.phone:""}</div>
-          {s.monthly_salary>0 && !isFormer && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{maskMoney(s.monthly_salary,presenterMode)}{!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":""}</div>}
+          {s.monthly_salary>0 && !isFormer && <div style={{fontFamily:"sans-serif",fontSize:12,color:accent,marginTop:3,fontWeight:700}}>{presenterMode?(totalPayroll?Math.round(s.monthly_salary/totalPayroll*100):0)+"% ya jumla":fmt(s.monthly_salary)}{!presenterMode&&(!isContractor&&!isSeasonal?"/mwezi":isContractor?" /kazi":"")}</div>}
           {s.notes && <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:3,fontStyle:"italic"}}>{s.notes}</div>}
 
           {showWarnList && myWarnings.length>0 && <div style={{marginTop:8,padding:10,background:t.rd+"08",borderRadius:8,border:"1px solid "+t.rd+"22"}}>
@@ -2042,13 +2152,13 @@ function WafanyakaziTab() {
       reactivateStaff(s.id);
   }
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
-  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay,onAddWarning:addWarning,onDeleteWarning:deleteWarning};
+  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay,onAddWarning:addWarning,onDeleteWarning:deleteWarning,totalPayroll};
 
   return (
     <div style={{padding:"1rem"}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-        <Chip label="Mshahara Wote / Total Payroll" value={maskMoney(totalPayroll,presenterMode)} color={t.gold} icon="💼"/>
-        <Chip label="Lipwa Mwezi Huu / Paid This Month" value={maskMoney(paidThisMonth,presenterMode)} color={t.gr} icon="✅"/>
+        <Chip label="Mshahara Wote / Total Payroll" value={presenterMode?"100%":fmt(totalPayroll)} color={t.gold} icon="💼"/>
+        <Chip label="Lipwa Mwezi Huu / Paid This Month" value={presenterMode?(totalPayroll?Math.round(paidThisMonth/totalPayroll*100):0)+"%":fmt(paidThisMonth)} color={t.gr} icon="✅"/>
       </div>
       {totalWarnings>0 && <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
         <Chip label="Maonyo Yote / Total Warnings" value={totalWarnings} color={t.gold} icon="⚠️"/>
