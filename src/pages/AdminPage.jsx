@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useContext, createContext } from "react";
+import { useState, useMemo, useEffect, useContext, createContext, useRef } from "react";
 import { menu, sections } from "../data/menu";
 import { business } from "../data/businessConfig";
 import { useAdmin } from "../admin/AdminContext";
@@ -149,7 +149,7 @@ function IconBadge({emoji, color}) {
 /* ═══ INTERACTIVE TREND CHART (drag to scrub) ═══ */
 function TrendChart({data, color, textColor, dimColor, bgColor, borderColor}) {
   const [hoverIdx, setHoverIdx] = useState(null);
-  const svgRef = React.useRef(null);
+  const svgRef = useRef(null);
   const W = 300, H = 100, padTop = 10, padBottom = 18;
   const maxRev = Math.max(...data.map(d=>d.rev), 1);
 
