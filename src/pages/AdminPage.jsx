@@ -638,7 +638,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty} = useAdmin();
   const [loaded,setLoaded]=useState(false);
   useEffect(()=>{if(!loaded){fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0],today());setLoaded(true);}},[]);
   const s30=allSales.filter(s=>s.sale_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
@@ -672,6 +672,22 @@ function AkiliTab() {
   const costData=Object.entries(costMap).map(([k,v],i)=>({label:k,value:v,color:PALETTE[i%PALETTE.length]}));
   const health=Math.min(100,Math.max(0,50+(margin/100*30)+(itemStats.length>5?10:0)+(gross>500000?10:0)));
   const hc=health>=70?t.gr:health>=40?t.gold:t.rd;
+  // Low-stock prediction: sales velocity per item over last 14 days
+  const stockPredictions = useMemo(()=>{
+    const s14 = allSales.filter(s=>s.sale_date>=new Date(Date.now()-14*86400000).toISOString().split("T")[0]);
+    const velo = {};
+    s14.forEach(s=>{
+      if(!velo[s.item_id]) velo[s.item_id]={name:s.item_name,qty:0,days:new Set()};
+      velo[s.item_id].qty+=s.quantity;
+      velo[s.item_id].days.add(s.sale_date);
+    });
+    return Object.entries(velo).map(([id,v])=>{
+      const activeDays = Math.max(v.days.size,1);
+      const perDay = v.qty/14; // average over full 14-day window (accounts for gaps)
+      return {id,name:v.name,perDay,qty14:v.qty};
+    }).filter(p=>p.perDay>0).sort((a,b)=>b.perDay-a.perDay);
+  },[allSales]);
+
   const insights=[];
   itemStats.filter(i=>i.margin<0&&i.qty>0).slice(0,2).forEach(i=>insights.push({c:"danger",msg:i.name+" is losing money (margin "+i.margin+"%). Raise price or stop selling."}));
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
@@ -694,6 +710,27 @@ function AkiliTab() {
           <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:0}}>Gross: {fmt(gross)} · Net: {fmt(net)} · Margin: {margin}%</p>
         </div>
       </Card>
+      {stockPredictions.filter(p=>stockQty[p.id]>0).length>0 && <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Utabiri wa Stoki / Stock Forecast</p>
+        {stockPredictions.filter(p=>stockQty[p.id]>0).map(p=>{
+          const qty = stockQty[p.id]||0;
+          const daysLeft = p.perDay>0 ? qty/p.perDay : 99;
+          const urgent = daysLeft<2, warn = daysLeft>=2&&daysLeft<5;
+          const color = urgent?t.rd:warn?t.gold:t.gr;
+          return (
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{p.name}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:1}}>{qty} units left · {p.perDay.toFixed(1)}/siku wastani</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:900,color}}>{daysLeft>=99?"—":daysLeft.toFixed(1)}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:8,color,textTransform:"uppercase",fontWeight:700}}>siku/days</div>
+              </div>
+            </div>
+          );
+        })}
+      </Card>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"10px 0"}}>
         <Chip label="Mapato Ghafi" value={fmt(gross)} color={t.gold} icon="💰"/>
         <Chip label="Faida Halisi" value={fmt(net)} color={net>=0?t.gr:t.rd} icon="📊"/>
@@ -733,8 +770,8 @@ function AkiliTab() {
 /* ═══ MENU TAB ═══ */
 function MenuTab() {
   const {t} = useT();
-  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,deleteCustomItem} = useAdmin();
-  const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");
+  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,deleteCustomItem,stockQty,setStockQty} = useAdmin();
+  const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");const [qed,setQed]=useState(null);const [qv,setQv]=useState("");
   const [showAdd,setShowAdd]=useState(false);
   const [newItem,setNewItem]=useState({sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"});
   const setNI=k=>e=>setNewItem(p=>({...p,[k]:e.target.value}));
@@ -771,6 +808,13 @@ function MenuTab() {
                   <input type="number" value={cv} onChange={e=>setCv(e.target.value)} autoFocus placeholder="0" style={{width:62,padding:"2px 6px",borderRadius:4,border:"1px solid "+t.gold,background:t.inputBg,fontFamily:"sans-serif",fontSize:11,color:t.inputColor,outline:"none"}}/>
                   <button onClick={()=>{setCost(item.id,parseInt(cv));setCed(null);}} style={{background:t.gr,color:"#fff",border:"none",borderRadius:4,padding:"2px 7px",fontSize:11,cursor:"pointer",fontWeight:700}}>OK</button>
                 </div>:<button onClick={()=>{setCed(item.id);setCv(String(cost||""));}} style={{background:"none",border:"none",fontFamily:"sans-serif",fontSize:10,color:cost?t.gr:t.dim2,cursor:"pointer",padding:0}}>{cost?fmt(cost):"Set cost"}</button>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6,paddingLeft:26,marginTop:3}}>
+                <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>Stoki/Stock:</span>
+                {qed===item.id?<div style={{display:"flex",gap:4}}>
+                  <input type="number" value={qv} onChange={e=>setQv(e.target.value)} autoFocus placeholder="0" style={{width:62,padding:"2px 6px",borderRadius:4,border:"1px solid "+t.bl,background:t.inputBg,fontFamily:"sans-serif",fontSize:11,color:t.inputColor,outline:"none"}}/>
+                  <button onClick={()=>{setStockQty(item.id,qv);setQed(null);}} style={{background:t.bl,color:"#fff",border:"none",borderRadius:4,padding:"2px 7px",fontSize:11,cursor:"pointer",fontWeight:700}}>OK</button>
+                </div>:<button onClick={()=>{setQed(item.id);setQv(String(stockQty[item.id]||""));}} style={{background:"none",border:"none",fontFamily:"sans-serif",fontSize:10,color:stockQty[item.id]?t.bl:t.dim2,cursor:"pointer",padding:0}}>{stockQty[item.id]?stockQty[item.id]+" units":"Weka kiasi"}</button>}
               </div>
             </div>;
           })}
