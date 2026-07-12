@@ -724,6 +724,7 @@ function RipodiTab() {
   const [fetched,setFetched]=useState(false);
   const [editRec,setEditRec]=useState(null);
   const [editType,setEditType]=useState("sale");
+  const [search,setSearch]=useState("");
   function getRangeDates(){
     const T2=new Date();const fmt=d=>d.toISOString().split("T")[0];
     if(range==="today")return{start:today(),end:today()};
@@ -1302,7 +1303,7 @@ function MaagizoTab() {
 /* ═══ TAB: BACKUP / EXPORT ═══ */
 function BackupTab() {
   const {t} = useT();
-  const {exportAll, importAll} = useAdmin();
+  const {exportAll, importAll, allSales, allCosts} = useAdmin();
   const [status,setStatus]=useState("");
   const [importText,setImportText]=useState("");
   async function doExport(){
@@ -1315,6 +1316,39 @@ function BackupTab() {
     a.click();
     URL.revokeObjectURL(url);
     setStatus("✓ Downloaded / Imepakuliwa");
+    setTimeout(()=>setStatus(""),3000);
+  }
+  function csvEscape(val){
+    const s = String(val==null?"":val);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }
+  function downloadCSV(rows, headers, filename){
+    const lines = [headers.join(",")];
+    rows.forEach(r=>lines.push(headers.map(h=>csvEscape(r[h])).join(",")));
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function doExportSalesCSV(){
+    downloadCSV(
+      allSales,
+      ["sale_date","item_name","quantity","unit_price","total_price","service_type","created_at"],
+      "jiko-mauzo-"+today()+".csv"
+    );
+    setStatus("✓ Mauzo CSV imepakuliwa / Sales CSV downloaded");
+    setTimeout(()=>setStatus(""),3000);
+  }
+  function doExportCostsCSV(){
+    downloadCSV(
+      allCosts,
+      ["cost_date","category","description","amount","spending_type","created_at"],
+      "jiko-gharama-"+today()+".csv"
+    );
+    setStatus("✓ Gharama CSV imepakuliwa / Costs CSV downloaded");
     setTimeout(()=>setStatus(""),3000);
   }
   function onFile(e){
@@ -1340,6 +1374,18 @@ function BackupTab() {
           <i className="ti ti-download"/> Download Backup / Pakua
         </button>
 
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"16px 0 8px"}}>CSV kwa Excel / Accounting</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"11px",color:t.dim,marginBottom:10,lineHeight:1.5}}>
+          Faili za CSV zinafunguka moja kwa moja kwenye Excel/Sheets. / CSV files open directly in Excel/Sheets for your accountant.
+        </p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          <button onClick={doExportSalesCSV} style={{background:t.gr+"15",color:t.gr,border:"1px solid "+t.gr+"44",borderRadius:10,padding:11,fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <i className="ti ti-file-spreadsheet"/> Mauzo CSV
+          </button>
+          <button onClick={doExportCostsCSV} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"44",borderRadius:10,padding:11,fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <i className="ti ti-file-spreadsheet"/> Gharama CSV
+          </button>
+        </div>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"16px 0 12px"}}>Restore / Rejesha</p>
         <p style={{fontFamily:"sans-serif",fontSize:"12px",color:t.dim,marginBottom:10,lineHeight:1.5}}>
           Chagua faili la JSON kurejesha data. / Select a JSON backup file to restore data.
@@ -1611,18 +1657,23 @@ export default function AdminPage({onExit}) {
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
   function toggle(){const nd=!dark;setDark(nd);localStorage.setItem("jiko-theme",nd?"dark":"light");}
   const t = dark ? DARK : LIGHT;
-  const TABS=[
+  const PRIMARY_TABS=[
     {key:"leo",    icon:"ti-home",            label:"Leo",     sub:"Today"},
     {key:"ingiza", icon:"ti-plus",            label:"Ingiza",  sub:"Input"},
     {key:"ripoti", icon:"ti-chart-bar",       label:"Ripoti",  sub:"Reports"},
-    {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
     {key:"akili",  icon:"ti-brain",           label:"Akili",   sub:"Analytics"},
     {key:"menu",   icon:"ti-tools-kitchen-2", label:"Menyu",   sub:"Menu"},
     {key:"maagizo",icon:"ti-clipboard-list",  label:"Maagizo", sub:"Orders"},
+  ];
+  const MORE_TABS=[
+    {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
     {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
   ];
+  const ALL_TABS=[...PRIMARY_TABS,...MORE_TABS];
+  const [showMore,setShowMore]=useState(false);
+  const activeIsMore = MORE_TABS.some(tb=>tb.key===tab);
   if(!authed) return (
     <ThemeCtx.Provider value={{t,dark,toggle}}>
       <PinGate onAuth={()=>setAuthed(true)}/>
@@ -1641,12 +1692,34 @@ export default function AdminPage({onExit}) {
           </div>
         </div>
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
-          {TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+          {PRIMARY_TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
             <i className={"ti "+tb.icon} style={{fontSize:17,color:tab===tb.key?t.gold:t.dim2}}/>
             <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:tab===tb.key?t.gold:t.text,whiteSpace:"nowrap"}}>{tb.label}</span>
             <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:tab===tb.key?t.gold:t.dim,whiteSpace:"nowrap"}}>{tb.sub}</span>
           </button>)}
+          <button onClick={()=>setShowMore(true)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:activeIsMore?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+            <i className="ti ti-dots" style={{fontSize:17,color:activeIsMore?t.gold:t.dim2}}/>
+            <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:activeIsMore?t.gold:t.text,whiteSpace:"nowrap"}}>{activeIsMore ? (MORE_TABS.find(tb=>tb.key===tab)||{}).label : "Zaidi"}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:activeIsMore?t.gold:t.dim,whiteSpace:"nowrap"}}>More</span>
+          </button>
         </div>
+        {showMore && (
+          <div style={{position:"fixed",inset:0,background:"rgba(3,11,24,0.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)setShowMore(false);}}>
+            <div style={{background:t.bg2,borderRadius:"20px 20px 0 0",padding:"18px 14px 24px",width:"100%",maxWidth:520,boxShadow:"0 -10px 40px rgba(0,0,0,0.4)"}}>
+              <div style={{width:36,height:4,background:t.border,borderRadius:99,margin:"0 auto 16px"}}/>
+              <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px",paddingLeft:6}}>Zaidi / More Options</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {MORE_TABS.map(tb=>(
+                  <button key={tb.key} onClick={()=>{setTab(tb.key);setShowMore(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:"1.5px solid "+(tab===tb.key?t.gold:t.border),background:tab===tb.key?t.gold+"12":t.bg4,cursor:"pointer"}}>
+                    <i className={"ti "+tb.icon} style={{fontSize:24,color:tab===tb.key?t.gold:t.dim}}/>
+                    <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:tab===tb.key?t.gold:t.text}}>{tb.label}</span>
+                    <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{tb.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {tab==="leo"    &&<LeoTab onGoTo={setTab}/>}
         {tab==="ingiza" &&<IngizaTab/>}
         {tab==="ripoti" &&<RipodiTab/>}
