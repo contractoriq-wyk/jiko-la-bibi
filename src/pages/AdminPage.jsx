@@ -694,7 +694,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems} = useAdmin();
   const [loaded,setLoaded]=useState(false);
   useEffect(()=>{if(!loaded){fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0],today());setLoaded(true);}},[]);
   const s30=allSales.filter(s=>s.sale_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
@@ -744,6 +744,55 @@ function AkiliTab() {
     }).filter(p=>p.perDay>0).sort((a,b)=>b.perDay-a.perDay);
   },[allSales]);
 
+  // Best day/hour analysis — uses created_at timestamps from last 30 days
+  const dayHourAnalysis = useMemo(()=>{
+    const dayNames = ["Jumapili","Jumatatu","Jumanne","Jumatano","Alhamisi","Ijumaa","Jumamosi"];
+    const byDay = {}; // 0-6 -> revenue
+    const byHour = {}; // 0-23 -> revenue
+    s30.forEach(s=>{
+      if(!s.created_at) return;
+      const d = new Date(s.created_at);
+      const day = d.getDay();
+      const hour = d.getHours();
+      byDay[day] = (byDay[day]||0) + s.total_price;
+      byHour[hour] = (byHour[hour]||0) + s.total_price;
+    });
+    const dayEntries = Object.entries(byDay).sort((a,b)=>b[1]-a[1]);
+    const hourEntries = Object.entries(byHour).sort((a,b)=>b[1]-a[1]);
+    const bestDay = dayEntries[0] ? {name:dayNames[dayEntries[0][0]], rev:dayEntries[0][1]} : null;
+    const bestHour = hourEntries[0] ? {hour:parseInt(hourEntries[0][0]), rev:hourEntries[0][1]} : null;
+    const dayChart = dayNames.map((name,i)=>({name,rev:byDay[i]||0}));
+    return { bestDay, bestHour, dayChart };
+  },[s30]);
+
+  // Slow-moving items — menu items with no sales in the last 30-day window
+  const slowMoving = useMemo(()=>{
+    const lastSaleMap = {}; // itemId -> latest sale_date string
+    allSales.forEach(s=>{
+      if(!lastSaleMap[s.item_id] || s.sale_date > lastSaleMap[s.item_id]) lastSaleMap[s.item_id] = s.sale_date;
+    });
+    const allMenuItems = [...menu, ...customItems.map(ci=>({id:ci.id, name:{sw:ci.sw}}))];
+    const todayStr2 = today();
+    const results = allMenuItems.map(item=>{
+      const last = lastSaleMap[item.id];
+      let daysSince;
+      if(!last){ daysSince = null; } // never sold in fetched window
+      else {
+        const d1 = new Date(last), d2 = new Date(todayStr2);
+        daysSince = Math.round((d2-d1)/86400000);
+      }
+      return { id:item.id, name:item.name?.sw||item.sw||item.id, daysSince };
+    }).filter(r => r.daysSince===null || r.daysSince>=14)
+      .sort((a,b)=>{
+        if(a.daysSince===null && b.daysSince===null) return 0;
+        if(a.daysSince===null) return -1;
+        if(b.daysSince===null) return 1;
+        return b.daysSince-a.daysSince;
+      })
+      .slice(0,8);
+    return results;
+  },[allSales,customItems]);
+
   const insights=[];
   itemStats.filter(i=>i.margin<0&&i.qty>0).slice(0,2).forEach(i=>insights.push({c:"danger",msg:i.name+" is losing money (margin "+i.margin+"%). Raise price or stop selling."}));
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
@@ -786,6 +835,48 @@ function AkiliTab() {
             </div>
           );
         })}
+      </Card>}
+      {dayHourAnalysis.bestDay && <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Siku na Saa Bora / Best Day &amp; Hour (30 days)</p>
+        <div style={{display:"flex",gap:10,marginBottom:14}}>
+          <div style={{flex:1,background:t.gold+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
+            <div style={{fontSize:20,marginBottom:4}}>📅</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:t.gold}}>{dayHourAnalysis.bestDay.name}</div>
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:2}}>Siku Bora / Best Day</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:3}}>{fmt(dayHourAnalysis.bestDay.rev)}</div>
+          </div>
+          {dayHourAnalysis.bestHour && <div style={{flex:1,background:t.bl+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
+            <div style={{fontSize:20,marginBottom:4}}>⏰</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:t.bl}}>{dayHourAnalysis.bestHour.hour}:00</div>
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:2}}>Saa Bora / Peak Hour</div>
+            <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:3}}>{fmt(dayHourAnalysis.bestHour.rev)}</div>
+          </div>}
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Mauzo kwa Siku ya Wiki / Revenue by Weekday</p>
+        {dayHourAnalysis.dayChart.map(d=>{
+          const maxRev = Math.max(...dayHourAnalysis.dayChart.map(x=>x.rev),1);
+          return (
+            <div key={d.name} style={{marginBottom:7}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:t.dim,marginBottom:2}}>
+                <span>{d.name}</span><span style={{fontWeight:700}}>{fmt(d.rev)}</span>
+              </div>
+              <Bar value={d.rev} max={maxRev} color={d.rev===maxRev?t.gold:t.bl} h={5}/>
+            </div>
+          );
+        })}
+      </Card>}
+      {slowMoving.length>0 && <Card style={{padding:"1rem"}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 4px"}}>⚠️ Bidhaa Zisizouzwa / Slow-Moving Items</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:"0 0 12px"}}>Hazijauzwa kwa siku 14+ / Not sold in 14+ days</p>
+        {slowMoving.map(item=>(
+          <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
+            <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{item.name}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.rd,background:t.rd+"12",padding:"3px 9px",borderRadius:6,flexShrink:0}}>
+              {item.daysSince===null ? "Hakuna mauzo 30+ siku" : item.daysSince+" siku"}
+            </span>
+          </div>
+        ))}
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim,marginTop:10,marginBottom:0,fontStyle:"italic"}}>💡 Fikiria kuondoa kwenye menyu, kupunguza bei, au kutangaza / Consider removing, discounting, or promoting these.</p>
       </Card>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"10px 0"}}>
         <Chip label="Mapato Ghafi" value={fmt(gross)} color={t.gold} icon="💰"/>
