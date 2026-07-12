@@ -44,7 +44,7 @@ const pct = (a,b) => b ? Math.min(100,Math.round(a/b*100)) : 0;
 const today = () => new Date().toISOString().split("T")[0];
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-7 · 12 Jul 2026, 01:53 PM ET";
+const APP_VERSION = "V2.6-7 · 12 Jul 2026, 14:09 ET";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -869,7 +869,7 @@ function RipodiTab() {
         @media print{button{display:none}}
       </style></head><body>
       <h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1>
-      <p class="sub">Z-REPORT &middot; ${start}${start!==end?" hadi "+end:""} &middot; Imetengenezwa: ${new Date().toLocaleString("sw-TZ", {timeZone:"America/New_York"})}</p>
+      <p class="sub">Z-REPORT &middot; ${start}${start!==end?" hadi "+end:""} &middot; Imetengenezwa: ${new Date().toLocaleString("sw-TZ", {timeZone:"America/New_York", hour12:false})}</p>
       <div class="totals">
         <div><div class="label">Mapato Ghafi</div><div class="val" style="color:#B8860B">${fmt(gross)}</div></div>
         <div><div class="label">Gharama</div><div class="val" style="color:#C62828">${fmt(overhead)}</div></div>
@@ -1127,10 +1127,21 @@ function MalengoTab() {
 function AkiliTab() {
   const {t, presenterMode} = useT();
   const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts} = useAdmin();
-  const [loaded,setLoaded]=useState(false);
-  useEffect(()=>{if(!loaded){fetchRange(new Date(Date.now()-30*86400000).toISOString().split("T")[0],today());setLoaded(true);}},[]);
-  const s30=allSales.filter(s=>s.sale_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
-  const c30=allCosts.filter(c=>c.cost_date>=new Date(Date.now()-30*86400000).toISOString().split("T")[0]);
+  const [akiliRange,setAkiliRange]=useState("30days");
+  const [akiliCustomStart,setAkiliCustomStart]=useState(today());
+  const [akiliCustomEnd,setAkiliCustomEnd]=useState(today());
+  function getAkiliRangeDates(){
+    const now=new Date();
+    const fmtD=d=>d.toISOString().split("T")[0];
+    if(akiliRange==="30days"){ const s=new Date(Date.now()-29*86400000); return {start:fmtD(s),end:today(),label:"Siku 30 / Last 30 Days"}; }
+    if(akiliRange==="month"){ const s=new Date(now.getFullYear(),now.getMonth(),1); return {start:fmtD(s),end:today(),label:"Mwezi Huu / This Month"}; }
+    if(akiliRange==="alltime"){ return {start:BUSINESS_START_DATE,end:today(),label:"Muda Wote / All-Time"}; }
+    return {start:akiliCustomStart,end:akiliCustomEnd,label:"Tarehe Maalum / Custom"};
+  }
+  const {start:rangeStart,end:rangeEnd,label:rangeLabel} = getAkiliRangeDates();
+  useEffect(()=>{ fetchRange(rangeStart,rangeEnd); },[akiliRange,akiliCustomStart,akiliCustomEnd]);
+  const s30=allSales.filter(s=>s.sale_date>=rangeStart&&s.sale_date<=rangeEnd);
+  const c30=allCosts.filter(c=>c.cost_date>=rangeStart&&c.cost_date<=rangeEnd);
   const gross=s30.reduce((s,r)=>s+r.total_price,0);
   const costsFull30=c30.reduce((s,c)=>s+c.amount,0);
   const staffCostsForToggle30 = c30.filter(c=>c.category==="staff").reduce((s,c)=>s+c.amount,0);
@@ -1284,7 +1295,7 @@ function AkiliTab() {
   function sendAkiliReport(){
     const lines = [
       `🧠 *RIPOTI YA AKILI / ANALYTICS REPORT*`,
-      `📅 ${new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})} hadi ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"})} (Siku 30)`,
+      `📅 ${rangeStart} hadi ${rangeEnd} (${rangeLabel})`,
       ``,
       `💰 Mapato Ghafi: ${fmt(gross)}`,
       `📈 Faida Halisi: ${fmt(net)}`,
@@ -1323,8 +1334,8 @@ function AkiliTab() {
     setSharingImage(true);
     try {
       const W=800, PAD=36;
-      const dateStart = new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"});
-      const dateEnd = new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"});
+      const dateStart = rangeStart;
+      const dateEnd = rangeEnd;
       const rowsForItems = Math.min(itemStats.length,5);
       const rowsForSlow = Math.min(slowMoving.length,6);
       const rowsForInsights = insights.length;
@@ -1391,7 +1402,7 @@ function AkiliTab() {
 
       // Dira ya Biashara / Business Compass — bold, always shown with real numbers (ratios don't leak absolute figures)
       ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
-      ctx.fillText("\\ud83e\\udded Dira ya Biashara / Business Compass", PAD, y);
+      ctx.fillText("🧭 Dira ya Biashara / Business Compass", PAD, y);
       y += 18;
       const compW = (W-PAD*2-16)/2;
       [{lbl:"Jumla / Full", r:compassFull},{lbl:"Bila Wafanyakazi / Excl. Staff", r:compassExStaff}].forEach((c,i)=>{
@@ -1603,7 +1614,20 @@ function AkiliTab() {
 
   return (
     <div style={{padding:"1rem"}}>
-      <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})} hadi {new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",year:"numeric",timeZone:"America/New_York"})} (Siku 30 / EST)</p>
+      <Card style={{padding:"1rem",marginBottom:10}}>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Kipindi cha Uchambuzi / Analysis Period</p>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:akiliRange==="custom"?8:0}}>
+          {[["30days","Siku 30"],["month","Mwezi Huu"],["alltime","Muda Wote"],["custom","Chagua Tarehe"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setAkiliRange(k)} style={{padding:"5px 11px",borderRadius:99,border:"1px solid "+(akiliRange===k?t.gold:t.border),background:akiliRange===k?t.gold+"18":"transparent",color:akiliRange===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",fontWeight:akiliRange===k?700:400,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+        {akiliRange==="custom" && <div style={{display:"flex",gap:8,alignItems:"center",marginTop:8}}>
+          <input type="date" value={akiliCustomStart} onChange={e=>setAkiliCustomStart(e.target.value)} min={BUSINESS_START_DATE} max={today()} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none"}}/>
+          <span style={{color:t.dim2,fontSize:"11px"}}>—</span>
+          <input type="date" value={akiliCustomEnd} onChange={e=>setAkiliCustomEnd(e.target.value)} min={akiliCustomStart} max={today()} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none"}}/>
+        </div>}
+      </Card>
+      <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — {rangeStart} hadi {rangeEnd} ({rangeLabel})</p>
       <StaffCostToggle includeStaffCosts={includeStaffCosts} onToggle={toggleIncludeStaffCosts}/>
       {/* ═══ DIRA YA BIASHARA / BUSINESS COMPASS — bold, always visible, never masked ═══ */}
       <Card glow style={{padding:"1.3rem",marginBottom:10,border:"2px solid "+compassZone(costs>0?compassFull:1).color+"55"}}>
@@ -1668,7 +1692,7 @@ function AkiliTab() {
       <Card style={{padding:"1rem"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
           <IconBadge emoji="📈" color={t.gold}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})})</p>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({rangeStart}–{rangeEnd})</p>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,margin:"10px 0 14px"}}>
           <span style={{fontSize:16,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{weekOverWeek.pct>=0?"▲":"▼"}</span>
@@ -1707,7 +1731,7 @@ function AkiliTab() {
         })}
       </Card>}
       {dayHourAnalysis.bestDay && <Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><IconBadge emoji="🕐" color={t.bl}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Siku na Saa Bora / Best Day &amp; Hour ({new Date(Date.now()-29*86400000).toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})}–{new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"short",timeZone:"America/New_York"})})</p></div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><IconBadge emoji="🕐" color={t.bl}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Siku na Saa Bora / Best Day &amp; Hour ({rangeStart}–{rangeEnd})</p></div>
         <div style={{display:"flex",gap:10,marginBottom:14}}>
           <div style={{flex:1,background:t.gold+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
             <div style={{fontSize:20,marginBottom:4}}>📅</div>
@@ -1977,7 +2001,7 @@ function MaagizoTab() {
       {td.map(o=><Card key={o.id} style={{padding:"12px 14px",borderLeft:"3px solid "+(o.status==="done"?t.gr:t.gold),opacity:o.status==="done"?0.65:1,display:"flex",gap:8,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{o.customer}</div>
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit",timeZone:"America/New_York"})} · {o.service}{o.phone?" · "+o.phone:""}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"America/New_York"})} · {o.service}{o.phone?" · "+o.phone:""}</div>
           <div style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,marginTop:4}}>{o.items}</div>
           {o.total>0&&<div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.gold,marginTop:4}}>{fmt(o.total)}</div>}
         </div>
@@ -2367,7 +2391,7 @@ function AjiraTab() {
       const r = data;
       const w = window.open("","_blank");
       const fields = Object.entries(r.form_data||{}).map(([k,v])=>"<tr><td style='font-weight:bold;padding:5px 12px 5px 0;color:#555;font-size:12px;text-transform:uppercase'>"+k+"</td><td style='padding:5px 0'>"+(v||"—")+"</td></tr>").join("");
-      w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>"+r.employee_name+"</title><style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45;position:relative}body::before{content:'UNYAMWEZINI JIKO LA BIBI JJJ';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:46px;font-weight:900;font-family:Georgia,serif;color:rgba(184,134,11,0.10);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:2px}h1,h2,table,img,p{position:relative;z-index:1}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.confid{margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;font-style:italic;text-align:center}@media print{button{display:none}}</style></head><body><h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1><p style='text-align:center;font-size:11px;color:#777'>Mkataba uliosainiwa / Signed contract</p><h2>Aina: "+(r.doc_type)+"</h2><h2>Taarifa</h2><table>"+fields+"</table><h2>Sahihi ya Mfanyakazi</h2>"+(r.employee_signature?"<img class='sig' src='"+r.employee_signature+"'>":"<p>—</p>")+"<h2>Sahihi ya Mwajiri</h2>"+(r.employer_signature?"<img class='sig' src='"+r.employer_signature+"'>":"<p>—</p>")+"<p style='margin-top:18px;font-size:12px;color:#777'>Ilisainiwa: "+new Date(r.signed_at).toLocaleString("en-US",{timeZone:"America/New_York"})+" (EST)</p><p class='confid'>Hati ya Siri ya Unyamwezini Jiko La Bibi JJJ \u2014 Hairuhusiwi kunakili au kutumia bila idhini.</p><button onclick='window.print()' style='margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer'>🖨️ Print / PDF</button></body></html>");
+      w.document.write("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>"+r.employee_name+"</title><style>body{font-family:Arial;max-width:700px;margin:0 auto;padding:30px;color:#0B1F45;position:relative}body::before{content:'UNYAMWEZINI JIKO LA BIBI JJJ';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:46px;font-weight:900;font-family:Georgia,serif;color:rgba(184,134,11,0.10);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:2px}h1,h2,table,img,p{position:relative;z-index:1}h1{font-family:Georgia;font-size:18px;text-align:center}h2{font-size:14px;color:#B8860B;border-bottom:2px solid #B8860B;padding-bottom:4px;margin-top:24px}table{width:100%;border-collapse:collapse}img.sig{max-width:280px;border:1px solid #ddd;border-radius:8px;display:block;margin-top:6px}.confid{margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;font-style:italic;text-align:center}@media print{button{display:none}}</style></head><body><h1>UNYAMWEZINI JIKO LA BIBI JJJ</h1><p style='text-align:center;font-size:11px;color:#777'>Mkataba uliosainiwa / Signed contract</p><h2>Aina: "+(r.doc_type)+"</h2><h2>Taarifa</h2><table>"+fields+"</table><h2>Sahihi ya Mfanyakazi</h2>"+(r.employee_signature?"<img class='sig' src='"+r.employee_signature+"'>":"<p>—</p>")+"<h2>Sahihi ya Mwajiri</h2>"+(r.employer_signature?"<img class='sig' src='"+r.employer_signature+"'>":"<p>—</p>")+"<p style='margin-top:18px;font-size:12px;color:#777'>Ilisainiwa: "+new Date(r.signed_at).toLocaleString("en-US",{timeZone:"America/New_York",hour12:false})+" (ET)</p><p class='confid'>Hati ya Siri ya Unyamwezini Jiko La Bibi JJJ \u2014 Hairuhusiwi kunakili au kutumia bila idhini.</p><button onclick='window.print()' style='margin-top:20px;padding:12px 24px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer'>🖨️ Print / PDF</button></body></html>");
       w.document.close();
     } catch(e){ alert("Error: "+e.message); }
   }
