@@ -413,6 +413,31 @@ function sendTextToWhatsApp(text) {
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
+/* ═══ SHARED REPORT PREVIEW MODAL (used by Akili & Malengo) ═══ */
+function ReportPreviewModal({text, onClose}) {
+  const {t} = useT();
+  if(!text) return null;
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(3,11,24,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:t.bg2,border:"1px solid "+t.border,borderRadius:"20px 20px 12px 12px",padding:18,width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Ona Kabla ya Kutuma / Preview</span>
+          <button onClick={onClose} style={{background:t.bg4,border:"none",color:t.dim,borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:14}}>✕</button>
+        </div>
+        <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:14}}>
+          <pre style={{fontFamily:"sans-serif",fontSize:13,color:t.text,whiteSpace:"pre-wrap",margin:0,lineHeight:1.6}}>{text}</pre>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Hariri / Edit</button>
+          <button onClick={()=>{sendTextToWhatsApp(text);onClose();}} style={{flex:2,background:"rgba(37,211,102,0.15)",color:"#25d366",border:"1px solid rgba(37,211,102,0.4)",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <i className="ti ti-brand-whatsapp"/>Tuma Sasa / Send Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
@@ -923,6 +948,25 @@ function MalengoTab() {
     setMv(String(suggestion.sMonthly));
   }
 
+  const [malengoPreview,setMalengoPreview]=useState(null);
+  function pct(cur,goal){ return goal>0 ? Math.round(cur/goal*100) : 0; }
+  function sendMalengoReport(){
+    const lines = [
+      `🎯 *RIPOTI YA MALENGO / GOALS REPORT*`,
+      `📅 ${new Date().toLocaleDateString("sw-TZ",{day:"numeric",month:"long",year:"numeric"})}`,
+      ``,
+    ];
+    if(goals.daily>0) lines.push(`📆 Leo/Today: ${fmt(todayGross)} / ${fmt(goals.daily)} (${pct(todayGross,goals.daily)}%)`);
+    if(goals.weekly>0) lines.push(`🗓️ Wiki/Week: ${fmt(wkG)} / ${fmt(goals.weekly)} (${pct(wkG,goals.weekly)}%)`);
+    if(goals.monthly>0) lines.push(`📈 Mwezi/Month: ${fmt(moG)} / ${fmt(goals.monthly)} (${pct(moG,goals.monthly)}%)`);
+    if(!goals.daily && !goals.weekly && !goals.monthly) lines.push(`Hakuna malengo yaliyowekwa bado. / No goals set yet.`);
+    if(suggestion && suggestion.lastMonthTotal>0){
+      lines.push(``,`🏆 ${suggestion.lastMonthName}: ${fmt(suggestion.lastMonthTotal)}`);
+    }
+    lines.push(``,`— Unyamwezini Jiko La Bibi JJJ`);
+    setMalengoPreview(lines.join("\n"));
+  }
+
   function save(){if(dv)setGoal("daily",dv);if(wv)setGoal("weekly",wv);if(mv)setGoal("monthly",mv);setSaved(true);setTimeout(()=>setSaved(false),2000);}
   const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"2px solid ",background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   return (
@@ -995,6 +1039,10 @@ function MalengoTab() {
           {saved?"✓ Saved! / Imehifadhiwa!":"Save Goals / Hifadhi Malengo"}
         </button>
       </Card>
+      <button onClick={sendMalengoReport} style={{width:"100%",background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+        <i className="ti ti-brand-whatsapp"/> Tuma Ripoti ya Malengo / Send Goals Report
+      </button>
+      <ReportPreviewModal text={malengoPreview} onClose={()=>setMalengoPreview(null)}/>
     </div>
   );
 }
@@ -1130,6 +1178,41 @@ function AkiliTab() {
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
   if(costs>gross*0.6&&gross>0)insights.push({c:"warn",msg:"Expenses are "+Math.round(costs/gross*100)+"% of revenue. Reduce costs to increase profit."});
   if(!Object.keys(itemCosts).length)insights.push({c:"info",msg:"Set item cooking costs in Menu tab to see true profit margins."});
+
+  const [akiliPreview,setAkiliPreview]=useState(null);
+  function sendAkiliReport(){
+    const lines = [
+      `🧠 *RIPOTI YA AKILI / ANALYTICS REPORT*`,
+      `📅 Siku 30 zilizopita / Last 30 days`,
+      ``,
+      `💰 Mapato Ghafi: ${fmt(gross)}`,
+      `📈 Faida Halisi: ${fmt(net)}`,
+      `🎯 Margin: ${margin}%`,
+      `❤️ Afya ya Biashara / Health: ${Math.round(health)}/100`,
+      ``,
+    ];
+    if(itemStats.length>0){
+      lines.push(`⭐ *Bidhaa Bora / Top Items:*`);
+      itemStats.slice(0,3).forEach((it,i)=>lines.push(`${i+1}. ${it.name} — ${fmt(it.rev)}`));
+      lines.push(``);
+    }
+    if(dayHourAnalysis.bestDay){
+      lines.push(`📅 Siku Bora / Best Day: ${dayHourAnalysis.bestDay.name} (${fmt(dayHourAnalysis.bestDay.rev)})`);
+    }
+    if(dayHourAnalysis.bestHour){
+      lines.push(`⏰ Saa Bora / Peak Hour: ${dayHourAnalysis.bestHour.hour}:00`);
+    }
+    if(slowMoving.length>0){
+      lines.push(``,`⚠️ Bidhaa Zisizouzwa / Slow-Moving: ${slowMoving.length} bidhaa`);
+    }
+    const lowStock = stockPredictions.filter(p=>stockQty[p.id]>0 && (stockQty[p.id]/p.perDay)<5);
+    if(lowStock.length>0){
+      lines.push(`📦 Stoki Inayoisha / Low Stock: ${lowStock.length} bidhaa`);
+    }
+    lines.push(``,`— Unyamwezini Jiko La Bibi JJJ`);
+    setAkiliPreview(lines.join("\n"));
+  }
+
   return (
     <div style={{padding:"1rem"}}>
       <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Analytics / Uchambuzi — Last 30 Days</p>
@@ -1282,6 +1365,10 @@ function AkiliTab() {
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Business Insights / Ushauri</p>
         {insights.map((ins,i)=><div key={i} style={{background:ins.c==="good"?t.gr+"12":ins.c==="danger"?t.rd+"12":ins.c==="warn"?t.gold+"12":t.bl+"12",borderLeft:"3px solid "+(ins.c==="good"?t.gr:ins.c==="danger"?t.rd:ins.c==="warn"?t.gold:t.bl),borderRadius:"0 10px 10px 0",padding:"9px 13px",marginBottom:6,fontFamily:"sans-serif",fontSize:"12px",color:t.text,lineHeight:1.5}}>{ins.msg}</div>)}
       </div>}
+      <button onClick={sendAkiliReport} style={{width:"100%",background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+        <i className="ti ti-brand-whatsapp"/> Tuma Ripoti ya Akili / Send Analytics Report
+      </button>
+      <ReportPreviewModal text={akiliPreview} onClose={()=>setAkiliPreview(null)}/>
     </div>
   );
 }
@@ -1882,6 +1969,145 @@ function AjiraTab() {
   );
 }
 
+/* ═══ TAB: CHUO / UNIVERSITY — bilingual training guide for every tab & button ═══ */
+function ChuoSection({icon, color, titleSw, titleEn, isOpen, onToggle, children}) {
+  const {t} = useT();
+  return (
+    <Card style={{padding:0,overflow:"hidden"}}>
+      <button onClick={onToggle} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+        <IconBadge emoji={icon} color={color}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text}}>{titleSw}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{titleEn}</div>
+        </div>
+        <i className={"ti ti-chevron-"+(isOpen?"up":"down")} style={{color:t.dim2,fontSize:16,flexShrink:0}}/>
+      </button>
+      {isOpen && <div style={{padding:"0 14px 16px",borderTop:"1px solid "+t.border}}>{children}</div>}
+    </Card>
+  );
+}
+function ChuoBullet({title, body}) {
+  const {t} = useT();
+  return (
+    <div style={{marginBottom:10,paddingTop:10}}>
+      <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.gold,marginBottom:2}}>{title}</div>
+      <div style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,lineHeight:1.6}}>{body}</div>
+    </div>
+  );
+}
+function ChuoTab() {
+  const {t} = useT();
+  const [open,setOpen]=useState("leo");
+  const toggle = k => setOpen(open===k?null:k);
+
+  return (
+    <div style={{padding:"1rem"}}>
+      <Card glow style={{padding:"1.2rem",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <IconBadge emoji="🎓" color={t.gold}/>
+          <p style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:700,color:t.gold,margin:0}}>Chuo cha Msimamizi / Msimamizi University</p>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,lineHeight:1.6,margin:0}}>
+          Mwongozo huu unaeleza kila tabu na kila kitufe cha Msimamizi kwa Kiswahili na Kiingereza. Bonyeza sehemu yoyote hapa chini kujifunza. Lengo ni mtu yeyote aweze kuendesha biashara hii ndani ya dakika chache bila mmiliki. / This guide explains every tab and button in Msimamizi, in Swahili and English. Tap any section below to learn. The goal: anyone should be able to run this business within minutes, even without the owner present.
+        </p>
+      </Card>
+
+      <ChuoSection icon="🏠" color={t.gold} titleSw="Leo / Today" titleEn="Daily dashboard & quick actions" isOpen={open==="leo"} onToggle={()=>toggle("leo")}>
+        <ChuoBullet title="Kadi Kubwa ya Mapato / Big Revenue Card" body="Inaonyesha mapato, gharama, faida, na idadi ya mauzo ya LEO pekee, ikisasishwa moja kwa moja. / Shows today's revenue, costs, profit, and sale count — updates live as you record sales." />
+        <ChuoBullet title="Record Sale / Mauzo (kitufe cha kijani)" body="Kinapeleka kwenye tabu ya Ingiza kuandika mauzo mapya. / Green button — jumps to Ingiza tab to record a new sale." />
+        <ChuoBullet title="Record Expense / Gharama (kitufe chekundu)" body="Kinapeleka kwenye tabu ya Ingiza kuandika gharama. / Red button — jumps to Ingiza tab to record an expense." />
+        <ChuoBullet title="Tuma Ripoti / Send Report" body="Chagua Leo/Jana/Wiki Hii/Mwezi Huu/Chagua Tarehe, kisha bonyeza kitufe cha kijani cha WhatsApp. Utaona 'Preview' kabla ya kutuma — bonyeza 'Tuma Sasa' kutuma kwenye WhatsApp. / Pick a period, tap the green WhatsApp button, review the preview, then tap 'Send Now' to open WhatsApp with the report pre-written." />
+        <ChuoBullet title="Today's Sales List" body="Orodha ya mauzo yote ya leo. Bonyeza ✏️ kwenye mauzo yoyote kuhariri kiasi, bei, au huduma. / List of today's sales. Tap ✏️ on any sale to edit quantity, price, or service type." />
+      </ChuoSection>
+
+      <ChuoSection icon="➕" color={t.gr} titleSw="Ingiza / Input" titleEn="Recording sales & expenses" isOpen={open==="ingiza"} onToggle={()=>toggle("ingiza")}>
+        <ChuoBullet title="Chagua Tarehe / Date Picker" body="Tarehe inaanza LEO, lakini unaweza kuchagua tarehe iliyopita kuingiza mauzo/gharama za nyuma. / Defaults to today, but you can pick any past date to backfill records." />
+        <ChuoBullet title="Sales / Mauzo (kitufe cha kijani)" body="Chagua sehemu ya menyu (mfano Vitafunwa, Pilau), kisha bonyeza bidhaa, weka idadi (+/-), chagua huduma (Kuchukua/Delivery/Kula Hapa), kisha SAVE. / Pick a menu section, tap the item, adjust quantity with +/-, choose service type, then SAVE." />
+        <ChuoBullet title="Expense / Gharama (kitufe chekundu)" body="Chagua Daily (ya kila siku) au Bulk (ya jumla), chagua aina (gesi, wafanyakazi, malighafi n.k), andika maelezo KAMILI (muhimu sana kwa ripoti), kisha kiasi, kisha SAVE. / Choose Daily or Bulk, pick a category, write a FULL description (important for reports), enter the amount, then SAVE." />
+        <ChuoBullet title="Kwa nini maelezo ni muhimu? / Why description matters" body="Maelezo kamili (mfano 'Mkaa 10kg' badala ya 'other') yanaonekana kwenye chati za Akili kama sehemu yake — hivyo ripoti zinaeleweka. / A full description (e.g. 'Charcoal 10kg' instead of 'other') shows up as its own labeled slice in Akili's charts — this is what makes reports actually readable." />
+      </ChuoSection>
+
+      <ChuoSection icon="📊" color={t.bl} titleSw="Ripoti / Reports" titleEn="Custom date-range reports" isOpen={open==="ripoti"} onToggle={()=>toggle("ripoti")}>
+        <ChuoBullet title="Period Pills / Vitufe vya Kipindi" body="Leo, Jana, Wiki 7, Mwezi, au Chagua (tarehe zako mwenyewe). Bonyeza 'Get Report' baada ya kuchagua. / Today, Yesterday, Last 7 days, Month, or Custom dates. Tap 'Get Report' after choosing." />
+        <ChuoBullet title="Search Box / Sanduku la Kutafuta" body="Andika jina la bidhaa au gharama kutafuta ndani ya mauzo/gharama za kipindi hicho. / Type an item name or expense description to filter within that period's sales/costs." />
+        <ChuoBullet title="Tap ✏️ kwenye Mauzo/Gharama" body="Hariri au futa rekodi yoyote moja kwa moja hapa. / Edit or delete any sale/cost record directly from this list." />
+        <ChuoBullet title="Send Report / Tuma Ripoti (kijani)" body="Inatuma muhtasari mfupi wa kipindi kupitia WhatsApp. / Sends a short WhatsApp summary of the selected period." />
+        <ChuoBullet title="Z-Report (dhahabu)" body="Inafungua ukurasa kamili wa PDF unaoonyesha mauzo yote na gharama zote kwa jedwali — chapisha au hifadhi kama PDF kwa kumbukumbu/kodi. / Opens a full printable page listing every sale and expense in table form — print or save as PDF for records/taxes." />
+      </ChuoSection>
+
+      <ChuoSection icon="🎯" color={t.gold} titleSw="Malengo / Goals" titleEn="Data-driven target setting" isOpen={open==="malengo"} onToggle={()=>toggle("malengo")}>
+        <ChuoBullet title="Pendekezo la Malengo / Suggested Goals" body="Inahesabu wastani wa mauzo yako YOTE tangu biashara ilipoanza, na kupendekeza malengo kulingana na ukuaji unaotaka (+5% hadi +25%). Lengo la mwezi limejengwa kupita mwezi uliopita halisi. / Calculates your ALL-TIME sales average and suggests goals based on a growth % you pick. The monthly goal is specifically built to beat last month's real total." />
+        <ChuoBullet title="Tumia Pendekezo / Apply Suggestion" body="Kinajaza namba zilizopendekezwa kwenye masanduku ya chini — bado unahitaji bonyeza 'Save Goals' kuyahifadhi. / Fills the suggested numbers into the boxes below — you still need to tap 'Save Goals' to confirm." />
+        <ChuoBullet title="Set Goals / Weka Malengo (mikono)" body="Unaweza pia kuandika malengo yako mwenyewe moja kwa moja, bila kutumia pendekezo. / You can also type your own goals manually without using the suggestion." />
+        <ChuoBullet title="Tuma Ripoti ya Malengo / Send Goals Report" body="Kinatuma maendeleo ya sasa (Leo/Wiki/Mwezi dhidi ya malengo) kupitia WhatsApp. / Sends current progress (today/week/month vs goals) via WhatsApp." />
+      </ChuoSection>
+
+      <ChuoSection icon="🧠" color={t.pu} titleSw="Akili / Analytics" titleEn="Business intelligence dashboard" isOpen={open==="akili"} onToggle={()=>toggle("akili")}>
+        <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
+        <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
+        <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
+        <ChuoBullet title="Siku na Saa Bora / Best Day & Hour" body="Inaonyesha siku ya wiki na saa inayouza zaidi — msaada wa kupanga zamu za wafanyakazi. / Shows your best-selling weekday and hour — useful for staff scheduling." />
+        <ChuoBullet title="Bidhaa Zisizouzwa / Slow-Moving Items" body="Bidhaa ambazo hazijauzwa kwa siku 14+ zinaonekana hapa na alama nyekundu ⚠️. / Items unsold for 14+ days appear here flagged with a red ⚠️." />
+        <ChuoBullet title="Top Items — 🔥❄️🌤️" body="🔥 = bidhaa inayouzwa sana, ❄️ = polepole, 🌤️ = wastani. Inategemea mauzo ya siku 30 ukilinganisha na bidhaa bora. / 🔥 = hot seller, ❄️ = slow, 🌤️ = average — based on 30-day sales relative to your top item." />
+        <ChuoBullet title="Wateja wa Kudumu / Repeat Customers (kwenye Maagizo)" body="Wateja walioagiza mara 2+ wanaonekana kwenye tabu ya Maagizo, wamepangwa kwa idadi ya maagizo. / Customers who've ordered 2+ times appear in the Maagizo tab, ranked by order count." />
+        <ChuoBullet title="Tuma Ripoti ya Akili / Send Analytics Report" body="Kinatuma muhtasari wa afya ya biashara, bidhaa bora, siku bora, na maonyo ya stoki/bidhaa polepole kupitia WhatsApp. / Sends a summary of business health, top items, best day, and stock/slow-item warnings via WhatsApp." />
+      </ChuoSection>
+
+      <ChuoSection icon="🍽️" color={t.gold} titleSw="Menyu / Menu" titleEn="Prices, stock, and custom items" isOpen={open==="menyu"} onToggle={()=>toggle("menyu")}>
+        <ChuoBullet title="Bei / Price (bonyeza namba)" body="Bonyeza bei ya bidhaa yoyote kuibadilisha — mabadiliko yanaonekana MARA MOJA kwenye tovuti ya wateja. / Tap any item's price to change it — updates appear INSTANTLY on the customer-facing website." />
+        <ChuoBullet title="IPO / IMEISHA (stock toggle)" body="Bonyeza kubadilisha kama bidhaa ipo au imeisha. Ikiisha, wateja wataona 'IMEISHA' na hawawezi kuagiza. / Tap to toggle in-stock/out-of-stock. When out, customers see 'IMEISHA' and can't order it." />
+        <ChuoBullet title="Cost/unit — Gharama ya Kila Kimoja" body="Weka gharama ya kutengeneza bidhaa moja — hii inasaidia Akili kuhesabu faida halisi (margin). / Set the cost to make one unit — this helps Akili calculate true profit margins." />
+        <ChuoBullet title="Stoki/Stock (kiasi)" body="Weka idadi ya vitu ulivyonavyo sasa — Akili itakuonyesha siku ngapi zimebaki kabla havijaisha. / Enter how many units you currently have — Akili will show you days remaining before it runs out." />
+        <ChuoBullet title="Bidhaa Mpya / Custom Items" body="Ongeza bidhaa mpya bila kuandika code — jaza jina, bei, picha (hiari), na sehemu — inaonekana kwenye tovuti mara moja. / Add new menu items without writing code — fill in name, price, photo (optional), and section — appears on the live website instantly." />
+      </ChuoSection>
+
+      <ChuoSection icon="📋" color={t.gold} titleSw="Maagizo / Orders" titleEn="Customer order queue" isOpen={open==="maagizo"} onToggle={()=>toggle("maagizo")}>
+        <ChuoBullet title="Maagizo ya Kiotomatiki / Auto Orders" body="Wateja wanapoagiza kwenye tovuti, agizo linaingia hapa MOJA KWA MOJA — hakuna kazi ya ziada. / When customers order on the website, it lands here AUTOMATICALLY — no extra work needed." />
+        <ChuoBullet title="+ New Order / Agizo Jipya" body="Kwa maagizo yaliyofika kwa simu au ana kwa ana — jaza jina, simu, chakula, na jumla. / For orders received by phone or in-person — fill in name, phone, items, and total." />
+        <ChuoBullet title="Done / Maliza (kitufe)" body="Bonyeza baada ya kukamilisha agizo — linahamia kwenye 'Done' na kutoka kwenye foleni ya 'Pending'. / Tap once an order is fulfilled — moves it to 'Done' and out of the 'Pending' queue." />
+        <ChuoBullet title="Wateja wa Kudumu / Repeat Customers" body="Kadi ya dhahabu inayoonyesha wateja walioagiza mara 2+ — fikiria zawadi ndogo kwa wateja hawa waaminifu. / Gold card showing customers who've ordered 2+ times — consider a small thank-you gesture for these loyal customers." />
+      </ChuoSection>
+
+      <ChuoSection icon="👥" color={t.gr} titleSw="Wafanya / Staff" titleEn="Payroll, contractors & discipline" isOpen={open==="wafanya"} onToggle={()=>toggle("wafanya")}>
+        <ChuoBullet title="+ Ongeza Mfanyakazi / Add Staff" body="Chagua aina: Kudumu (mshahara wa mwezi), Msimu (malipo yanayobadilika), au Mkandarasi (kwa kazi moja). / Choose type: Long-term (monthly salary), Seasonal (variable pay), or Contractor (per-job)." />
+        <ChuoBullet title="💰 Lipa / Pay" body="Bonyeza kumlipa mfanyakazi — kiasi kinaingia MOJA KWA MOJA kwenye gharama za biashara (Ripoti/Akili). / Tap to pay a staff member — the amount automatically flows into business expenses (visible in Ripoti/Akili)." />
+        <ChuoBullet title="✏️ Hariri / Edit" body="Badilisha jina, kazi, mshahara, au maelezo ya mfanyakazi wakati wowote. / Change name, role, salary, or notes for any staff member anytime." />
+        <ChuoBullet title="⚠️ Onyo / Warning" body="Rekodi onyo la mdomo au la maandishi kwa ukiukaji wa sera — andika sababu na tarehe. Onyo zote zinahifadhiwa kwa kudumu. / Record a verbal or written warning for policy violations — write the reason and date. All warnings are saved permanently." />
+        <ChuoBullet title="🚪 Toa / Remove" body="Mfanyakazi anahamishwa kwenye sehemu ya 'Zamani/Former' — HAIFUTWI kabisa. Historia yote (malipo, maonyo) inabaki. / Staff member moves to the 'Former' section — NOT deleted entirely. All history (payments, warnings) stays intact." />
+        <ChuoBullet title="↩️ Rejesha / Restore (kwenye Zamani)" body="Ukimrudisha mfanyakazi wa zamani, bonyeza hii kumfanya awe hai tena. / To bring back a former employee, tap this to reactivate them." />
+        <ChuoBullet title="📋 Ajira Digital" body="Kiungo cha kufungua ukurasa wa kusaini mikataba (bila PIN — kwa waajiriwa wapya). / Link to open the contract-signing page (no PIN — for new hires)." />
+      </ChuoSection>
+
+      <ChuoSection icon="✍️" color={t.pu} titleSw="Ajira / Contracts" titleEn="Signed contracts oversight" isOpen={open==="ajira"} onToggle={()=>toggle("ajira")}>
+        <ChuoBullet title="Fungua Ajira Digital / Open Signing App" body="Kinafungua ukurasa wa jikolabibijjj.com/ajira ambapo watu wanaweza kusaini mikataba (waajiriwa, wadau, washirika). / Opens jikolabibijjj.com/ajira where people can sign contracts (employees, partners, business associates)." />
+        <ChuoBullet title="Mikataba Iliyosainiwa / Signed Contracts List" body="Orodha ya kila mtu aliyesaini — jina, aina ya mkataba, tarehe. Bonyeza 'Angalia' kuona mkataba kamili na sahihi. / List of everyone who's signed — name, contract type, date. Tap 'Angalia' to see the full contract with signatures." />
+        <ChuoBullet title="Kwa nini hii ni tofauti na Msimamizi? / Why this is separate from Msimamizi" body="Ukurasa wa /ajira HAUNA PIN kwa makusudi — ni kwa umma kusaini maombi ya kazi au ushirikiano. Msimamizi (hapa) ndiyo pekee inayoona rekodi zote. / The /ajira page intentionally has NO PIN — it's public for job/partnership applications. Only Msimamizi (here) can see all the records." />
+      </ChuoSection>
+
+      <ChuoSection icon="☁️" color={t.bl} titleSw="Hifadhi / Backup" titleEn="Data backup & export" isOpen={open==="hifadhi"} onToggle={()=>toggle("hifadhi")}>
+        <ChuoBullet title="Download Backup / Pakua" body="Inapakua faili moja (.json) yenye kila kitu — bei, stoki, gharama, malengo, maagizo. Hifadhi mahali salama kila wiki. / Downloads one file (.json) with everything — prices, stock, costs, goals, orders. Save it somewhere safe weekly." />
+        <ChuoBullet title="Mauzo CSV / Gharama CSV" body="Faili zinazofungua moja kwa moja kwenye Excel — nzuri kwa mhasibu wako. / Files that open directly in Excel — great for handing to your accountant." />
+        <ChuoBullet title="Restore / Rejesha" body="Ukipoteza data, chagua faili la backup ulilopakua hapo awali kurejesha kila kitu. / If you lose data, select a previously downloaded backup file to restore everything." />
+      </ChuoSection>
+
+      <ChuoSection icon="🔑" color={t.gold} titleSw="Mambo ya Jumla / General Navigation" titleEn="PIN, theme, and the More menu" isOpen={open==="jumla"} onToggle={()=>toggle("jumla")}>
+        <ChuoBullet title="PIN ya Kuingia / Login PIN" body="Msimamizi anahitaji PIN kuingia — usimpe mtu yeyote asiyeaminika. / Msimamizi requires a PIN to enter — never share it with anyone untrusted." />
+        <ChuoBullet title="☀️/🌙 Theme Toggle" body="Ipo juu kulia — inabadilisha kati ya mandhari nyeupe (mchana) na nyeusi (usiku). Chaguo lako linahifadhiwa. / Top-right — switches between light (day) and dark (night) themes. Your choice is remembered." />
+        <ChuoBullet title="Zaidi / More (nukta tatu)" body="Tabu za Malengo, Wafanya, Ajira, na Hifadhi ziko hapa ili menyu isijae. Bonyeza kufungua orodha kamili. / The Malengo, Wafanya, Ajira, and Hifadhi tabs live here to keep the main menu uncluttered. Tap to open the full list." />
+        <ChuoBullet title="Back / Rudi" body="Juu kushoto — kinarudisha kwenye tovuti kuu ya wateja bila kutoka Msimamizi kabisa. / Top-left — returns to the main customer-facing website without fully exiting Msimamizi." />
+        <ChuoBullet title="Exit / Toka" body="Kinafunga kikao cha Msimamizi kabisa — utahitaji PIN tena kuingia. / Fully closes the Msimamizi session — you'll need the PIN again to re-enter." />
+      </ChuoSection>
+
+      <div style={{background:t.gold+"10",border:"1px solid "+t.gold+"33",borderRadius:12,padding:"1rem",marginTop:14}}>
+        <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,marginBottom:6}}>💡 Ushauri wa Mwisho / Final Tip</p>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,lineHeight:1.6,margin:0}}>
+          Mtu mpya anapaswa kuanza na tabu ya Leo (kuandika mauzo), kisha Ingiza (kuandika gharama), kisha Maagizo (kutimiza maagizo ya wateja). Vitu vingine (Malengo, Akili, Wafanya) vinaweza kujifunza baadaye. / A new person should start with Leo (recording sales), then Ingiza (recording costs), then Maagizo (fulfilling customer orders). Everything else (Malengo, Akili, Wafanya) can be learned later.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
   const [authed,setAuthed]=useState(false);
@@ -1902,6 +2128,7 @@ export default function AdminPage({onExit}) {
     {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
+    {key:"chuo", icon:"ti-school", label:"Chuo", sub:"Training"},
   ];
   const ALL_TABS=[...PRIMARY_TABS,...MORE_TABS];
   const [showMore,setShowMore]=useState(false);
@@ -1962,6 +2189,7 @@ export default function AdminPage({onExit}) {
         {tab==="wafanyakazi" &&<WafanyakaziTab/>}
         {tab==="ajira" &&<AjiraTab/>}
         {tab==="backup" &&<BackupTab/>}
+        {tab==="chuo" &&<ChuoTab/>}
       </div>
     </ThemeCtx.Provider>
   );
