@@ -132,6 +132,20 @@ function Donut({data, size=140}) {
   );
 }
 
+/* ═══ ICON BADGE (avatar for feature cards) ═══ */
+function IconBadge({emoji, color}) {
+  const {t} = useT();
+  color = color || t.gold;
+  return (
+    <div style={{
+      width:30, height:30, borderRadius:"50%", flexShrink:0,
+      background: color+"18", border:"1.5px solid "+color+"44",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      fontSize:15, boxShadow:"0 2px 8px "+color+"22",
+    }}>{emoji}</div>
+  );
+}
+
 /* ═══ THEME TOGGLE ═══ */
 function ThemeToggle() {
   const {dark, toggle, t} = useT();
@@ -378,7 +392,7 @@ function LeoTab({onGoTo}) {
         </button>
       </div>
       <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Tuma Ripoti / Send Report</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><IconBadge emoji="💬" color={"#25d366"}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Tuma Ripoti / Send Report</p></div>
         <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
           {[["today","Leo"],["yesterday","Jana"],["week","Wiki Hii"],["month","Mwezi Huu"],["custom","Chagua Tarehe"]].map(([k,l])=>(
             <button key={k} onClick={()=>setReportMode(k)} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+(reportMode===k?t.gold:t.border),background:reportMode===k?t.gold+"18":"transparent",color:reportMode===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",fontWeight:reportMode===k?700:400,cursor:"pointer"}}>{l}</button>
@@ -808,6 +822,30 @@ function AkiliTab() {
     return results;
   },[allSales,customItems]);
 
+  // 30-day revenue trend line + week-over-week comparison
+  const trendData = useMemo(()=>{
+    const days = [];
+    for(let i=29;i>=0;i--){
+      const d = new Date(Date.now()-i*86400000);
+      const ds = d.toISOString().split("T")[0];
+      const rev = s30.filter(s=>s.sale_date===ds).reduce((s,r)=>s+r.total_price,0);
+      days.push({date:ds, rev, label:d.getDate()+"/"+(d.getMonth()+1)});
+    }
+    return days;
+  },[s30]);
+
+  const weekOverWeek = useMemo(()=>{
+    const now = new Date();
+    const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate()-6);
+    const lastWeekStart = new Date(now); lastWeekStart.setDate(now.getDate()-13);
+    const lastWeekEnd = new Date(now); lastWeekEnd.setDate(now.getDate()-7);
+    const fmtD = d=>d.toISOString().split("T")[0];
+    const thisWeek = s30.filter(s=>s.sale_date>=fmtD(thisWeekStart)).reduce((s,r)=>s+r.total_price,0);
+    const lastWeek = s30.filter(s=>s.sale_date>=fmtD(lastWeekStart)&&s.sale_date<=fmtD(lastWeekEnd)).reduce((s,r)=>s+r.total_price,0);
+    const pct = lastWeek>0 ? Math.round((thisWeek-lastWeek)/lastWeek*100) : (thisWeek>0?100:0);
+    return {thisWeek, lastWeek, pct};
+  },[s30]);
+
   const insights=[];
   itemStats.filter(i=>i.margin<0&&i.qty>0).slice(0,2).forEach(i=>insights.push({c:"danger",msg:i.name+" is losing money (margin "+i.margin+"%). Raise price or stop selling."}));
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
@@ -830,8 +868,49 @@ function AkiliTab() {
           <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:0}}>Gross: {fmt(gross)} · Net: {fmt(net)} · Margin: {margin}%</p>
         </div>
       </Card>
+      <Card style={{padding:"1rem"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <IconBadge emoji="📈" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / 30-Day Revenue Trend</p>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,margin:"10px 0 14px"}}>
+          <span style={{fontSize:16,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{weekOverWeek.pct>=0?"▲":"▼"}</span>
+          <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:900,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{Math.abs(weekOverWeek.pct)}%</span>
+          <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>wiki hii vs wiki iliyopita / this week vs last</span>
+        </div>
+        <svg width="100%" height="90" viewBox="0 0 300 90" preserveAspectRatio="none" style={{overflow:"visible"}}>
+          {(()=>{
+            const maxRev = Math.max(...trendData.map(d=>d.rev),1);
+            const pts = trendData.map((d,i)=>{
+              const x = (i/(trendData.length-1))*300;
+              const y = 85 - (d.rev/maxRev)*80;
+              return x+","+y;
+            }).join(" ");
+            const areaPts = "0,85 "+pts+" 300,85";
+            return (
+              <>
+                <polygon points={areaPts} fill={t.gold} opacity="0.08"/>
+                <polyline points={pts} fill="none" stroke={t.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                {trendData.map((d,i)=>{
+                  if(i%5!==0 && i!==trendData.length-1) return null;
+                  const x=(i/(trendData.length-1))*300;
+                  const y=85-(d.rev/maxRev)*80;
+                  return <circle key={i} cx={x} cy={y} r="2.5" fill={t.gold}/>;
+                })}
+              </>
+            );
+          })()}
+        </svg>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[0]?.label}</span>
+          <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[trendData.length-1]?.label}</span>
+        </div>
+      </Card>
       {stockPredictions.filter(p=>stockQty[p.id]>0).length>0 && <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Utabiri wa Stoki / Stock Forecast</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <IconBadge emoji="📦" color={t.bl}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Utabiri wa Stoki / Stock Forecast</p>
+        </div>
         {stockPredictions.filter(p=>stockQty[p.id]>0).map(p=>{
           const qty = stockQty[p.id]||0;
           const daysLeft = p.perDay>0 ? qty/p.perDay : 99;
@@ -852,7 +931,7 @@ function AkiliTab() {
         })}
       </Card>}
       {dayHourAnalysis.bestDay && <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Siku na Saa Bora / Best Day &amp; Hour (30 days)</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><IconBadge emoji="🕐" color={t.bl}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Siku na Saa Bora / Best Day &amp; Hour (30 days)</p></div>
         <div style={{display:"flex",gap:10,marginBottom:14}}>
           <div style={{flex:1,background:t.gold+"12",borderRadius:10,padding:"12px",textAlign:"center"}}>
             <div style={{fontSize:20,marginBottom:4}}>📅</div>
@@ -881,7 +960,7 @@ function AkiliTab() {
         })}
       </Card>}
       {slowMoving.length>0 && <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 4px"}}>⚠️ Bidhaa Zisizouzwa / Slow-Moving Items</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><IconBadge emoji="⚠️" color={t.rd}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Bidhaa Zisizouzwa / Slow-Moving Items</p></div>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:"0 0 12px"}}>Hazijauzwa kwa siku 14+ / Not sold in 14+ days</p>
         {slowMoving.map(item=>(
           <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
@@ -1070,7 +1149,7 @@ function MaagizoTab() {
         <Chip label="Done" value={td.filter(o=>o.status==="done").length} color={t.gr} icon="✅"/>
       </div>
 {repeatCustomers.length>0 && <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 4px"}}>⭐ Wateja wa Kudumu / Repeat Customers</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><IconBadge emoji="⭐" color={t.gold}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Wateja wa Kudumu / Repeat Customers</p></div>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:"0 0 10px"}}>Wameagiza mara 2+ / Ordered 2+ times</p>
         {repeatCustomers.map(c=>(
           <div key={c.phone} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
