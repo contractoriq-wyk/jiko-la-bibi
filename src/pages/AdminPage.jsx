@@ -281,6 +281,36 @@ function PinGate({onAuth}) {
   );
 }
 
+/* ═══ DAILY WHATSAPP SUMMARY ═══ */
+function sendDailyWhatsApp(todaySales, gross, overhead, net) {
+  const dateStr = new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric"});
+  // Top 3 items today by revenue
+  const itemMap = {};
+  todaySales.forEach(s => {
+    if (!itemMap[s.item_name]) itemMap[s.item_name] = {qty:0, rev:0};
+    itemMap[s.item_name].qty += s.quantity;
+    itemMap[s.item_name].rev += s.total_price;
+  });
+  const top = Object.entries(itemMap).sort((a,b)=>b[1].rev-a[1].rev).slice(0,3);
+  const topLines = top.map(([name,d],i)=>`${i+1}. ${name} — x${d.qty} (${fmt(d.rev)})`).join("\n");
+
+  const lines = [
+    `📊 *RIPOTI YA LEO — ${dateStr}*`,
+    ``,
+    `💰 Mapato Ghafi: ${fmt(gross)}`,
+    `💸 Gharama: ${fmt(overhead)}`,
+    net !== null ? `📈 Faida Halisi: ${fmt(net)}` : ``,
+    `🧾 Idadi ya Mauzo: ${todaySales.length}`,
+    ``,
+    top.length > 0 ? `⭐ *Bidhaa Bora Leo:*` : ``,
+    topLines,
+    ``,
+    `— Unyamwezini Jiko La Bibi JJJ`,
+  ].filter(l => l !== undefined && l !== "").join("\n");
+
+  window.open("https://wa.me/?text=" + encodeURIComponent(lines), "_blank");
+}
+
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
   const {t} = useT();
@@ -318,6 +348,9 @@ function LeoTab({onGoTo}) {
           <i className="ti ti-minus"/>Record Expense / Gharama
         </button>
       </div>
+      <button onClick={()=>sendDailyWhatsApp(todaySales,todayGross,todayOverhead,todayNet)} style={{width:"100%",background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+        <i className="ti ti-brand-whatsapp"/>Tuma Ripoti ya Leo / Send Today's Summary
+      </button>
       {todaySales.length>0&&(
         <Card style={{padding:"1rem"}}>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Today's Sales / Mauzo ya Leo ({todaySales.length}) — Tap ✏️ to edit</p>
