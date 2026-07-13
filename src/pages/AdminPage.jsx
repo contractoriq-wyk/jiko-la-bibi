@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-8 · 12 Jul 2026, ET-date-fix";
+const APP_VERSION = "V2.6-9 · 12 Jul 2026, cloud-settings";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -2276,7 +2276,7 @@ function WafanyakaziTab() {
   const formerStaff = staff.filter(s => s.active === false);
   const totalPayroll = longTerm.reduce((s,m)=>s+(m.monthly_salary||0), 0);
   const m = new Date();
-  const monthStart = new Date(m.getFullYear(), m.getMonth(), 1).toISOString().split("T")[0];
+  const monthStart = dateStrET(new Date(m.getFullYear(), m.getMonth(), 1));
   const paidThisMonth = allCosts.filter(c => c.category==="staff" && c.cost_date>=monthStart).reduce((s,c)=>s+c.amount,0);
   const totalWarnings = warnings.length;
   const writtenWarnings = warnings.filter(w=>w.type==="written").length;
