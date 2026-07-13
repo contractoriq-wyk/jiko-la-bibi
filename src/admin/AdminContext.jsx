@@ -28,7 +28,12 @@ export function AdminProvider({ children }) {
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
   const [staff,setStaff]=useState(()=>load("jiko-staff",[]));
   const [warnings,setWarnings]=useState(()=>load("jiko-warnings",[]));
-  const [stockQty,setStockQtyState]=useState(()=>load("jiko-stock-qty",{}));
+  // stockQty, goals, and includeStaffCosts are Supabase-backed only — no localStorage.
+  // Multiple people monitor/input from different devices, so these must never silently
+  // diverge per device. Values arrive via the init() fetch and the settings_rt/stockqty_rt
+  // realtime subscriptions below. Until that first fetch resolves, these show 0/defaults —
+  // `synced` tells the UI whether the real values have loaded yet.
+  const [stockQty,setStockQtyState]=useState({});
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
   const [itemCosts,setItemCosts]=useState({});
@@ -36,19 +41,22 @@ export function AdminProvider({ children }) {
   const [allSales,setAllSales]=useState([]);
   const [allCosts,setAllCosts]=useState([]);
   const [loading,setLoading]=useState(false);
-  const [goals,setGoalsState]=useState(()=>load("jiko-goals",{daily:0,weekly:0,monthly:0,compassTarget:2}));
-  const [includeStaffCosts,setIncludeStaffCosts]=useState(()=>load("jiko-include-staff",true));
-  function toggleIncludeStaffCosts(){
+  const [goals,setGoalsState]=useState({daily:0,weekly:0,monthly:0,compassTarget:2});
+  const [includeStaffCosts,setIncludeStaffCosts]=useState(true);
+  async function toggleIncludeStaffCosts(){
     const next = !includeStaffCosts;
     setIncludeStaffCosts(next);
-    save("jiko-include-staff", next);
+    if(supabase){
+      try { await supabase.from("business_settings").update({include_staff_costs:next, updated_at:new Date().toISOString()}).eq("id","main"); }
+      catch(e){ console.warn("Toggle staff-costs setting failed:", e); }
+    }
   }
 
   useEffect(() => {
     if (!supabase) return;
     const today = todayStr();
     async function init() {
-      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust},{data:stf},{data:warn}] = await Promise.all([
+      const [{data:pr},{data:sr},{data:sales},{data:costs},{data:ic},{data:ords},{data:cust},{data:stf},{data:warn},{data:bs},{data:sq}] = await Promise.all([
         supabase.from("price_overrides").select("item_id,price"),
         supabase.from("stock_status").select("item_id,out_of_stock"),
         supabase.from("sales").select("*").eq("sale_date",today).order("created_at",{ascending:false}),
@@ -58,6 +66,8 @@ export function AdminProvider({ children }) {
         supabase.from("custom_menu_items").select("*").eq("active",true).order("sort_order",{ascending:true}),
         supabase.from("staff_members").select("*").order("name",{ascending:true}),
         supabase.from("staff_warnings").select("*").order("warning_date",{ascending:false}),
+        supabase.from("business_settings").select("*").eq("id","main").maybeSingle(),
+        supabase.from("stock_quantities").select("item_id,qty"),
       ]);
       if(pr?.length){const p={};pr.forEach(r=>{p[r.item_id]=r.price;});setPrices(p);save("jiko-prices",p);}
       if(sr?.length){const s={};sr.forEach(r=>{s[r.item_id]=r.out_of_stock;});setStock(s);save("jiko-stock",s);}
@@ -78,6 +88,14 @@ export function AdminProvider({ children }) {
         setWarnings(warn);
         save("jiko-warnings", warn);
       }
+      if(bs){
+        setGoalsState({daily:bs.daily_goal||0,weekly:bs.weekly_goal||0,monthly:bs.monthly_goal||0,compassTarget:bs.compass_target||2});
+        setIncludeStaffCosts(bs.include_staff_costs!==false);
+      } else {
+        // First run after migration: no row yet — create the shared default row so every device starts from the same state.
+        try { await supabase.from("business_settings").upsert({id:"main"}); } catch(e){ console.warn("business_settings init failed:", e); }
+      }
+      if(sq?.length){const q={};sq.forEach(r=>{q[r.item_id]=r.qty;});setStockQtyState(q);}
       setSynced(true);
     }
     init();
@@ -93,7 +111,16 @@ export function AdminProvider({ children }) {
       const {data}=await supabase.from("customer_orders").select("*").order("created_at",{ascending:false}).limit(100);
       if(data) setOrders(data);
     }).subscribe();
-    return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);};
+    const bss=supabase.channel("settings_rt").on("postgres_changes",{event:"*",schema:"public",table:"business_settings"},p=>{
+      const d=p.new; if(!d) return;
+      setGoalsState({daily:d.daily_goal||0,weekly:d.weekly_goal||0,monthly:d.monthly_goal||0,compassTarget:d.compass_target||2});
+      setIncludeStaffCosts(d.include_staff_costs!==false);
+    }).subscribe();
+    const sqs=supabase.channel("stockqty_rt").on("postgres_changes",{event:"*",schema:"public",table:"stock_quantities"},async()=>{
+      const {data}=await supabase.from("stock_quantities").select("item_id,qty");
+      if(data){const q={};data.forEach(r=>{q[r.item_id]=r.qty;});setStockQtyState(q);}
+    }).subscribe();
+    return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);supabase.removeChannel(bss);supabase.removeChannel(sqs);};
   },[]);
 
   /* ─── COMPUTED ─── */
@@ -121,13 +148,31 @@ export function AdminProvider({ children }) {
     setLoading(false);
   },[]);
 
-  function setStockQty(itemId,qty){
-    const next={...stockQty,[itemId]:parseInt(qty)||0};
-    setStockQtyState(next);
-    save("jiko-stock-qty",next);
+  async function setStockQty(itemId,qty){
+    const q=parseInt(qty)||0;
+    setStockQtyState(prev=>({...prev,[itemId]:q}));
+    if(supabase){
+      try { await supabase.from("stock_quantities").upsert({item_id:itemId,qty:q,updated_at:new Date().toISOString()},{onConflict:"item_id"}); }
+      catch(e){ console.warn("Stock qty save failed:", e); }
+    }
   }
-  function setGoal(type,amount){const next={...goals,[type]:parseInt(amount)||0};setGoalsState(next);save("jiko-goals",next);}
-  function setCompassTarget(ratio){const next={...goals,compassTarget:parseFloat(ratio)||0};setGoalsState(next);save("jiko-goals",next);}
+  const GOAL_COL={daily:"daily_goal",weekly:"weekly_goal",monthly:"monthly_goal"};
+  async function setGoal(type,amount){
+    const next={...goals,[type]:parseInt(amount)||0};
+    setGoalsState(next);
+    if(supabase){
+      try { await supabase.from("business_settings").update({[GOAL_COL[type]]:next[type], updated_at:new Date().toISOString()}).eq("id","main"); }
+      catch(e){ console.warn("Goal save failed:", e); }
+    }
+  }
+  async function setCompassTarget(ratio){
+    const next={...goals,compassTarget:parseFloat(ratio)||0};
+    setGoalsState(next);
+    if(supabase){
+      try { await supabase.from("business_settings").update({compass_target:next.compassTarget, updated_at:new Date().toISOString()}).eq("id","main"); }
+      catch(e){ console.warn("Compass target save failed:", e); }
+    }
+  }
 
   async function recordSale(item,qty,service,date){
     const saleDate=date||todayStr();
@@ -307,7 +352,7 @@ export function AdminProvider({ children }) {
   async function exportAll(){
     const data={
       version:1, exported_at:new Date().toISOString(),
-      prices,stock,itemCosts,goals,orders,
+      prices,stock,itemCosts,goals,orders,stockQty,
       sales:allSales,todaySales,costs:allCosts,
     };
     return JSON.stringify(data,null,2);
@@ -318,7 +363,26 @@ export function AdminProvider({ children }) {
       if(d.prices){setPrices(d.prices);save("jiko-prices",d.prices);}
       if(d.stock){setStock(d.stock);save("jiko-stock",d.stock);}
       if(d.itemCosts) setItemCosts(d.itemCosts);
-      if(d.goals){setGoalsState(d.goals);save("jiko-goals",d.goals);}
+      if(d.goals){
+        setGoalsState(d.goals);
+        if(supabase){
+          try {
+            await supabase.from("business_settings").update({
+              daily_goal:d.goals.daily||0, weekly_goal:d.goals.weekly||0, monthly_goal:d.goals.monthly||0,
+              compass_target:d.goals.compassTarget||2, updated_at:new Date().toISOString()
+            }).eq("id","main");
+          } catch(e){ console.warn("Goals restore failed:", e); }
+        }
+      }
+      if(d.stockQty){
+        setStockQtyState(d.stockQty);
+        if(supabase){
+          try {
+            const rows=Object.entries(d.stockQty).map(([item_id,qty])=>({item_id,qty:parseInt(qty)||0,updated_at:new Date().toISOString()}));
+            if(rows.length) await supabase.from("stock_quantities").upsert(rows,{onConflict:"item_id"});
+          } catch(e){ console.warn("Stock qty restore failed:", e); }
+        }
+      }
       if(d.orders) setOrders(d.orders);
       return {ok:true,msg:"Imported successfully"};
     }catch(e){return {ok:false,msg:e.message};}
