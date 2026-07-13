@@ -4,7 +4,12 @@ import { supabase } from "../lib/supabase";
 const Ctx = createContext(null);
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)||"null")??def; } catch { return def; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-const todayStr = () => new Date().toISOString().split("T")[0];
+// Returns YYYY-MM-DD for the given date (default: now) in America/New_York local time.
+// IMPORTANT: do not swap this back to `.toISOString()` — that returns the UTC calendar
+// date, which flips to the next day at 8pm ET (since ET is UTC-4/5). That mismatch was
+// silently resetting the Leo/Today tab hours before actual midnight in Baltimore.
+function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); }
+const todayStr = () => dateStrET();
 
 export function AdminProvider({ children }) {
   /* ─── Clean stray test values on init ─── */
