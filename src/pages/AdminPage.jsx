@@ -41,10 +41,11 @@ const goalColor = (current, goal, t) => {
   return t.rd;
 };
 const pct = (a,b) => b ? Math.min(100,Math.round(a/b*100)) : 0;
-const today = () => new Date().toISOString().split("T")[0];
+function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); }
+const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-7 · 12 Jul 2026, 14:09 ET";
+const APP_VERSION = "V2.6-8 · 12 Jul 2026, ET-date-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -515,7 +516,7 @@ function LeoTab({onGoTo}) {
   const [previewText,setPreviewText]=useState(null);
   function getReportRange(){
     const now=new Date();
-    const fmtD=d=>d.toISOString().split("T")[0];
+    const fmtD=d=>dateStrET(d);
     if(reportMode==="today") return {start:today(),end:today(),label:"Leo — "+today()};
     if(reportMode==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);const ys=fmtD(y);return {start:ys,end:ys,label:"Jana — "+ys};}
     if(reportMode==="week"){
@@ -763,7 +764,7 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
   const [loaded,setLoaded] = useState(false);
 
   function getPreviousPeriod(){
-    const fmt = d => d.toISOString().split("T")[0];
+    const fmt = d => dateStrET(d);
     const now = new Date();
     if(range==="today"){const y=new Date(now);y.setDate(y.getDate()-1);return {start:fmt(y),end:fmt(y),label:"yesterday"};}
     if(range==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-2);return {start:fmt(y),end:fmt(y),label:"day before"};}
@@ -818,7 +819,7 @@ function RipodiTab() {
   const [editType,setEditType]=useState("sale");
   const [search,setSearch]=useState("");
   function getRangeDates(){
-    const T2=new Date();const fmt=d=>d.toISOString().split("T")[0];
+    const T2=new Date();const fmt=d=>dateStrET(d);
     if(range==="today")return{start:today(),end:today()};
     if(range==="yesterday"){const y=new Date(T2);y.setDate(y.getDate()-1);return{start:fmt(y),end:fmt(y)};}
     if(range==="last7"){const s=new Date(T2);s.setDate(s.getDate()-6);return{start:fmt(s),end:fmt(T2)};}
@@ -977,8 +978,8 @@ function MalengoTab() {
   },[loadedAll]);
   const ws=new Date();ws.setDate(ws.getDate()-ws.getDay());
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
-  const wkG=allSales.filter(s=>s.sale_date>=ws.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
-  const moG=allSales.filter(s=>s.sale_date>=ms.toISOString().split("T")[0]).reduce((s,r)=>s+r.total_price,0);
+  const wkG=allSales.filter(s=>s.sale_date>=dateStrET(ws)).reduce((s,r)=>s+r.total_price,0);
+  const moG=allSales.filter(s=>s.sale_date>=dateStrET(ms)).reduce((s,r)=>s+r.total_price,0);
 
   // ═══ DATA-DRIVEN GOAL SUGGESTIONS — ALL-TIME HISTORY ═══
   // Daily/Weekly use the full lifetime average per operating day (since business launch).
@@ -997,8 +998,8 @@ function MalengoTab() {
     const now = new Date();
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lmStartStr = lastMonthStart.toISOString().split("T")[0];
-    const lmEndStr = lastMonthEnd.toISOString().split("T")[0];
+    const lmStartStr = dateStrET(lastMonthStart);
+    const lmEndStr = dateStrET(lastMonthEnd);
     const lastMonthTotal = all.filter(s=>s.sale_date>=lmStartStr&&s.sale_date<=lmEndStr).reduce((s,r)=>s+r.total_price,0);
     const lastMonthName = lastMonthStart.toLocaleDateString("sw-TZ",{month:"long",year:"numeric",timeZone:"America/New_York"});
 
@@ -1136,7 +1137,7 @@ function AkiliTab() {
   const [akiliCustomEnd,setAkiliCustomEnd]=useState(today());
   function getAkiliRangeDates(){
     const now=new Date();
-    const fmtD=d=>d.toISOString().split("T")[0];
+    const fmtD=d=>dateStrET(d);
     if(akiliRange==="30days"){ const s=new Date(Date.now()-29*86400000); return {start:fmtD(s),end:today(),label:"Siku 30 / Last 30 Days"}; }
     if(akiliRange==="month"){ const s=new Date(now.getFullYear(),now.getMonth(),1); return {start:fmtD(s),end:today(),label:"Mwezi Huu / This Month"}; }
     if(akiliRange==="alltime"){ return {start:BUSINESS_START_DATE,end:today(),label:"Muda Wote / All-Time"}; }
@@ -1202,7 +1203,7 @@ function AkiliTab() {
   const hc=health>=70?t.gr:health>=40?t.gold:t.rd;
   // Low-stock prediction: sales velocity per item over last 14 days
   const stockPredictions = useMemo(()=>{
-    const s14 = allSales.filter(s=>s.sale_date>=new Date(Date.now()-14*86400000).toISOString().split("T")[0]);
+    const s14 = allSales.filter(s=>s.sale_date>=dateStrET(new Date(Date.now()-14*86400000)));
     const velo = {};
     s14.forEach(s=>{
       if(!velo[s.item_id]) velo[s.item_id]={name:s.item_name,qty:0,days:new Set()};
@@ -1236,7 +1237,7 @@ function AkiliTab() {
       // backfill-pollution problem, only count entries made the SAME calendar day they're for
       // (i.e. real-time entries), so a bulk backfill session doesn't fake a "peak hour."
       if(s.created_at && s.sale_date){
-        const entryDateStr = new Date(s.created_at).toISOString().split("T")[0];
+        const entryDateStr = dateStrET(new Date(s.created_at));
         if(entryDateStr===s.sale_date){
           const hour = new Date(s.created_at).getHours();
           byHour[hour] = (byHour[hour]||0) + s.total_price;
@@ -1293,7 +1294,7 @@ function AkiliTab() {
     const days = [];
     for(let i=29;i>=0;i--){
       const d = new Date(Date.now()-i*86400000);
-      const ds = d.toISOString().split("T")[0];
+      const ds = dateStrET(d);
       const rev = s30.filter(s=>s.sale_date===ds).reduce((s,r)=>s+r.total_price,0);
       days.push({date:ds, rev, label:d.getDate()+"/"+(d.getMonth()+1)});
     }
@@ -1305,7 +1306,7 @@ function AkiliTab() {
     const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate()-6);
     const lastWeekStart = new Date(now); lastWeekStart.setDate(now.getDate()-13);
     const lastWeekEnd = new Date(now); lastWeekEnd.setDate(now.getDate()-7);
-    const fmtD = d=>d.toISOString().split("T")[0];
+    const fmtD = d=>dateStrET(d);
     const thisWeek = s30.filter(s=>s.sale_date>=fmtD(thisWeekStart)).reduce((s,r)=>s+r.total_price,0);
     const lastWeek = s30.filter(s=>s.sale_date>=fmtD(lastWeekStart)&&s.sale_date<=fmtD(lastWeekEnd)).reduce((s,r)=>s+r.total_price,0);
     const pct = lastWeek>0 ? Math.round((thisWeek-lastWeek)/lastWeek*100) : (thisWeek>0?100:0);
