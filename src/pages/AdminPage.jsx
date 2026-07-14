@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-10 · 12 Jul 2026, polish";
+const APP_VERSION = "V2.6-11 · 12 Jul 2026, full-report-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1368,11 +1368,14 @@ function AkiliTab() {
       const rowsForSlow = Math.min(slowMoving.length,6);
       const rowsForInsights = insights.length;
       const hasSvc = svcData.length>0, hasCost = costData.length>0;
+      const stockList = stockPredictions.filter(p=>stockQty[p.id]>0);
+      const rowsForStock = Math.min(stockList.length,10);
 
       // Dynamic height: base sections + variable-length lists
       let H = 530; // header + health + compass + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
-      H += 90; // best day/hour block
+      H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
+      H += dayHourAnalysis.bestDay ? (90+7*26+30) : 0; // best day/hour block + weekday revenue bars (7 fixed rows) + legend
       H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
       H += rowsForSlow>0 ? (60+rowsForSlow*32) : 0;
       H += rowsForInsights>0 ? (60+rowsForInsights*46) : 0;
@@ -1430,7 +1433,7 @@ function AkiliTab() {
 
       // Dira ya Biashara / Business Compass — bold, always shown with real numbers (ratios don't leak absolute figures)
       ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
-      ctx.fillText("🧭 Dira ya Biashara / Business Compass", PAD, y);
+      ctx.fillText("\ud83e\udded Dira ya Biashara / Business Compass", PAD, y);
       y += 18;
       const compW = (W-PAD*2-16)/2;
       [{lbl:"Jumla / Full", r:compassFull},{lbl:"Bila Wafanyakazi / Excl. Staff", r:compassExStaff}].forEach((c,i)=>{
@@ -1518,6 +1521,26 @@ function AkiliTab() {
         y += rowsForItems*46 + 30;
       }
 
+      // Stock Forecast — was missing from this export entirely; mirrors the live Utabiri wa Stoki card
+      if(stockList.length>0){
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("\ud83d\udce6 Utabiri wa Stoki / Stock Forecast", PAD, y);
+        y += 22;
+        stockList.slice(0,10).forEach(p=>{
+          const qty = stockQty[p.id]||0;
+          const daysLeft = p.perDay>0 ? qty/p.perDay : 99;
+          const color = daysLeft<2 ? "#C62828" : daysLeft<5 ? "#B8860B" : "#1B7A20";
+          ctx.fillStyle = "rgba(11,31,69,0.85)"; ctx.font="bold 12px Arial"; ctx.textAlign="left";
+          ctx.fillText(p.name, PAD, y);
+          ctx.fillStyle = "rgba(11,31,69,0.5)"; ctx.font="10px Arial";
+          ctx.fillText(qty+" units left \u00b7 "+p.perDay.toFixed(1)+"/siku wastani", PAD, y+15);
+          ctx.fillStyle = color; ctx.font="bold 14px Georgia, serif"; ctx.textAlign="right";
+          ctx.fillText(daysLeft>=99?"\u2014":daysLeft.toFixed(1)+" siku", W-PAD, y+6);
+          y += 40;
+        });
+        y += 10;
+      }
+
       // Best day / hour
       if(dayHourAnalysis.bestDay || dayHourAnalysis.bestHour){
         ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
@@ -1526,7 +1549,27 @@ function AkiliTab() {
         ctx.font="13px Arial"; ctx.fillStyle="rgba(11,31,69,0.75)";
         if(dayHourAnalysis.bestDay) ctx.fillText("\ud83d\udcc5 Siku Bora: "+dayHourAnalysis.bestDay.name, PAD, y);
         if(dayHourAnalysis.bestHour) ctx.fillText("\u23f0 Saa Bora: "+dayHourAnalysis.bestHour.hour+":00", PAD+300, y);
-        y += 40;
+        y += 30;
+        // Revenue by Weekday bars — was missing from this export; mirrors the live Mauzo kwa Siku ya Wiki chart
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 12px Arial"; ctx.textAlign="left";
+        ctx.fillText("Mauzo kwa Siku ya Wiki / Revenue by Weekday", PAD, y);
+        y += 14;
+        const dcMax = Math.max(...dayHourAnalysis.dayChart.map(d=>d.rev),1);
+        const dcAvg = dayHourAnalysis.dayChart.reduce((s,d)=>s+d.rev,0)/dayHourAnalysis.dayChart.length;
+        dayHourAnalysis.dayChart.forEach(d=>{
+          const perfColor = dcAvg<=0 ? "#B8860B" : d.rev>=dcAvg*1.1 ? "#1B7A20" : d.rev<=dcAvg*0.85 ? "#C62828" : "#B8860B";
+          ctx.fillStyle = "rgba(11,31,69,0.7)"; ctx.font="10px Arial"; ctx.textAlign="left";
+          ctx.fillText(d.name, PAD, y+9);
+          ctx.fillStyle = perfColor; ctx.font="bold 10px Arial"; ctx.textAlign="right";
+          ctx.fillText(fmt(d.rev), W-PAD, y+9);
+          const barMaxW = W-PAD*2-140;
+          ctx.fillStyle = perfColor+"22";
+          ctx.fillRect(PAD+90, y+2, barMaxW, 8);
+          ctx.fillStyle = perfColor;
+          ctx.fillRect(PAD+90, y+2, Math.max((d.rev/dcMax)*barMaxW,3), 8);
+          y += 26;
+        });
+        y += 20;
       }
 
       // Service Mix + Cost Breakdown donuts, side by side
