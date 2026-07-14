@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-9 · 12 Jul 2026, cloud-settings";
+const APP_VERSION = "V2.6-10 · 12 Jul 2026, polish";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1698,6 +1698,9 @@ function AkiliTab() {
         <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"10px 0 0",lineHeight:1.5}}>
           1:1 = Kuvunja Sawa / Breaking Even &nbsp;\u00b7&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;\u00b7&nbsp; 1:{compassTarget}+ = Lengo Limefikiwa / Target Reached
         </p>
+        <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"6px 0 0",lineHeight:1.5,fontStyle:"italic"}}>
+          Kadi hizi mbili huonyeshwa daima — swichi ya Na/Bila Wafanyakazi hapo juu haiathiri hesabu hii. / Both cards always show — the toggle above only affects Net/Margin/Health below, not these two ratios.
+        </p>
       </Card>
 
       <Card glow style={{padding:"1.2rem",display:"flex",alignItems:"center",gap:16}}>
@@ -2610,6 +2613,7 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
+  const {synced} = useAdmin();
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
@@ -2648,6 +2652,10 @@ export default function AdminPage({onExit}) {
           <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
             <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Msimamizi 🔐</span>
             <span style={{fontFamily:"sans-serif",fontSize:8,color:t.dim2,letterSpacing:"0.3px"}}>{APP_VERSION}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.3px",display:"flex",alignItems:"center",gap:3,marginTop:1,color:synced?t.gr:t.gold}}>
+              <span style={{width:5,height:5,borderRadius:"50%",background:synced?t.gr:t.gold,display:"inline-block"}}/>
+              {synced?"Imesawazishwa / Synced":"Inasawazisha... / Syncing..."}
+            </span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <button onClick={togglePresenter} title={presenterMode?"Presenter Mode: ON — tap to show real numbers":"Presenter Mode: OFF — tap to hide real numbers for demos"} style={{background:presenterMode?t.gold+"20":"none",border:presenterMode?"1px solid "+t.gold+"55":"1px solid transparent",borderRadius:8,color:presenterMode?t.gold:t.dim,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,padding:"4px 7px",display:"flex",alignItems:"center",gap:4,fontWeight:presenterMode?700:400}}>
