@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-12 · 12 Jul 2026, date-clarity";
+const APP_VERSION = "V2.7-0 · 12 Jul 2026, margin-advisor";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1135,7 +1135,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff} = useAdmin();
   const [akiliRange,setAkiliRange]=useState("30days");
   const [akiliCustomStart,setAkiliCustomStart]=useState(today());
   const [akiliCustomEnd,setAkiliCustomEnd]=useState(today());
@@ -1203,6 +1203,28 @@ function AkiliTab() {
   const PALETTE=[t.gold,t.bl,t.gr,t.rd,t.pu,"#FF9800","#00BCD4","#8BC34A"];
   const svcData=[{label:"Pickup/Kuchukua",value:svcMap.pickup,color:t.bl},{label:"Delivery",value:svcMap.delivery,color:t.gr},{label:"Dine-in/Kula Hapa",value:svcMap.dinein,color:t.pu}].filter(d=>d.value>0);
   const costData=Object.entries(costMap).map(([k,v],i)=>({label:k,value:v,color:PALETTE[i%PALETTE.length]}));
+  // Kishauri cha Faida / Margin Advisor — turns the cost breakdown into concrete next steps
+  const marginAdvice = useMemo(()=>{
+    if(gross<=0 || Object.keys(costMap).length===0) return null;
+    const staffNames = new Set((staff||[]).map(s=>s.name));
+    function adviceFor(label){
+      const l = label.toLowerCase();
+      if(staffNames.has(label)) return ["Angalia masaa yake dhidi ya mauzo halisi ya zamu zake / Review their scheduled hours against actual sales during their shifts.","Fikiria mafunzo ya kazi mbalimbali ili masaa machache yaweze kufunika / Consider cross-training so fewer staff can cover slow hours.","Linganisha ratiba yake na Siku/Saa Bora — mpange zaidi siku zenye mauzo mengi / Match their schedule to your Best Day/Hour data — schedule them more on peak times."];
+      if(/malighafi|ingredient|chakula|mboga|nyama|raw material|food cost/.test(l)) return ["Linganisha bei za wauzaji wengine mwezi huu / Compare at least one alternative supplier's prices this month.","Kagua kiasi cha malighafi kwenye bidhaa zinazouzwa zaidi — ziada kidogo kwa wingi inagharimu / Check portion sizes on your top sellers — small over-portioning adds up fast at volume.","Fuatilia upotevu/uharibifu kwa wiki moja peke yake kuona kama ndio chanzo, si bei ya ununuzi / Track waste/spoilage separately for a week to see if that — not purchase price — is the real driver.","Fikiria kupandisha bei kidogo (5-8%) kwenye bidhaa zinazotumia malighafi nyingi zaidi / Consider a small 5-8% price increase on items that eat the most ingredient cost."];
+      if(/umeme|stima|electric|gesi|gas|maji|water/.test(l)) return ["Kagua kama vifaa vinaachwa vikiwaka nje ya saa za kazi / Check if equipment is left running outside business hours.","Linganisha matumizi ya mwezi huu na mwezi uliopita — ongezeko la ghafla mara nyingi ni kifaa kimoja / Compare this month's usage to last month's — a sudden jump usually means one appliance is the problem.","Kama ni gesi, kagua uvujaji — uvujaji mdogo unaweza kuongeza gharama maradufu bila kujua / If it's gas, check for leaks — a slow leak can quietly double the bill."];
+      if(/kodi|rent|pango/.test(l)) return ["Kodi kwa kawaida ni gharama isiyobadilika — njia bora ni kuongeza mauzo ili asilimia yake ipungue, si kukata kodi / Rent is usually fixed — the lever here is growing revenue to shrink its share, not cutting the rent itself.","Elekeza nguvu kwenye ukuaji (matangazo, masaa, delivery) badala ya kujaribu kupunguza kodi katikati ya mkataba / Focus on growth (promotions, hours, delivery) rather than renegotiating mid-lease."];
+      if(/usafiri|fuel|mafuta|transport|delivery/.test(l)) return ["Kusanya maagizo ya delivery kwa eneo/muda badala ya safari moja moja / Batch deliveries by neighborhood/time window instead of one trip at a time.","Fikiria kiwango cha chini cha oda ya delivery ili kufidia gharama ya mafuta kwa kila safari / Consider a minimum order size for delivery to offset fuel cost per trip."];
+      if(/vifungashio|packaging|chupa|mifuko/.test(l)) return ["Linganisha bei za jumla kutoka kwa wauzaji tofauti wa vifungashio / Compare bulk pricing from different packaging suppliers.","Kagua kama oda za kuchukua/kula hapa zinapewa vifungashio vya delivery bila sababu / Check if pickup/dine-in orders are getting delivery-grade packaging unnecessarily."];
+      return ["Pata mchanganuo wa kina wa kilichomo humu — 'Nyingine/Other' isiyoeleweka mara nyingi inaficha gharama moja inayoweza kurekebishwa / Get an itemized breakdown of what's in this bucket — a vague 'Other' category often hides one fixable expense.","Linganisha kiasi cha mwezi huu na mwezi uliopita, na uangalie kama kimeongezeka bila sababu / Compare this month's amount to last month's and flag any unexplained jump."];
+    }
+    const entries = Object.entries(costMap).map(([label,value])=>({label,value,pct:Math.round(value/gross*100)})).sort((a,b)=>b.value-a.value);
+    const top = entries.filter(e=>e.pct>=5).slice(0,3).map(e=>({...e,tips:adviceFor(e.label)}));
+    if(top.length===0) return null;
+    const targetCosts = compassTarget>0 ? gross/compassTarget : null;
+    const cutNeeded = targetCosts!==null ? Math.max(0,Math.round(costs-targetCosts)) : 0;
+    const pctCutOfTop = (cutNeeded>0 && top[0].value>0) ? Math.min(100,Math.round(cutNeeded/top[0].value*100)) : 0;
+    return {top, cutNeeded, pctCutOfTop, topLabel:top[0].label};
+  },[costMap,gross,costs,staff,compassTarget]);
   const health=Math.min(100,Math.max(0,50+(margin/100*30)+(itemStats.length>5?10:0)+(gross>500000?10:0)));
   const hc=health>=70?t.gr:health>=40?t.gold:t.rd;
   // Low-stock prediction: sales velocity per item over last 14 days
@@ -1374,6 +1396,7 @@ function AkiliTab() {
       const hasSvc = svcData.length>0, hasCost = costData.length>0;
       const stockList = stockPredictions.filter(p=>stockQty[p.id]>0);
       const rowsForStock = Math.min(stockList.length,10);
+      const marginAdviceRows = marginAdvice ? marginAdvice.top.reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
 
       // Dynamic height: base sections + variable-length lists
       let H = 530; // header + health + compass + stats + trend chart baseline
@@ -1381,6 +1404,7 @@ function AkiliTab() {
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
       H += dayHourAnalysis.bestDay ? (90+7*26+30) : 0; // best day/hour block + weekday revenue bars (7 fixed rows) + legend
       H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
+      H += marginAdvice ? (50 + (marginAdvice.cutNeeded>0?100:0) + marginAdviceRows) : 0; // margin advisor
       H += rowsForSlow>0 ? (60+rowsForSlow*32) : 0;
       H += rowsForInsights>0 ? (60+rowsForInsights*46) : 0;
       H += 60; // footer margin
@@ -1610,6 +1634,52 @@ function AkiliTab() {
         if(hasSvc) drawDonut(PAD+130, donutY, svcData, "Aina ya Huduma / Service Mix");
         if(hasCost) drawDonut(PAD+130+320, donutY, costData, "Gharama kwa Aina / Cost Breakdown");
         y += 230;
+      }
+
+      // Margin Advisor — was a brand-new section; adding it here from day one so it never falls out of sync with the export
+      if(marginAdvice){
+        function wrapLines(text, maxW, font){
+          ctx.font = font;
+          const words = text.split(" ");
+          const lines = []; let line = "";
+          words.forEach(w=>{
+            const test = line+w+" ";
+            if(ctx.measureText(test).width > maxW && line){ lines.push(line); line = w+" "; }
+            else line = test;
+          });
+          lines.push(line);
+          return lines;
+        }
+        function wrapText(text, x, startY, maxW, lineH, color, font){
+          const lines = wrapLines(text, maxW, font);
+          ctx.fillStyle = color; ctx.font = font; ctx.textAlign = "left";
+          lines.forEach((line,i)=>ctx.fillText(line, x, startY+i*lineH));
+          return startY + (lines.length-1)*lineH;
+        }
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("\ud83e\udde0 Kishauri cha Faida / Margin Advisor", PAD, y);
+        y += 24;
+        if(marginAdvice.cutNeeded>0){
+          const gapLine1 = "Ili kufikia lengo 1:"+compassTarget+", punguza gharama kwa "+(presenterMode?marginAdvice.pctCutOfTop+"%":fmt(marginAdvice.cutNeeded))+" \u2014 kupunguza "+marginAdvice.topLabel+" kwa "+marginAdvice.pctCutOfTop+"% pekee kunatosha.";
+          const gapLines = wrapLines(gapLine1, W-PAD*2-20, "12px Arial");
+          const boxH = gapLines.length*15 + 24;
+          ctx.fillStyle = "#FBF3DC"; ctx.fillRect(PAD,y,W-PAD*2,boxH);
+          y = wrapText(gapLine1, PAD+10, y+18, W-PAD*2-20, 15, "#0B1F45", "12px Arial") + 22;
+        }
+        marginAdvice.top.forEach((cat,i)=>{
+          ctx.fillStyle = "#0B1F45"; ctx.font="bold 13px Georgia, serif"; ctx.textAlign="left";
+          ctx.fillText("#"+(i+1)+" "+cat.label, PAD, y);
+          ctx.fillStyle = "#B8860B"; ctx.font="bold 11px Arial"; ctx.textAlign="right";
+          ctx.fillText(cat.pct+"%"+(presenterMode?"":" ("+fmt(cat.value)+")"), W-PAD, y);
+          y += 18;
+          cat.tips.forEach(tip=>{
+            ctx.fillStyle = "#B8860B"; ctx.font="11px Arial"; ctx.textAlign="left";
+            ctx.fillText("\u2192", PAD, y);
+            y = wrapText(tip, PAD+14, y, W-PAD*2-14, 15, "rgba(11,31,69,0.75)", "11px Arial") + 19;
+          });
+          y += 6;
+        });
+        y += 14;
       }
 
       // Slow-moving items
@@ -1882,6 +1952,34 @@ function AkiliTab() {
       {costData.length>0&&<Card style={{padding:"1rem"}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Cost Breakdown / Gharama kwa Aina</p>
         <Donut data={costData} size={140}/>
+      </Card>}
+      {marginAdvice && <Card glow style={{padding:"1.1rem",border:"1px solid "+t.gold+"33"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <IconBadge emoji="🧠" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Kishauri cha Faida / Margin Advisor</p>
+        </div>
+        {marginAdvice.cutNeeded>0 && (
+          <div style={{background:t.gold+"12",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+            <p style={{fontFamily:"sans-serif",fontSize:11,color:t.text,margin:0,lineHeight:1.5}}>
+              Ili kufikia lengo lako la <b style={{color:t.gold}}>1:{compassTarget}</b>, unahitaji kupunguza gharama kwa jumla ya <b style={{color:t.gold}}>{presenterMode?marginAdvice.pctCutOfTop+"%":fmt(marginAdvice.cutNeeded)}</b>{presenterMode?"":" (au ongeza mauzo kwa kiasi hicho)"}. Kupunguza <b>{marginAdvice.topLabel}</b> peke yake kwa <b style={{color:t.gold}}>{marginAdvice.pctCutOfTop}%</b> kunatosha kufikia lengo.
+              <br/><span style={{color:t.dim2,fontSize:10}}>To hit your 1:{compassTarget} target, total costs need to drop by {presenterMode?marginAdvice.pctCutOfTop+"%":fmt(marginAdvice.cutNeeded)}{presenterMode?"":" (or grow revenue by that much instead)"}. Cutting just {marginAdvice.topLabel} by {marginAdvice.pctCutOfTop}% alone would get you there.</span>
+            </p>
+          </div>
+        )}
+        {marginAdvice.top.map((cat,i)=>(
+          <div key={cat.label} style={{marginBottom:i<marginAdvice.top.length-1?14:0,paddingBottom:i<marginAdvice.top.length-1?14:0,borderBottom:i<marginAdvice.top.length-1?"1px solid "+t.border:"none"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.text}}>#{i+1} {cat.label}</span>
+              <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.gold}}>{cat.pct}% {presenterMode?"":"("+fmt(cat.value)+")"} ya mauzo/of revenue</span>
+            </div>
+            {cat.tips.map((tip,ti)=>(
+              <div key={ti} style={{display:"flex",gap:6,marginBottom:5}}>
+                <span style={{color:t.gold,fontSize:11,flexShrink:0}}>→</span>
+                <span style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,lineHeight:1.5}}>{tip}</span>
+              </div>
+            ))}
+          </div>
+        ))}
       </Card>}
       {itemStats.length>0&&<Card style={{padding:"1rem"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -2601,6 +2699,7 @@ function ChuoTab() {
         <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
         <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
+        <ChuoBullet title="Kishauri cha Faida / Margin Advisor" body="Kinaonyesha gharama zinazokula mauzo yako zaidi (mfano: malighafi, umeme, kodi) na hatua halisi za kuchukua kwa kila moja — si maelezo tu, bali ushauri wa kufanya nini. Pia kinaonyesha ni asilimia ngapi ya gharama kubwa zaidi unahitaji kupunguza ili kufikia lengo lako la Dira ya Biashara. / Shows which cost categories are eating your revenue most (e.g. ingredients, electricity, rent) and concrete steps for each — not just facts, but what to actually do. Also shows exactly what % cut to your biggest cost category would hit your Business Compass target." />
         <ChuoBullet title="Siku na Saa Bora / Best Day & Hour" body="Inaonyesha siku ya wiki na saa inayouza zaidi — msaada wa kupanga zamu za wafanyakazi. / Shows your best-selling weekday and hour — useful for staff scheduling." />
         <ChuoBullet title="Bidhaa Zisizouzwa / Slow-Moving Items" body="Bidhaa ambazo hazijauzwa kwa siku 14+ zinaonekana hapa na alama nyekundu ⚠️. / Items unsold for 14+ days appear here flagged with a red ⚠️." />
         <ChuoBullet title="Top Items — 🔥❄️🌤️" body="🔥 = bidhaa inayouzwa sana, ❄️ = polepole, 🌤️ = wastani. Inategemea mauzo ya siku 30 ukilinganisha na bidhaa bora. / 🔥 = hot seller, ❄️ = slow, 🌤️ = average — based on 30-day sales relative to your top item." />
