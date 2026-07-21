@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.6-11 · 12 Jul 2026, full-report-fix";
+const APP_VERSION = "V2.6-12 · 12 Jul 2026, date-clarity";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -591,6 +591,10 @@ function LeoTab({onGoTo}) {
             <button key={k} onClick={()=>setReportMode(k)} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+(reportMode===k?t.gold:t.border),background:reportMode===k?t.gold+"18":"transparent",color:reportMode===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",fontWeight:reportMode===k?700:400,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
+        {reportMode!=="custom" && <div style={{marginBottom:10,padding:"9px 12px",borderRadius:10,background:t.gold+"12",display:"flex",alignItems:"center",gap:7}}>
+          <i className="ti ti-calendar" style={{fontSize:14,color:t.gold}}/>
+          <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{getReportRange().start} → {getReportRange().end}</span>
+        </div>}
         {reportMode==="custom" && <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)} max={today()} style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>}
         <button onClick={sendPickedDateWhatsApp} disabled={waSending} style={{width:"100%",background:waSending?t.bg4:"rgba(37,211,102,0.12)",color:waSending?t.dim2:"#25d366",border:"1px solid "+(waSending?t.border:"rgba(37,211,102,0.3)"),borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:waSending?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
           <i className="ti ti-eye"/>{waSending?"Inapakia...":"Angalia Ripoti / Preview Report"}
@@ -1691,6 +1695,11 @@ function AkiliTab() {
           {[["30days","Siku 30"],["month","Mwezi Huu"],["alltime","Muda Wote"],["custom","Chagua Tarehe"]].map(([k,l])=>(
             <button key={k} onClick={()=>setAkiliRange(k)} style={{padding:"5px 11px",borderRadius:99,border:"1px solid "+(akiliRange===k?t.gold:t.border),background:akiliRange===k?t.gold+"18":"transparent",color:akiliRange===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",fontWeight:akiliRange===k?700:400,cursor:"pointer"}}>{l}</button>
           ))}
+        </div>
+        <div style={{marginTop:10,padding:"9px 12px",borderRadius:10,background:t.gold+"12",display:"flex",alignItems:"center",gap:7}}>
+          <i className="ti ti-calendar" style={{fontSize:14,color:t.gold}}/>
+          <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{rangeStart} → {rangeEnd}</span>
+          <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>({rangeLabel})</span>
         </div>
         {akiliRange==="custom" && <div style={{display:"flex",gap:8,alignItems:"center",marginTop:8}}>
           <input type="date" value={akiliCustomStart} onChange={e=>setAkiliCustomStart(e.target.value)} min={BUSINESS_START_DATE} max={today()} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none"}}/>
