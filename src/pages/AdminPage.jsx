@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-1 · 12 Jul 2026, week-toggle";
+const APP_VERSION = "V2.7-2 · 12 Jul 2026, trend-range-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1316,20 +1316,42 @@ function AkiliTab() {
     return results;
   },[allSales,customItems]);
 
-  // 30-day revenue trend line + week-over-week comparison
+  // Revenue trend line, following whichever period is selected in Analysis Period —
+  // daily points for short ranges, weekly buckets for long ones (e.g. Muda Wote as the
+  // business grows) so the chart never becomes hundreds of unreadable daily points.
   const trendData = useMemo(()=>{
-    const days = [];
-    for(let i=29;i>=0;i--){
-      const d = new Date(Date.now()-i*86400000);
-      const ds = dateStrET(d);
-      const [dy,dm,dd] = ds.split("-").map(Number);
-      const dow = new Date(dy,dm-1,dd).getDay(); // weekday of the ET calendar date, not the device's local day
-      if(!showFullWeek && dow===closedWeekday) continue;
-      const rev = s30.filter(s=>s.sale_date===ds).reduce((s,r)=>s+r.total_price,0);
-      days.push({date:ds, rev, label:dd+"/"+dm});
+    const [sy,sm,sd] = rangeStart.split("-").map(Number);
+    const [ey,em,ed] = rangeEnd.split("-").map(Number);
+    const start = new Date(sy,sm-1,sd), end = new Date(ey,em-1,ed);
+    const totalDays = Math.round((end-start)/86400000)+1;
+    const DAILY_CAP = 60;
+    const useWeekly = totalDays > DAILY_CAP;
+    const revByDate = {};
+    s30.forEach(s=>{ revByDate[s.sale_date] = (revByDate[s.sale_date]||0) + s.total_price; });
+    const points = [];
+    let cursor = new Date(start);
+    while(cursor<=end){
+      const bucketSize = useWeekly ? 7 : 1;
+      let rev = 0, firstDs = null, anyDay = false;
+      for(let i=0;i<bucketSize;i++){
+        const d = new Date(cursor); d.setDate(d.getDate()+i);
+        if(d>end) break;
+        const ds = dateStrET(d);
+        const [dy,dm,dd] = ds.split("-").map(Number);
+        const dow = new Date(dy,dm-1,dd).getDay(); // weekday of the ET calendar date, not the device's local day
+        if(!showFullWeek && dow===closedWeekday) continue;
+        if(!firstDs) firstDs = ds;
+        anyDay = true;
+        rev += revByDate[ds]||0;
+      }
+      if(anyDay){
+        const [ly,lm,ld] = firstDs.split("-").map(Number);
+        points.push({date:firstDs, rev, label:(useWeekly?"Wiki ya ":"")+ld+"/"+lm});
+      }
+      cursor.setDate(cursor.getDate()+bucketSize);
     }
-    return days;
-  },[s30,showFullWeek,closedWeekday]);
+    return points;
+  },[s30,showFullWeek,closedWeekday,rangeStart,rangeEnd]);
 
   const weekOverWeek = useMemo(()=>{
     const now = new Date();
@@ -2708,7 +2730,7 @@ function ChuoTab() {
       <ChuoSection icon="🧠" color={t.pu} titleSw="Akili / Analytics" titleEn="Business intelligence dashboard" isOpen={open==="akili"} onToggle={()=>toggle("akili")}>
         <ChuoBullet title="🧭 Dira ya Biashara / Business Compass" body="Uwiano wa mapato dhidi ya gharama, umeandikwa kama '1:X'. X chini ya 1 = unapoteza pesa. X karibu 1 = unavunja sawa. X zaidi ya lengo lako = umefikia lengo. Kadi ya 'Jumla' inajumuisha mishahara; 'Bila Wafanyakazi' haijumuishi. Bonyeza 'Lengo Lako' chini ya kadi kuweka lengo lako mwenyewe (mfano 1:3) — utaonekana umefikia lengo pale uwiano utakapopanda zaidi ya namba hiyo. Hii HAIFICHWI kwenye Presenter Mode kwa sababu ni uwiano tu, si namba halisi. / The revenue-to-cost ratio, shown as '1:X'. X below 1 = losing money. X near 1 = breaking even. X above your target = target reached. The 'Full' card includes payroll; 'Excluding Staff' doesn't. Tap 'Your Target' under the card to set your own goal (e.g. 1:3) — you'll be marked as having reached target once the ratio climbs past that number. This is NEVER hidden by Presenter Mode since it's just a ratio, not a real figure." />
         <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
-        <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
+        <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati inafuata kipindi ulichochagua juu (Siku 30/Mwezi Huu/Muda Wote/Chagua Tarehe) — kama kipindi ni kirefu (zaidi ya siku 60), inaonyesha kwa wiki badala ya siku ili ibaki rahisi kusoma. GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi. / The chart follows whichever period you selected above (30 Days/This Month/All-Time/Custom) — if the period is long (over 60 days), it shows weekly points instead of daily so it stays readable. TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
         <ChuoBullet title="Wiki 7 / Siku 6 za Kazi Toggle" body="Bonyeza kitufe cha 'Wiki 7 / Siku 6' juu ya Mwenendo wa Mauzo. Ikiwa una siku ya kufungwa (mfano Jumapili), chagua 'Siku 6 za Kazi' ili siku hiyo isionekane 'mbaya' isivyo kweli — inaondolewa kabisa kwenye wastani na chati. / Tap the 'Full Week / 6 Operating Days' button above Revenue Trend. If you have a closed day (e.g. Sunday), choose '6 Operating Days' so that day doesn't falsely show as 'bad' — it's fully excluded from the average and chart." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
         <ChuoBullet title="Kishauri cha Faida / Margin Advisor" body="Kinaonyesha gharama zinazokula mauzo yako zaidi (mfano: malighafi, umeme, kodi) na hatua halisi za kuchukua kwa kila moja — si maelezo tu, bali ushauri wa kufanya nini. Pia kinaonyesha ni asilimia ngapi ya gharama kubwa zaidi unahitaji kupunguza ili kufikia lengo lako la Dira ya Biashara. / Shows which cost categories are eating your revenue most (e.g. ingredients, electricity, rent) and concrete steps for each — not just facts, but what to actually do. Also shows exactly what % cut to your biggest cost category would hit your Business Compass target." />
