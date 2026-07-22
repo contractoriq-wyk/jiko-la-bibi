@@ -51,6 +51,18 @@ export function AdminProvider({ children }) {
       catch(e){ console.warn("Toggle staff-costs setting failed:", e); }
     }
   }
+  // Revenue Trend "full 7-day week" vs "operating days only" view — synced like everything
+  // else so every device shows the same true-to-life trend, not a per-device preference.
+  const [showFullWeek,setShowFullWeek]=useState(true);
+  const [closedWeekday,setClosedWeekday]=useState(0); // 0=Sunday (JS getDay convention)
+  async function toggleShowFullWeek(){
+    const next = !showFullWeek;
+    setShowFullWeek(next);
+    if(supabase){
+      try { await supabase.from("business_settings").update({show_full_week:next, updated_at:new Date().toISOString()}).eq("id","main"); }
+      catch(e){ console.warn("Toggle full-week setting failed:", e); }
+    }
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -92,6 +104,8 @@ export function AdminProvider({ children }) {
         if(bs){
           setGoalsState({daily:bs.daily_goal||0,weekly:bs.weekly_goal||0,monthly:bs.monthly_goal||0,compassTarget:bs.compass_target||2});
           setIncludeStaffCosts(bs.include_staff_costs!==false);
+          setShowFullWeek(bs.show_full_week!==false);
+          setClosedWeekday(bs.closed_weekday??0);
         } else {
           // First run after migration: no row yet — create the shared default row so every device starts from the same state.
           try { await supabase.from("business_settings").upsert({id:"main"}); } catch(e){ console.warn("business_settings init failed:", e); }
@@ -123,6 +137,8 @@ export function AdminProvider({ children }) {
       const d=p.new; if(!d) return;
       setGoalsState({daily:d.daily_goal||0,weekly:d.weekly_goal||0,monthly:d.monthly_goal||0,compassTarget:d.compass_target||2});
       setIncludeStaffCosts(d.include_staff_costs!==false);
+      setShowFullWeek(d.show_full_week!==false);
+      setClosedWeekday(d.closed_weekday??0);
     }).subscribe();
     const sqs=supabase.channel("stockqty_rt").on("postgres_changes",{event:"*",schema:"public",table:"stock_quantities"},async()=>{
       const {data}=await supabase.from("stock_quantities").select("item_id,qty");
@@ -402,6 +418,7 @@ export function AdminProvider({ children }) {
       todayGross,todayNet,todayOverhead,todayItemCost,
       setGoal,setCompassTarget,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       includeStaffCosts,toggleIncludeStaffCosts,
+      showFullWeek,toggleShowFullWeek,closedWeekday,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
