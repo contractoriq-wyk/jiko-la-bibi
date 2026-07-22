@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-0 · 12 Jul 2026, margin-advisor";
+const APP_VERSION = "V2.7-1 · 12 Jul 2026, week-toggle";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1135,7 +1135,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
   const [akiliRange,setAkiliRange]=useState("30days");
   const [akiliCustomStart,setAkiliCustomStart]=useState(today());
   const [akiliCustomEnd,setAkiliCustomEnd]=useState(today());
@@ -1283,9 +1283,10 @@ function AkiliTab() {
     }
     const bestDay = dayEntries[0] ? {name:dayNames[dayEntries[0][0]], rev:dayEntries[0][1]} : null;
     const bestHour = hourEntries[0] ? {hour:parseInt(hourEntries[0][0]), rev:hourEntries[0][1], isEstimate:hourIsEstimate} : null;
-    const dayChart = dayNames.map((name,i)=>({name,rev:byDay[i]||0}));
+    const dayChartFull = dayNames.map((name,i)=>({name,rev:byDay[i]||0}));
+    const dayChart = showFullWeek ? dayChartFull : dayChartFull.filter((d,i)=>i!==closedWeekday);
     return { bestDay, bestHour, dayChart };
-  },[s30]);
+  },[s30,showFullWeek,closedWeekday]);
 
   // Slow-moving items — menu items with no sales in the last 30-day window
   const slowMoving = useMemo(()=>{
@@ -1321,11 +1322,14 @@ function AkiliTab() {
     for(let i=29;i>=0;i--){
       const d = new Date(Date.now()-i*86400000);
       const ds = dateStrET(d);
+      const [dy,dm,dd] = ds.split("-").map(Number);
+      const dow = new Date(dy,dm-1,dd).getDay(); // weekday of the ET calendar date, not the device's local day
+      if(!showFullWeek && dow===closedWeekday) continue;
       const rev = s30.filter(s=>s.sale_date===ds).reduce((s,r)=>s+r.total_price,0);
-      days.push({date:ds, rev, label:d.getDate()+"/"+(d.getMonth()+1)});
+      days.push({date:ds, rev, label:dd+"/"+dm});
     }
     return days;
-  },[s30]);
+  },[s30,showFullWeek,closedWeekday]);
 
   const weekOverWeek = useMemo(()=>{
     const now = new Date();
@@ -1402,7 +1406,7 @@ function AkiliTab() {
       let H = 530; // header + health + compass + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
-      H += dayHourAnalysis.bestDay ? (90+7*26+30) : 0; // best day/hour block + weekday revenue bars (7 fixed rows) + legend
+      H += dayHourAnalysis.bestDay ? (90+dayHourAnalysis.dayChart.length*26+30) : 0; // best day/hour block + weekday revenue bars + legend
       H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
       H += marginAdvice ? (50 + (marginAdvice.cutNeeded>0?100:0) + marginAdviceRows) : 0; // margin advisor
       H += rowsForSlow>0 ? (60+rowsForSlow*32) : 0;
@@ -1500,7 +1504,7 @@ function AkiliTab() {
 
       // Revenue trend chart
       ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
-      ctx.fillText("Mwenendo wa Mauzo / Revenue Trend", PAD, y);
+      ctx.fillText("Mwenendo wa Mauzo / Revenue Trend"+(showFullWeek?"":" (Siku 6 za Kazi/6 Operating Days)"), PAD, y);
       y += 20;
       const chartH = 130, chartW = W-PAD*2;
       const maxRev = Math.max(...trendData.map(d=>d.rev),1);
@@ -1843,10 +1847,17 @@ function AkiliTab() {
         </div>
       </Card>
       <Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-          <IconBadge emoji="📈" color={t.gold}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({rangeStart}–{rangeEnd})</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+            <IconBadge emoji="📈" color={t.gold}/>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mwenendo wa Mauzo / Revenue Trend ({rangeStart}–{rangeEnd})</p>
+          </div>
+          <div onClick={toggleShowFullWeek} style={{flexShrink:0,display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:99,background:t.gold+"14",border:"1px solid "+t.gold+"33",cursor:"pointer"}}>
+            <i className="ti ti-calendar-off" style={{fontSize:11,color:t.gold}}/>
+            <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.gold,whiteSpace:"nowrap"}}>{showFullWeek?"Wiki 7 / Full Week":"Siku 6 za Kazi / 6 Operating"}</span>
+          </div>
         </div>
+        {!showFullWeek && <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"0 0 8px",fontStyle:"italic"}}>Siku ya kufungwa imeondolewa kwenye wastani na chati / Closed day is excluded from the average and chart, so it doesn't show as a false "bad" day.</p>}
         <div style={{display:"flex",alignItems:"center",gap:8,margin:"10px 0 14px"}}>
           <span style={{fontSize:16,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{weekOverWeek.pct>=0?"▲":"▼"}</span>
           <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:900,color:weekOverWeek.pct>=0?t.gr:t.rd}}>{Math.abs(weekOverWeek.pct)}%</span>
@@ -1899,7 +1910,7 @@ function AkiliTab() {
             <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:3}}>{fmt(dayHourAnalysis.bestHour.rev)}</div>
           </div>}
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Mauzo kwa Siku ya Wiki / Revenue by Weekday</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Mauzo kwa Siku ya Wiki / Revenue by Weekday{showFullWeek?"":" (Siku 6/6 Days)"}</p>
         {dayHourAnalysis.dayChart.map(d=>{
           const maxRev = Math.max(...dayHourAnalysis.dayChart.map(x=>x.rev),1);
           const weekAvg = dayHourAnalysis.dayChart.reduce((s,x)=>s+x.rev,0)/dayHourAnalysis.dayChart.length;
@@ -2698,6 +2709,7 @@ function ChuoTab() {
         <ChuoBullet title="🧭 Dira ya Biashara / Business Compass" body="Uwiano wa mapato dhidi ya gharama, umeandikwa kama '1:X'. X chini ya 1 = unapoteza pesa. X karibu 1 = unavunja sawa. X zaidi ya lengo lako = umefikia lengo. Kadi ya 'Jumla' inajumuisha mishahara; 'Bila Wafanyakazi' haijumuishi. Bonyeza 'Lengo Lako' chini ya kadi kuweka lengo lako mwenyewe (mfano 1:3) — utaonekana umefikia lengo pale uwiano utakapopanda zaidi ya namba hiyo. Hii HAIFICHWI kwenye Presenter Mode kwa sababu ni uwiano tu, si namba halisi. / The revenue-to-cost ratio, shown as '1:X'. X below 1 = losing money. X near 1 = breaking even. X above your target = target reached. The 'Full' card includes payroll; 'Excluding Staff' doesn't. Tap 'Your Target' under the card to set your own goal (e.g. 1:3) — you'll be marked as having reached target once the ratio climbs past that number. This is NEVER hidden by Presenter Mode since it's just a ratio, not a real figure." />
         <ChuoBullet title="Afya ya Biashara / Business Health" body="Alama ya 0-100 inayoonyesha jinsi biashara inavyofanya vizuri kwa ujumla (mauzo, faida, aina mbalimbali za bidhaa). / A 0-100 score showing overall business performance (sales, profit, item variety)." />
         <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati ya siku 30 — GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi cha siku hiyo. / 30-day chart — TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
+        <ChuoBullet title="Wiki 7 / Siku 6 za Kazi Toggle" body="Bonyeza kitufe cha 'Wiki 7 / Siku 6' juu ya Mwenendo wa Mauzo. Ikiwa una siku ya kufungwa (mfano Jumapili), chagua 'Siku 6 za Kazi' ili siku hiyo isionekane 'mbaya' isivyo kweli — inaondolewa kabisa kwenye wastani na chati. / Tap the 'Full Week / 6 Operating Days' button above Revenue Trend. If you have a closed day (e.g. Sunday), choose '6 Operating Days' so that day doesn't falsely show as 'bad' — it's fully excluded from the average and chart." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
         <ChuoBullet title="Kishauri cha Faida / Margin Advisor" body="Kinaonyesha gharama zinazokula mauzo yako zaidi (mfano: malighafi, umeme, kodi) na hatua halisi za kuchukua kwa kila moja — si maelezo tu, bali ushauri wa kufanya nini. Pia kinaonyesha ni asilimia ngapi ya gharama kubwa zaidi unahitaji kupunguza ili kufikia lengo lako la Dira ya Biashara. / Shows which cost categories are eating your revenue most (e.g. ingredients, electricity, rent) and concrete steps for each — not just facts, but what to actually do. Also shows exactly what % cut to your biggest cost category would hit your Business Compass target." />
         <ChuoBullet title="Siku na Saa Bora / Best Day & Hour" body="Inaonyesha siku ya wiki na saa inayouza zaidi — msaada wa kupanga zamu za wafanyakazi. / Shows your best-selling weekday and hour — useful for staff scheduling." />
