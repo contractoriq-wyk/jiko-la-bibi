@@ -5,6 +5,7 @@ import Header      from "./components/Header";
 import Hero        from "./components/Hero";
 import ServiceBar  from "./components/ServiceBar";
 import BottomNav   from "./components/BottomNav";
+import Footer       from "./components/Footer";
 import ItemModal    from "./components/ItemModal";
 import CartDrawer   from "./components/CartDrawer";
 import CheckoutModal from "./components/CheckoutModal";
@@ -360,6 +361,8 @@ export default function App() {
       {page==="about"  && <AboutPage />}
       {page==="policy" && <PolicyPage />}
       {page==="admin"  && <AdminPage onExit={() => navigate("home")} />}
+
+      {page!=="admin" && <Footer/>}
 
       <InstallPrompt/>
       <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />

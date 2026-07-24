@@ -31,6 +31,12 @@ body {
 
 .section-anchor { scroll-margin-top: 96px; }
 
+/* Gold gradient divider bar — used at the top of the Footer, matches the
+   gold-gradient dividers already used elsewhere on the site (Hero, About, Policy). */
+.kanga-stripe {
+  background: linear-gradient(to right, transparent, #6b4e0a, #D4AF37, #f7e8a0, #D4AF37, #6b4e0a, transparent);
+}
+
 /* Hide scrollbar on the section nav strip */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
