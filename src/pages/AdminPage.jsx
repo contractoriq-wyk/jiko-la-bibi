@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-2 · 12 Jul 2026, trend-range-fix";
+const APP_VERSION = "V2.7-3 · 12 Jul 2026, count-selector";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -156,6 +156,19 @@ function IconBadge({emoji, color}) {
       display:"flex", alignItems:"center", justifyContent:"center",
       fontSize:15, boxShadow:"0 2px 8px "+color+"22",
     }}>{emoji}</div>
+  );
+}
+
+// Reusable "how many to show" pill selector — used on every ranked list (Top Items,
+// Slow-Moving, Stock Forecast, Margin Advisor) so the pattern is consistent everywhere.
+function CountSelector({value, onChange, options=[5,10,20,"All"], total}) {
+  const {t} = useT();
+  return (
+    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+      {options.filter(opt=>opt==="All"||!total||opt<=total||opt===Math.min(...options.filter(o=>typeof o==="number"))).map(opt=>(
+        <button key={opt} onClick={()=>onChange(opt)} style={{padding:"3px 10px",borderRadius:99,border:"1px solid "+(value===opt?t.gold:t.border),background:value===opt?t.gold+"18":"transparent",color:value===opt?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"10px",fontWeight:value===opt?700:400,cursor:"pointer"}}>{opt}</button>
+      ))}
+    </div>
   );
 }
 
@@ -1137,6 +1150,10 @@ function AkiliTab() {
   const {t, presenterMode} = useT();
   const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
   const [akiliRange,setAkiliRange]=useState("30days");
+  const [topItemsN,setTopItemsN]=useState(10);
+  const [slowN,setSlowN]=useState(6);
+  const [stockN,setStockN]=useState(10);
+  const [advisorN,setAdvisorN]=useState(3);
   const [akiliCustomStart,setAkiliCustomStart]=useState(today());
   const [akiliCustomEnd,setAkiliCustomEnd]=useState(today());
   function getAkiliRangeDates(){
@@ -1218,7 +1235,7 @@ function AkiliTab() {
       return ["Pata mchanganuo wa kina wa kilichomo humu — 'Nyingine/Other' isiyoeleweka mara nyingi inaficha gharama moja inayoweza kurekebishwa / Get an itemized breakdown of what's in this bucket — a vague 'Other' category often hides one fixable expense.","Linganisha kiasi cha mwezi huu na mwezi uliopita, na uangalie kama kimeongezeka bila sababu / Compare this month's amount to last month's and flag any unexplained jump."];
     }
     const entries = Object.entries(costMap).map(([label,value])=>({label,value,pct:Math.round(value/gross*100)})).sort((a,b)=>b.value-a.value);
-    const top = entries.filter(e=>e.pct>=5).slice(0,3).map(e=>({...e,tips:adviceFor(e.label)}));
+    const top = entries.filter(e=>e.pct>=5).map(e=>({...e,tips:adviceFor(e.label)}));
     if(top.length===0) return null;
     const targetCosts = compassTarget>0 ? gross/compassTarget : null;
     const cutNeeded = targetCosts!==null ? Math.max(0,Math.round(costs-targetCosts)) : 0;
@@ -1312,9 +1329,19 @@ function AkiliTab() {
         if(b.daysSince===null) return 1;
         return b.daysSince-a.daysSince;
       })
-      .slice(0,8);
+      .slice(0,50);
     return results;
   },[allSales,customItems]);
+
+  // Shared Stock Forecast list — hoisted here so both the live UI and the Picha Kamili
+  // export use the exact same filtered list (was previously computed separately in each).
+  const stockList = useMemo(()=>stockPredictions.filter(p=>stockQty[p.id]>0),[stockPredictions,stockQty]);
+
+  // Resolved "how many to show" counts for each ranked list, driven by the CountSelector controls.
+  const topItemsShown = topItemsN==="All" ? itemStats.length : Math.min(topItemsN,itemStats.length);
+  const slowShown = slowN==="All" ? slowMoving.length : Math.min(slowN,slowMoving.length);
+  const stockShown = stockN==="All" ? stockList.length : Math.min(stockN,stockList.length);
+  const advisorShown = marginAdvice ? (advisorN==="All" ? marginAdvice.top.length : Math.min(advisorN,marginAdvice.top.length)) : 0;
 
   // Revenue trend line, following whichever period is selected in Analysis Period —
   // daily points for short ranges, weekly buckets for long ones (e.g. Muda Wote as the
@@ -1416,13 +1443,12 @@ function AkiliTab() {
       const W=800, PAD=36;
       const dateStart = rangeStart;
       const dateEnd = rangeEnd;
-      const rowsForItems = Math.min(itemStats.length,10);
-      const rowsForSlow = Math.min(slowMoving.length,6);
+      const rowsForItems = topItemsShown;
+      const rowsForSlow = slowShown;
       const rowsForInsights = insights.length;
       const hasSvc = svcData.length>0, hasCost = costData.length>0;
-      const stockList = stockPredictions.filter(p=>stockQty[p.id]>0);
-      const rowsForStock = Math.min(stockList.length,10);
-      const marginAdviceRows = marginAdvice ? marginAdvice.top.reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
+      const rowsForStock = stockShown;
+      const marginAdviceRows = marginAdvice ? marginAdvice.top.slice(0,advisorShown).reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
 
       // Dynamic height: base sections + variable-length lists
       let H = 530; // header + health + compass + stats + trend chart baseline
@@ -1560,7 +1586,7 @@ function AkiliTab() {
         ctx.fillText("Bidhaa Bora / Top Items", PAD, y);
         y += 16;
         const maxItemRev = itemStats[0].rev || 1;
-        itemStats.slice(0,10).forEach((it,i)=>{
+        itemStats.slice(0,topItemsShown).forEach((it,i)=>{
           const barY = y + i*46 + 14;
           ctx.fillStyle = "#0B1F45"; ctx.font="13px Arial"; ctx.textAlign="left";
           ctx.fillText((i+1)+". "+it.name, PAD, barY);
@@ -1580,7 +1606,7 @@ function AkiliTab() {
         ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
         ctx.fillText("\ud83d\udce6 Utabiri wa Stoki / Stock Forecast", PAD, y);
         y += 22;
-        stockList.slice(0,10).forEach(p=>{
+        stockList.slice(0,stockShown).forEach(p=>{
           const qty = stockQty[p.id]||0;
           const daysLeft = p.perDay>0 ? qty/p.perDay : 99;
           const color = daysLeft<2 ? "#C62828" : daysLeft<5 ? "#B8860B" : "#1B7A20";
@@ -1692,7 +1718,7 @@ function AkiliTab() {
           ctx.fillStyle = "#FBF3DC"; ctx.fillRect(PAD,y,W-PAD*2,boxH);
           y = wrapText(gapLine1, PAD+10, y+18, W-PAD*2-20, 15, "#0B1F45", "12px Arial") + 22;
         }
-        marginAdvice.top.forEach((cat,i)=>{
+        marginAdvice.top.slice(0,advisorShown).forEach((cat,i)=>{
           ctx.fillStyle = "#0B1F45"; ctx.font="bold 13px Georgia, serif"; ctx.textAlign="left";
           ctx.fillText("#"+(i+1)+" "+cat.label, PAD, y);
           ctx.fillStyle = "#B8860B"; ctx.font="bold 11px Arial"; ctx.textAlign="right";
@@ -1713,7 +1739,7 @@ function AkiliTab() {
         ctx.fillStyle = "#C62828"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
         ctx.fillText("\u26a0\ufe0f Bidhaa Zisizouzwa / Slow-Moving Items", PAD, y);
         y += 24;
-        slowMoving.slice(0,6).forEach(item=>{
+        slowMoving.slice(0,slowShown).forEach(item=>{
           ctx.fillStyle = "rgba(11,31,69,0.8)"; ctx.font="12px Arial"; ctx.textAlign="left";
           ctx.fillText(item.name, PAD, y);
           ctx.fillStyle = "#C62828"; ctx.font="bold 11px Arial"; ctx.textAlign="right";
@@ -1892,12 +1918,15 @@ function AkiliTab() {
           <span style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>{trendData[trendData.length-1]?.label}</span>
         </div>
       </Card>
-      {stockPredictions.filter(p=>stockQty[p.id]>0).length>0 && <Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-          <IconBadge emoji="📦" color={t.bl}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Utabiri wa Stoki / Stock Forecast</p>
+      {stockList.length>0 && <Card style={{padding:"1rem"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+            <IconBadge emoji="📦" color={t.bl}/>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Utabiri wa Stoki / Stock Forecast</p>
+          </div>
+          {stockList.length>5 && <CountSelector value={stockN} onChange={setStockN} total={stockList.length}/>}
         </div>
-        {stockPredictions.filter(p=>stockQty[p.id]>0).map(p=>{
+        {stockList.slice(0,stockShown).map(p=>{
           const qty = stockQty[p.id]||0;
           const daysLeft = p.perDay>0 ? qty/p.perDay : 99;
           const urgent = daysLeft<2, warn = daysLeft>=2&&daysLeft<5;
@@ -1960,9 +1989,12 @@ function AkiliTab() {
         </div>
       </Card>}
       {slowMoving.length>0 && <Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><IconBadge emoji="⚠️" color={t.rd}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Bidhaa Zisizouzwa / Slow-Moving Items</p></div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}><IconBadge emoji="⚠️" color={t.rd}/><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Bidhaa Zisizouzwa / Slow-Moving Items</p></div>
+          {slowMoving.length>5 && <CountSelector value={slowN} onChange={setSlowN} total={slowMoving.length}/>}
+        </div>
         <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim2,margin:"0 0 12px"}}>Hazijauzwa kwa siku 14+ / Not sold in 14+ days</p>
-        {slowMoving.map(item=>(
+        {slowMoving.slice(0,slowShown).map(item=>(
           <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid "+t.border+"55"}}>
             <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{item.name}</span>
             <span style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.rd,background:t.rd+"12",padding:"3px 9px",borderRadius:6,flexShrink:0}}>
@@ -1987,9 +2019,12 @@ function AkiliTab() {
         <Donut data={costData} size={140}/>
       </Card>}
       {marginAdvice && <Card glow style={{padding:"1.1rem",border:"1px solid "+t.gold+"33"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-          <IconBadge emoji="🧠" color={t.gold}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Kishauri cha Faida / Margin Advisor</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+            <IconBadge emoji="🧠" color={t.gold}/>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Kishauri cha Faida / Margin Advisor</p>
+          </div>
+          {marginAdvice.top.length>3 && <CountSelector value={advisorN} onChange={setAdvisorN} options={[3,5,10,"All"]} total={marginAdvice.top.length}/>}
         </div>
         {marginAdvice.cutNeeded>0 && (
           <div style={{background:t.gold+"12",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
@@ -1999,8 +2034,8 @@ function AkiliTab() {
             </p>
           </div>
         )}
-        {marginAdvice.top.map((cat,i)=>(
-          <div key={cat.label} style={{marginBottom:i<marginAdvice.top.length-1?14:0,paddingBottom:i<marginAdvice.top.length-1?14:0,borderBottom:i<marginAdvice.top.length-1?"1px solid "+t.border:"none"}}>
+        {marginAdvice.top.slice(0,advisorShown).map((cat,i)=>(
+          <div key={cat.label} style={{marginBottom:i<advisorShown-1?14:0,paddingBottom:i<advisorShown-1?14:0,borderBottom:i<advisorShown-1?"1px solid "+t.border:"none"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
               <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.text}}>#{i+1} {cat.label}</span>
               <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.gold}}>{cat.pct}% {presenterMode?"":"("+fmt(cat.value)+")"} ya mauzo/of revenue</span>
@@ -2015,11 +2050,14 @@ function AkiliTab() {
         ))}
       </Card>}
       {itemStats.length>0&&<Card style={{padding:"1rem"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-          <IconBadge emoji="🏆" color={t.gold}/>
-          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Top Items / Bidhaa Bora</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+            <IconBadge emoji="🏆" color={t.gold}/>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Top Items / Bidhaa Bora</p>
+          </div>
+          {itemStats.length>5 && <CountSelector value={topItemsN} onChange={setTopItemsN} total={itemStats.length}/>}
         </div>
-        {itemStats.slice(0,10).map((item,i)=>{
+        {itemStats.slice(0,topItemsShown).map((item,i)=>{
           const maxRev = itemStats[0].rev;
           const ratio = maxRev>0 ? item.rev/maxRev : 0;
           const tempEmoji = ratio>=0.66 ? "🔥" : ratio<=0.33 ? "❄️" : "🌤️";
@@ -2733,6 +2771,7 @@ function ChuoTab() {
         <ChuoBullet title="Mwenendo wa Mauzo / Revenue Trend" body="Chati inafuata kipindi ulichochagua juu (Siku 30/Mwezi Huu/Muda Wote/Chagua Tarehe) — kama kipindi ni kirefu (zaidi ya siku 60), inaonyesha kwa wiki badala ya siku ili ibaki rahisi kusoma. GUSA NA BURUTA kidole chako juu ya chati kuona tarehe na kiasi halisi. / The chart follows whichever period you selected above (30 Days/This Month/All-Time/Custom) — if the period is long (over 60 days), it shows weekly points instead of daily so it stays readable. TOUCH AND DRAG your finger across the chart to see the exact date and revenue for any point." />
         <ChuoBullet title="Wiki 7 / Siku 6 za Kazi Toggle" body="Bonyeza kitufe cha 'Wiki 7 / Siku 6' juu ya Mwenendo wa Mauzo. Ikiwa una siku ya kufungwa (mfano Jumapili), chagua 'Siku 6 za Kazi' ili siku hiyo isionekane 'mbaya' isivyo kweli — inaondolewa kabisa kwenye wastani na chati. / Tap the 'Full Week / 6 Operating Days' button above Revenue Trend. If you have a closed day (e.g. Sunday), choose '6 Operating Days' so that day doesn't falsely show as 'bad' — it's fully excluded from the average and chart." />
         <ChuoBullet title="Utabiri wa Stoki / Stock Forecast" body="Kinaonyesha siku ngapi zimebaki kabla stoki haijaisha, kulingana na kasi ya mauzo. Nyekundu = dharura, Dhahabu = tahadhari, Kijani = salama. / Shows days remaining before stock runs out, based on sales pace. Red = urgent, Gold = caution, Green = safe." />
+        <ChuoBullet title="Chagua Idadi / Choose How Many" body="Kwenye Bidhaa Bora, Bidhaa Zisizouzwa, Utabiri wa Stoki, na Kishauri cha Faida, unaweza kuchagua uonyeshe ngapi (5, 10, 20, au Zote) kwa kubonyeza vitufe hivyo juu ya kila sehemu. / On Top Items, Slow-Moving Items, Stock Forecast, and Margin Advisor, you can choose how many to show (5, 10, 20, or All) by tapping the buttons above each section." />
         <ChuoBullet title="Kishauri cha Faida / Margin Advisor" body="Kinaonyesha gharama zinazokula mauzo yako zaidi (mfano: malighafi, umeme, kodi) na hatua halisi za kuchukua kwa kila moja — si maelezo tu, bali ushauri wa kufanya nini. Pia kinaonyesha ni asilimia ngapi ya gharama kubwa zaidi unahitaji kupunguza ili kufikia lengo lako la Dira ya Biashara. / Shows which cost categories are eating your revenue most (e.g. ingredients, electricity, rent) and concrete steps for each — not just facts, but what to actually do. Also shows exactly what % cut to your biggest cost category would hit your Business Compass target." />
         <ChuoBullet title="Siku na Saa Bora / Best Day & Hour" body="Inaonyesha siku ya wiki na saa inayouza zaidi — msaada wa kupanga zamu za wafanyakazi. / Shows your best-selling weekday and hour — useful for staff scheduling." />
         <ChuoBullet title="Bidhaa Zisizouzwa / Slow-Moving Items" body="Bidhaa ambazo hazijauzwa kwa siku 14+ zinaonekana hapa na alama nyekundu ⚠️. / Items unsold for 14+ days appear here flagged with a red ⚠️." />
