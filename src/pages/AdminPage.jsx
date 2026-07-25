@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-3 · 12 Jul 2026, count-selector";
+const APP_VERSION = "V2.7-4 · 12 Jul 2026, sync-timestamp";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -2837,7 +2837,7 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
-  const {synced} = useAdmin();
+  const {synced,lastSyncedAt} = useAdmin();
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
@@ -2879,6 +2879,11 @@ export default function AdminPage({onExit}) {
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.3px",display:"flex",alignItems:"center",gap:3,marginTop:1,color:synced?t.gr:t.gold}}>
               <span style={{width:5,height:5,borderRadius:"50%",background:synced?t.gr:t.gold,display:"inline-block"}}/>
               {synced?"Imesawazishwa / Synced":"Inasawazisha... / Syncing..."}
+              {synced && lastSyncedAt && (
+                <span style={{color:t.dim2}}>
+                  · {lastSyncedAt.toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})} ET
+                </span>
+              )}
             </span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
