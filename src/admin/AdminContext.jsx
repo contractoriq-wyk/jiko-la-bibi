@@ -38,6 +38,7 @@ export function AdminProvider({ children }) {
   const [todaySales,setTodaySales]=useState([]);
   const [itemCosts,setItemCosts]=useState({});
   const [synced,setSynced]=useState(false);
+  const [lastSyncedAt,setLastSyncedAt]=useState(null);
   const [allSales,setAllSales]=useState([]);
   const [allCosts,setAllCosts]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -118,20 +119,24 @@ export function AdminProvider({ children }) {
         console.warn("Initial data load failed:", e);
       } finally {
         setSynced(true);
+        setLastSyncedAt(new Date());
       }
     }
     init();
     const xs=supabase.channel("sales_rt").on("postgres_changes",{event:"INSERT",schema:"public",table:"sales"},p=>{
       if(p.new.sale_date===todayStr()) setTodaySales(prev=>[p.new,...prev]);
       setAllSales(prev=>[p.new,...prev]);
+      setLastSyncedAt(new Date());
     }).subscribe();
     const cs=supabase.channel("costs_rt").on("postgres_changes",{event:"*",schema:"public",table:"daily_costs"},async()=>{
       const {data}=await supabase.from("daily_costs").select("*").order("cost_date",{ascending:false}).limit(300);
       if(data) setAllCosts(data);
+      setLastSyncedAt(new Date());
     }).subscribe();
     const os=supabase.channel("orders_rt").on("postgres_changes",{event:"*",schema:"public",table:"customer_orders"},async()=>{
       const {data}=await supabase.from("customer_orders").select("*").order("created_at",{ascending:false}).limit(100);
       if(data) setOrders(data);
+      setLastSyncedAt(new Date());
     }).subscribe();
     const bss=supabase.channel("settings_rt").on("postgres_changes",{event:"*",schema:"public",table:"business_settings"},p=>{
       const d=p.new; if(!d) return;
@@ -139,10 +144,12 @@ export function AdminProvider({ children }) {
       setIncludeStaffCosts(d.include_staff_costs!==false);
       setShowFullWeek(d.show_full_week!==false);
       setClosedWeekday(d.closed_weekday??0);
+      setLastSyncedAt(new Date());
     }).subscribe();
     const sqs=supabase.channel("stockqty_rt").on("postgres_changes",{event:"*",schema:"public",table:"stock_quantities"},async()=>{
       const {data}=await supabase.from("stock_quantities").select("item_id,qty");
       if(data){const q={};data.forEach(r=>{q[r.item_id]=r.qty;});setStockQtyState(q);}
+      setLastSyncedAt(new Date());
     }).subscribe();
     return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);supabase.removeChannel(bss);supabase.removeChannel(sqs);};
   },[]);
@@ -414,7 +421,7 @@ export function AdminProvider({ children }) {
 
   return (
     <Ctx.Provider value={{
-      prices,stock,orders,todaySales,allSales,allCosts,todayCosts,itemCosts,synced,loading,goals,
+      prices,stock,orders,todaySales,allSales,allCosts,todayCosts,itemCosts,synced,lastSyncedAt,loading,goals,
       todayGross,todayNet,todayOverhead,todayItemCost,
       setGoal,setCompassTarget,recordSale,recordCost,deleteCost,deleteSale,updateSale,updateCost,
       includeStaffCosts,toggleIncludeStaffCosts,
