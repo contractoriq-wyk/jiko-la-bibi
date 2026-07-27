@@ -165,18 +165,31 @@ export function AdminProvider({ children }) {
   },[todayGross,todayItemCost,todayOverhead,itemCosts]);
 
   const fetchRange = useCallback(async(start,end)=>{
-    if(!supabase)return;
+    if(!supabase) return {sales:[], costs:[]};
     setLoading(true);
     const [{data:sales},{data:costs}]=await Promise.all([
       supabase.from("sales").select("*").gte("sale_date",start).lte("sale_date",end).order("sale_date",{ascending:false}),
       supabase.from("daily_costs").select("*").gte("cost_date",start).lte("cost_date",end).order("cost_date",{ascending:false}),
     ]);
-    if(sales) setAllSales(sales);
+    // Merge (don't overwrite) — a fetch for one date range must never erase data a
+    // different tab already loaded for a different range. This previously caused
+    // reports for specific past dates to sometimes come back empty, depending on
+    // which tab's fetch happened to run last.
+    if(sales) setAllSales(prev=>{
+      const filtered=prev.filter(s=>s.sale_date<start||s.sale_date>end);
+      return [...filtered,...sales];
+    });
     if(costs) setAllCosts(prev=>{
       const filtered=prev.filter(c=>c.cost_date<start||c.cost_date>end);
       return [...filtered,...costs];
     });
     setLoading(false);
+    // Return the fresh data directly — callers that need it immediately (right after
+    // awaiting this) must use this return value, not re-read allSales/allCosts from
+    // their own closure. React state updates aren't visible synchronously after
+    // setAllSales/setAllCosts, so reading the outer allSales here would still show
+    // the OLD value until the next render.
+    return {sales: sales||[], costs: costs||[]};
   },[]);
 
   async function setStockQty(itemId,qty){
