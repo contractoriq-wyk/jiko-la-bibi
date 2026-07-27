@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-4 · 12 Jul 2026, sync-timestamp";
+const APP_VERSION = "V2.7-5 · 12 Jul 2026, report-data-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -554,9 +554,9 @@ function LeoTab({onGoTo}) {
         const todayCosts = allCosts.filter(c=>c.cost_date===today());
         text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label,todayCosts);
       } else {
-        await fetchRange(start,end);
-        const rangeSales=allSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
-        const rangeCosts=allCosts.filter(c=>c.cost_date>=start&&c.cost_date<=end);
+        const {sales:freshSales, costs:freshCosts} = await fetchRange(start,end);
+        const rangeSales=freshSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
+        const rangeCosts=freshCosts.filter(c=>c.cost_date>=start&&c.cost_date<=end);
         const gross=rangeSales.reduce((s,r)=>s+r.total_price,0);
         const overhead=rangeCosts.reduce((s,c)=>s+c.amount,0);
         const net=gross-overhead;
