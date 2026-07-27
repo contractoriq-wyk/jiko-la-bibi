@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-5 · 12 Jul 2026, report-data-fix";
+const APP_VERSION = "V2.7-6 · 12 Jul 2026, leo-edit-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -502,11 +502,14 @@ function ReportPreviewModal({text, onClose}) {
           <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Ona Kabla ya Kutuma / Preview</span>
           <button onClick={onClose} style={{background:t.bg4,border:"none",color:t.dim,borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:14}}>✕</button>
         </div>
-        <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:14}}>
+        <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:10}}>
           <pre style={{fontFamily:"sans-serif",fontSize:13,color:t.text,whiteSpace:"pre-wrap",margin:0,lineHeight:1.6}}>{text}</pre>
         </div>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>
+          Nambari zisizo sahihi? Funga hii kisha bonyeza ✏️ karibu na mauzo au gharama husika chini. / See a wrong number? Close this, then tap the ✏️ next to the specific sale or expense below to fix it.
+        </p>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={onClose} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Hariri / Edit</button>
+          <button onClick={onClose} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Funga / Close</button>
           <button onClick={()=>{sendTextToWhatsApp(text);onClose();}} style={{flex:2,background:"rgba(37,211,102,0.15)",color:"#25d366",border:"1px solid rgba(37,211,102,0.4)",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
             <i className="ti ti-brand-whatsapp"/>Tuma Sasa / Send Now
           </button>
@@ -520,8 +523,9 @@ function ReportPreviewModal({text, onClose}) {
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
   const {t, presenterMode} = useT();
-  const {todaySales,todayGross,todayNet,todayOverhead,goals,updateSale,deleteSale,allSales,allCosts,fetchRange} = useAdmin();
+  const {todaySales,todayGross,todayNet,todayOverhead,todayCosts,goals,updateSale,deleteSale,updateCost,deleteCost,allSales,allCosts,fetchRange} = useAdmin();
   const [editRec,setEditRec]=useState(null);
+  const [editType,setEditType]=useState("sale");
   const [reportMode,setReportMode]=useState("today");
   const [reportDate,setReportDate]=useState(today());
   const [quickRange,setQuickRange]=useState("today");
@@ -616,10 +620,16 @@ function LeoTab({onGoTo}) {
       {todaySales.length>0&&(
         <Card style={{padding:"1rem"}}>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Today's Sales / Mauzo ya Leo ({todaySales.length}) — Tap ✏️ to edit</p>
-          {todaySales.slice(0,15).map((s,i)=><SaleRow key={s.id||i} sale={s} onEdit={setEditRec} i={i}/>)}
+          {todaySales.slice(0,15).map((s,i)=><SaleRow key={s.id||i} sale={s} onEdit={r=>{setEditType("sale");setEditRec(r);}} i={i}/>)}
         </Card>
       )}
-      {editRec&&<EditModal type="sale" record={editRec} onSave={updateSale} onDelete={deleteSale} onClose={()=>setEditRec(null)}/>}
+      {todayCosts.length>0&&(
+        <Card style={{padding:"1rem",marginTop:10}}>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Today's Expenses / Gharama za Leo ({todayCosts.length}) — Tap ✏️ to edit</p>
+          {todayCosts.slice(0,15).map((c,i)=><CostRow key={c.id||i} cost={c} onEdit={r=>{setEditType("cost");setEditRec(r);}} i={i}/>)}
+        </Card>
+      )}
+      {editRec&&<EditModal type={editType} record={editRec} onSave={editType==="sale"?updateSale:updateCost} onDelete={editType==="sale"?deleteSale:deleteCost} onClose={()=>setEditRec(null)}/>}
       {previewText && (
         <div style={{position:"fixed",inset:0,background:"rgba(3,11,24,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 16px"}} onClick={e=>{if(e.target===e.currentTarget)setPreviewText(null);}}>
           <div style={{background:t.bg2,border:"1px solid "+t.border,borderRadius:"20px 20px 12px 12px",padding:18,width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
@@ -627,11 +637,14 @@ function LeoTab({onGoTo}) {
               <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Ona Ripoti Kabla ya Kutuma / Preview</span>
               <button onClick={()=>setPreviewText(null)} style={{background:t.bg4,border:"none",color:t.dim,borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:14}}>✕</button>
             </div>
-            <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:14}}>
+            <div style={{background:t.bg4,borderRadius:12,padding:14,overflowY:"auto",flex:1,marginBottom:10}}>
               <pre style={{fontFamily:"sans-serif",fontSize:13,color:t.text,whiteSpace:"pre-wrap",margin:0,lineHeight:1.6}}>{previewText}</pre>
             </div>
+            <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>
+              Nambari zisizo sahihi? Funga hii kisha bonyeza ✏️ karibu na mauzo au gharama husika chini kwenye Leo. / See a wrong number? Close this, then tap the ✏️ next to the specific sale or expense below on the Leo tab to fix it. For a past date, use the Ripoti tab instead.
+            </p>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>setPreviewText(null)} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Hariri / Edit</button>
+              <button onClick={()=>setPreviewText(null)} style={{flex:1,background:t.bg4,color:t.dim,border:"none",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>Funga / Close</button>
               <button onClick={()=>{sendTextToWhatsApp(previewText);setPreviewText(null);}} style={{flex:2,background:"rgba(37,211,102,0.15)",color:"#25d366",border:"1px solid rgba(37,211,102,0.4)",borderRadius:10,padding:12,fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <i className="ti ti-brand-whatsapp"/>Tuma Sasa / Send Now
               </button>
