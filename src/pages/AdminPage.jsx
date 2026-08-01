@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.8-0 · 12 Jul 2026, malengo-clarity";
+const APP_VERSION = "V2.8-1 · 12 Jul 2026, margin-explained";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1496,7 +1496,7 @@ function AkiliTab() {
       const marginAdviceRows = marginAdvice ? marginAdvice.top.slice(0,advisorShown).reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
 
       // Dynamic height: base sections + variable-length lists
-      let H = 660; // header + health + compass + margin ring + stats + trend chart baseline
+      let H = 680; // header + health + compass + margin ring + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
       H += dayHourAnalysis.bestDay ? (90+dayHourAnalysis.dayChart.length*26+30) : 0; // best day/hour block + weekday revenue bars + legend
@@ -1579,6 +1579,9 @@ function AkiliTab() {
       // Margin % hero ring — centered, matches the live screen's featured Margin display
       const marginColor = margin>25?"#1B7A20":margin>0?"#B8860B":"#C62828";
       const marginFillPct = Math.max(0, Math.min(100, margin));
+      const marginActionTip = margin>=25 ? "Afya njema \u2014 wekeza kwenye ukuaji / Healthy \u2014 reinvest in growth"
+        : margin>=10 ? "Karibu \u2014 punguza gharama kubwa / Close \u2014 trim your biggest cost"
+        : margin>=0 ? "Chini ya afya njema / Below healthy target" : "Unapoteza pesa / Losing money";
       const ringCx = W/2, ringCy = y+50, ringR = 42;
       ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,0,2*Math.PI); ctx.strokeStyle=marginColor+"22"; ctx.lineWidth=10; ctx.stroke();
       ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,-Math.PI/2,-Math.PI/2+(marginFillPct/100)*2*Math.PI); ctx.strokeStyle=marginColor; ctx.lineWidth=10; ctx.lineCap="round"; ctx.stroke();
@@ -1586,7 +1589,9 @@ function AkiliTab() {
       ctx.fillText(margin+"%", ringCx, ringCy+7);
       ctx.fillStyle="rgba(11,31,69,0.55)"; ctx.font="bold 11px Arial";
       ctx.fillText("MARGIN", ringCx, ringCy+ringR+24);
-      y += 130;
+      ctx.fillStyle="rgba(11,31,69,0.6)"; ctx.font="11px Arial";
+      ctx.fillText(marginActionTip, ringCx, ringCy+ringR+42);
+      y += 150;
 
       // Stat boxes: Gross, Net, Sales, Total Expenses (4 across, matching the live screen)
       const stats = [
@@ -2065,18 +2070,39 @@ function AkiliTab() {
       {(() => {
         const marginColor = margin>25?t.gr:margin>0?t.gold:t.rd;
         const marginFillPct = Math.max(0, Math.min(100, margin));
+        const actionTip = margin>=25
+          ? {sw:"Afya njema — fikiria kuwekeza kwenye ukuaji.", en:"Healthy — consider reinvesting in growth."}
+          : margin>=10
+          ? {sw:"Karibu — punguza gharama kubwa zaidi kidogo.", en:"Close — trim your biggest cost a bit more."}
+          : margin>=0
+          ? {sw:"Chini ya afya njema — angalia Kishauri cha Faida chini.", en:"Below healthy — check Margin Advisor below."}
+          : {sw:"Unapoteza pesa — hatua za haraka zinahitajika.", en:"Losing money — urgent action needed."};
         return (
-          <Card glow style={{padding:"1.3rem",display:"flex",flexDirection:"column",alignItems:"center",gap:6,margin:"10px 0"}}>
-            <div style={{position:"relative",width:100,height:100}}>
-              <svg width={100} height={100} style={{transform:"rotate(-90deg)"}}>
-                <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeOpacity={0.12}/>
-                <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeDasharray={marginFillPct*2.513+" 251.3"} strokeLinecap="round" style={{filter:"drop-shadow(0 0 6px "+marginColor+"66)"}}/>
-              </svg>
-              <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <span style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:900,color:marginColor,lineHeight:1}}>{margin}%</span>
+          <Card glow style={{padding:"1.2rem",margin:"10px 0"}}>
+            <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",gap:14}}>
+              <div style={{flex:"1 1 110px",minWidth:110,maxWidth:170}}>
+                <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px",margin:"0 0 4px"}}>Maana Yake / Meaning</p>
+                <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim,margin:0,lineHeight:1.5}}>
+                  TZS <b style={{color:marginColor}}>{margin}</b> kati ya kila TZS 100 ya mauzo ni faida. / TZS {margin} of every 100 in sales is profit.
+                </p>
+              </div>
+              <div style={{flexShrink:0,position:"relative",width:100,height:100}}>
+                <svg width={100} height={100} style={{transform:"rotate(-90deg)"}}>
+                  <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeOpacity={0.12}/>
+                  <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeDasharray={marginFillPct*2.513+" 251.3"} strokeLinecap="round" style={{filter:"drop-shadow(0 0 6px "+marginColor+"66)"}}/>
+                </svg>
+                <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:900,color:marginColor,lineHeight:1}}>{margin}%</span>
+                </div>
+              </div>
+              <div style={{flex:"1 1 110px",minWidth:110,maxWidth:170,textAlign:"right"}}>
+                <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"0.5px",margin:"0 0 4px"}}>Hatua / Next Step</p>
+                <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim,margin:0,lineHeight:1.5}}>
+                  {actionTip.sw} / {actionTip.en}
+                </p>
               </div>
             </div>
-            <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Margin %</p>
+            <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"10px 0 0",textAlign:"center"}}>Margin %</p>
           </Card>
         );
       })()}
