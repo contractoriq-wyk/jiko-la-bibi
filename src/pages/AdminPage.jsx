@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-9 · 12 Jul 2026, hero-layout";
+const APP_VERSION = "V2.8-0 · 12 Jul 2026, malengo-clarity";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -80,7 +80,7 @@ function Bar({value, max, color, h=6}) {
     </div>
   );
 }
-function Ring({label, current, goal, color, size=70}) {
+function Ring({label, current, goal, color, size=70, showGoal=false}) {
   const {t, presenterMode} = useT();
   color = color || t.gold;
   const p = goal ? Math.min(100,pct(current,goal)) : 0;
@@ -99,7 +99,11 @@ function Ring({label, current, goal, color, size=70}) {
         </div>
       </div>
       <div style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>{label}</div>
-      {!presenterMode && <div style={{fontFamily:"sans-serif",fontSize:"9px",color:over?t.gr:t.dim2,marginTop:1}}>{fmt(current)}</div>}
+      {!presenterMode && (
+        <div style={{fontFamily:"sans-serif",fontSize:"9px",color:over?t.gr:t.dim2,marginTop:1}}>
+          {fmt(current)}{showGoal && goal>0 && <span style={{color:t.dim2}}> / {fmt(goal)}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1080,9 +1084,9 @@ function MalengoTab() {
       {(goals.daily||goals.weekly||goals.monthly)>0&&<Card glow style={{padding:"1.4rem",marginBottom:10}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 16px"}}>Current Progress / Maendeleo ya Sasa</p>
         <div style={{display:"flex",justifyContent:"space-around"}}>
-          {goals.daily>0&&<Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={goalColor(todayGross,goals.daily,t)} size={82}/>}
-          {goals.weekly>0&&<Ring label="Wiki/Week" current={wkG} goal={goals.weekly} color={goalColor(wkG,goals.weekly,t)} size={82}/>}
-          {goals.monthly>0&&<Ring label="Mwezi/Month" current={moG} goal={goals.monthly} color={goalColor(moG,goals.monthly,t)} size={82}/>}
+          {goals.daily>0&&<Ring label="Leo/Today" current={todayGross} goal={goals.daily} color={goalColor(todayGross,goals.daily,t)} size={82} showGoal/>}
+          {goals.weekly>0&&<Ring label="Wiki/Week" current={wkG} goal={goals.weekly} color={goalColor(wkG,goals.weekly,t)} size={82} showGoal/>}
+          {goals.monthly>0&&<Ring label="Mwezi/Month" current={moG} goal={goals.monthly} color={goalColor(moG,goals.monthly,t)} size={82} showGoal/>}
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:14}}>
           <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr,display:"inline-block"}}/>90%+</span>
@@ -1120,16 +1124,22 @@ function MalengoTab() {
             <div style={{background:t.gold+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Siku</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gold,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sDaily)}</div>
+              {!presenterMode && goals.daily>0 && <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:3}}>Sasa/Now: {fmt(goals.daily)}</div>}
             </div>
             <div style={{background:t.bl+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Wiki</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.bl,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sWeekly)}</div>
+              {!presenterMode && goals.weekly>0 && <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:3}}>Sasa/Now: {fmt(goals.weekly)}</div>}
             </div>
             <div style={{background:t.gr+"12",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textTransform:"uppercase"}}>Kila Mwezi{suggestion.lastMonthTotal>0?" 🏆":""}</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:900,color:t.gr,marginTop:2}}>{presenterMode?"+"+growthPct+"%":fmt(suggestion.sMonthly)}</div>
+              {!presenterMode && goals.monthly>0 && <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:3}}>Sasa/Now: {fmt(goals.monthly)}</div>}
             </div>
           </div>
+          <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"0 0 12px",fontStyle:"italic",textAlign:"center"}}>
+            "Sasa/Now" ni lengo lako linalotumika sasa hivi. Bonyeza chini kubadilisha kwenda kwenye hii pendekezo. / "Now" is your currently active goal. Tap below to switch to this suggestion instead.
+          </p>
           <button onClick={applySuggestion} style={{width:"100%",background:"linear-gradient(135deg,"+t.gold+",#8a6008)",color:"#fff",border:"none",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
             <i className="ti ti-wand"/> Tumia Pendekezo / Apply Suggestion
           </button>
@@ -1140,7 +1150,10 @@ function MalengoTab() {
         </Card>
       )}
       <Card style={{padding:"1.2rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 16px"}}>Set Goals / Weka Malengo</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 4px"}}>Malengo Yanayotumika Sasa / Currently Active Goals</p>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 16px",lineHeight:1.5}}>
+          Haya ndiyo malengo yanayoonyeshwa kwenye pete za Maendeleo ya Sasa hapo juu na Leo/Ripoti. / These are the goals actually shown on the Current Progress rings above and on Leo/Ripoti — not the suggestion, unless you tap "Apply Suggestion".
+        </p>
         {[[t.gold,"Daily Goal / Lengo la Kila Siku",dv,setDv],[t.bl,"Weekly Goal / Lengo la Wiki",wv,setWv],[t.gr,"Monthly Goal / Lengo la Mwezi",mv,setMv]].map(([color,label,val,setter])=><div key={label} style={{marginBottom:14}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><div style={{width:8,height:8,borderRadius:"50%",background:color}}/><label style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color}}>{label}</label></div>
           <input type="number" value={val} onChange={e=>setter(e.target.value)} placeholder="0" style={{...inp,borderColor:color+"44"}}/>
@@ -2828,7 +2841,7 @@ function ChuoTab() {
       <ChuoSection icon="🎯" color={t.gold} titleSw="Malengo / Goals" titleEn="Data-driven target setting" isOpen={open==="malengo"} onToggle={()=>toggle("malengo")}>
         <ChuoBullet title="Pendekezo la Malengo / Suggested Goals" body="Inahesabu wastani wa mauzo yako YOTE tangu biashara ilipoanza, na kupendekeza malengo kulingana na ukuaji unaotaka (+5% hadi +25%). Lengo la mwezi limejengwa kupita mwezi uliopita halisi. / Calculates your ALL-TIME sales average and suggests goals based on a growth % you pick. The monthly goal is specifically built to beat last month's real total." />
         <ChuoBullet title="Tumia Pendekezo / Apply Suggestion" body="Kinajaza namba zilizopendekezwa kwenye masanduku ya chini — bado unahitaji bonyeza 'Save Goals' kuyahifadhi. / Fills the suggested numbers into the boxes below — you still need to tap 'Save Goals' to confirm." />
-        <ChuoBullet title="Set Goals / Weka Malengo (mikono)" body="Unaweza pia kuandika malengo yako mwenyewe moja kwa moja, bila kutumia pendekezo. / You can also type your own goals manually without using the suggestion." />
+        <ChuoBullet title="Malengo Yanayotumika Sasa / Currently Active Goals" body="Haya ndiyo malengo halisi yanayotumika — yanayoonyeshwa kwenye pete za Maendeleo hapo juu na Leo/Ripoti. Unaweza kuandika mwenyewe, au bonyeza 'Sasa/Now' chini ya Pendekezo kubadilisha. / These are the real active goals — shown on the Progress rings above and on Leo/Ripoti. Type your own, or use the suggestion above to change them." />
         <ChuoBullet title="Tuma Ripoti ya Malengo / Send Goals Report" body="Kinatuma maendeleo ya sasa (Leo/Wiki/Mwezi dhidi ya malengo) kupitia WhatsApp. / Sends current progress (today/week/month vs goals) via WhatsApp." />
       </ChuoSection>
 
