@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-8 · 12 Jul 2026, expenses-layout";
+const APP_VERSION = "V2.7-9 · 12 Jul 2026, hero-layout";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -116,7 +116,7 @@ function Donut({data, size=140}) {
     return {...d, sa, ea:angle, sw};
   });
   return (
-    <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",justifyContent:"center"}}>
+    <div style={{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap",justifyContent:"center"}}>
       <svg width={size} height={size} viewBox={"0 0 "+size+" "+size}>
         {segs.map((s,i)=>{
           if(s.sw<0.01) return null;
@@ -1483,7 +1483,7 @@ function AkiliTab() {
       const marginAdviceRows = marginAdvice ? marginAdvice.top.slice(0,advisorShown).reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
 
       // Dynamic height: base sections + variable-length lists
-      let H = 530; // header + health + compass + stats + trend chart baseline
+      let H = 660; // header + health + compass + margin ring + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
       H += dayHourAnalysis.bestDay ? (90+dayHourAnalysis.dayChart.length*26+30) : 0; // best day/hour block + weekday revenue bars + legend
@@ -1563,11 +1563,23 @@ function AkiliTab() {
       });
       y += 110;
 
-      // Stat boxes: Gross, Net, Margin, Total Expenses (presenter-safe percentages)
+      // Margin % hero ring — centered, matches the live screen's featured Margin display
+      const marginColor = margin>25?"#1B7A20":margin>0?"#B8860B":"#C62828";
+      const marginFillPct = Math.max(0, Math.min(100, margin));
+      const ringCx = W/2, ringCy = y+50, ringR = 42;
+      ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,0,2*Math.PI); ctx.strokeStyle=marginColor+"22"; ctx.lineWidth=10; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ringCx,ringCy,ringR,-Math.PI/2,-Math.PI/2+(marginFillPct/100)*2*Math.PI); ctx.strokeStyle=marginColor; ctx.lineWidth=10; ctx.lineCap="round"; ctx.stroke();
+      ctx.fillStyle=marginColor; ctx.font="bold 22px Georgia, serif"; ctx.textAlign="center";
+      ctx.fillText(margin+"%", ringCx, ringCy+7);
+      ctx.fillStyle="rgba(11,31,69,0.55)"; ctx.font="bold 11px Arial";
+      ctx.fillText("MARGIN", ringCx, ringCy+ringR+24);
+      y += 130;
+
+      // Stat boxes: Gross, Net, Sales, Total Expenses (4 across, matching the live screen)
       const stats = [
         {label:"Mapato Ghafi", val: presenterMode?(weekOverWeek.pct>=0?"+":"")+weekOverWeek.pct+"%":fmt(gross), color:"#B8860B"},
         {label:"Faida Halisi", val: presenterMode?margin+"%":fmt(net), color: net>=0?"#1B7A20":"#C62828"},
-        {label:"Margin", val: margin+"%", color: margin>25?"#1B7A20":margin>0?"#B8860B":"#C62828"},
+        {label:"Mauzo/Sales", val: String(s30.length), color:"#1565C0"},
         {label:"Gharama Jumla", val: presenterMode?(gross?Math.round(costs/gross*100)+"%":"—"):fmt(costs), color:"#C62828"},
       ];
       const boxW = (W-PAD*2-30)/4;
@@ -2037,14 +2049,29 @@ function AkiliTab() {
         ))}
         <p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.dim,marginTop:10,marginBottom:0,fontStyle:"italic"}}>💡 Fikiria kuondoa kwenye menyu, kupunguza bei, au kutangaza / Consider removing, discounting, or promoting these.</p>
       </Card>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"10px 0"}}>
+      {(() => {
+        const marginColor = margin>25?t.gr:margin>0?t.gold:t.rd;
+        const marginFillPct = Math.max(0, Math.min(100, margin));
+        return (
+          <Card glow style={{padding:"1.3rem",display:"flex",flexDirection:"column",alignItems:"center",gap:6,margin:"10px 0"}}>
+            <div style={{position:"relative",width:100,height:100}}>
+              <svg width={100} height={100} style={{transform:"rotate(-90deg)"}}>
+                <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeOpacity={0.12}/>
+                <circle cx={50} cy={50} r={40} fill="none" stroke={marginColor} strokeWidth={9} strokeDasharray={marginFillPct*2.513+" 251.3"} strokeLinecap="round" style={{filter:"drop-shadow(0 0 6px "+marginColor+"66)"}}/>
+              </svg>
+              <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:900,color:marginColor,lineHeight:1}}>{margin}%</span>
+              </div>
+            </div>
+            <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Margin %</p>
+          </Card>
+        );
+      })()}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:8,margin:"0 0 10px"}}>
         <Chip label="Mapato Ghafi" value={presenterMode?"100%":fmt(gross)} color={t.gold} icon="💰"/>
         <Chip label="Faida Halisi" value={presenterMode?(gross?Math.round(net/gross*100):0)+"%":fmt(net)} color={net>=0?t.gr:t.rd} icon="📊"/>
-        <Chip label="Margin %" value={margin+"%"} color={margin>25?t.gr:margin>0?t.gold:t.rd} icon="🎯"/>
         <Chip label="Mauzo/Sales" value={s30.length} color={t.bl} icon="🧾"/>
-        <div style={{gridColumn:"1 / -1"}}>
-          <Chip label="Gharama Jumla / Total Expenses" value={presenterMode?(gross?Math.round(costs/gross*100)+"%":"—"):fmt(costs)} color={t.rd} icon="🧾"/>
-        </div>
+        <Chip label="Gharama Jumla" value={presenterMode?(gross?Math.round(costs/gross*100)+"%":"—"):fmt(costs)} color={t.rd} icon="🧾"/>
       </div>
       {(svcData.length>0||costData.length>0)&&(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))",gap:10}}>
