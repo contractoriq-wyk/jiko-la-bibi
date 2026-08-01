@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-7 · 12 Jul 2026, category-fix";
+const APP_VERSION = "V2.7-8 · 12 Jul 2026, expenses-layout";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1563,20 +1563,21 @@ function AkiliTab() {
       });
       y += 110;
 
-      // Stat boxes: Gross, Net, Margin (presenter-safe percentages)
+      // Stat boxes: Gross, Net, Margin, Total Expenses (presenter-safe percentages)
       const stats = [
         {label:"Mapato Ghafi", val: presenterMode?(weekOverWeek.pct>=0?"+":"")+weekOverWeek.pct+"%":fmt(gross), color:"#B8860B"},
         {label:"Faida Halisi", val: presenterMode?margin+"%":fmt(net), color: net>=0?"#1B7A20":"#C62828"},
         {label:"Margin", val: margin+"%", color: margin>25?"#1B7A20":margin>0?"#B8860B":"#C62828"},
+        {label:"Gharama Jumla", val: presenterMode?(gross?Math.round(costs/gross*100)+"%":"—"):fmt(costs), color:"#C62828"},
       ];
-      const boxW = (W-PAD*2-20)/3;
+      const boxW = (W-PAD*2-30)/4;
       stats.forEach((s,i)=>{
         const bx = PAD + i*(boxW+10);
         ctx.fillStyle = s.color+"15";
         ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx,y,boxW,74,10) : ctx.rect(bx,y,boxW,74); ctx.fill();
-        ctx.fillStyle = "rgba(11,31,69,0.5)"; ctx.font="11px Arial"; ctx.textAlign="center";
+        ctx.fillStyle = "rgba(11,31,69,0.5)"; ctx.font="10px Arial"; ctx.textAlign="center";
         ctx.fillText(s.label.toUpperCase(), bx+boxW/2, y+26);
-        ctx.fillStyle = s.color; ctx.font="bold 17px Georgia, serif";
+        ctx.fillStyle = s.color; ctx.font="bold 15px Georgia, serif";
         ctx.fillText(s.val, bx+boxW/2, y+52);
       });
 
@@ -2041,15 +2042,22 @@ function AkiliTab() {
         <Chip label="Faida Halisi" value={presenterMode?(gross?Math.round(net/gross*100):0)+"%":fmt(net)} color={net>=0?t.gr:t.rd} icon="📊"/>
         <Chip label="Margin %" value={margin+"%"} color={margin>25?t.gr:margin>0?t.gold:t.rd} icon="🎯"/>
         <Chip label="Mauzo/Sales" value={s30.length} color={t.bl} icon="🧾"/>
+        <div style={{gridColumn:"1 / -1"}}>
+          <Chip label="Gharama Jumla / Total Expenses" value={presenterMode?(gross?Math.round(costs/gross*100)+"%":"—"):fmt(costs)} color={t.rd} icon="🧾"/>
+        </div>
       </div>
-      {svcData.length>0&&<Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Service Mix / Aina ya Huduma</p>
-        <Donut data={svcData} size={140}/>
-      </Card>}
-      {costData.length>0&&<Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Cost Breakdown / Gharama kwa Aina</p>
-        <Donut data={costData} size={140}/>
-      </Card>}
+      {(svcData.length>0||costData.length>0)&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))",gap:10}}>
+          {svcData.length>0&&<Card style={{padding:"1rem"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Service Mix / Aina ya Huduma</p>
+            <Donut data={svcData} size={120}/>
+          </Card>}
+          {costData.length>0&&<Card style={{padding:"1rem"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px"}}>Cost Breakdown / Gharama kwa Aina</p>
+            <Donut data={costData} size={120}/>
+          </Card>}
+        </div>
+      )}
       {marginAdvice && <Card glow style={{padding:"1.1rem",border:"1px solid "+t.gold+"33"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
