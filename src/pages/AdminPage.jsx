@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.7-6 · 12 Jul 2026, leo-edit-fix";
+const APP_VERSION = "V2.7-7 · 12 Jul 2026, category-fix";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1212,13 +1212,32 @@ function AkiliTab() {
   }
   const itemStats=useMemo(()=>{const m={};s30.forEach(s=>{if(!m[s.item_id])m[s.item_id]={id:s.item_id,name:s.item_name,qty:0,rev:0,cost:0};m[s.item_id].qty+=s.quantity;m[s.item_id].rev+=s.total_price;m[s.item_id].cost+=(itemCosts[s.item_id]||0)*s.quantity;});return Object.values(m).map(i=>({...i,profit:i.rev-i.cost,margin:i.rev?Math.round((i.rev-i.cost)/i.rev*100):0})).sort((a,b)=>b.rev-a.rev);},[s30,itemCosts]);
   const svcMap=useMemo(()=>{const m={pickup:0,delivery:0,dinein:0};s30.forEach(s=>{m[s.service_type]=(m[s.service_type]||0)+s.total_price;});return m;},[s30]);
+  const CATEGORY_LABELS = {
+    gas:"Gas/Gesi", staff:"Staff/Wafanyakazi", ingredients:"Ingredients/Malighafi",
+    bulk_ingredients:"Ingredients/Malighafi", rent:"Rent/Pango",
+    equipment:"Equipment/Vifaa", marketing:"Marketing", other:"Nyingine/Other",
+  };
   const costMap=useMemo(()=>{
+    const staffNameSet = new Set((staff||[]).map(s=>s.name));
     const m={};
     c30.forEach(c=>{
-      // Use description if provided (more meaningful than just "other")
-      const label = (c.description && c.description.trim().length > 0)
-        ? c.description.trim().charAt(0).toUpperCase() + c.description.trim().slice(1)
-        : (c.category || "Nyingine");
+      let label;
+      if(c.category==="staff" && c.description && staffNameSet.has(c.description.trim())){
+        // Staff costs: keep grouping by the individual staff member's name — this is
+        // intentional and lets Margin Advisor give per-person scheduling advice.
+        // Guarded by staffNameSet so a miscategorized expense (e.g. a bulk grocery
+        // note accidentally logged under "Staff") can't hijack this path — if the
+        // description isn't an actual name on the roster, it falls through below.
+        label = c.description.trim().charAt(0).toUpperCase() + c.description.trim().slice(1);
+      } else {
+        // Everything else: group by the structured category, NOT the free-text description.
+        // A dozen different grocery-run notes ("Mchele, Unga... wiki 20-27", "Manunuzi ya
+        // wiki ijayo", etc.) all describe the same underlying cost driver and must roll up
+        // into one total — otherwise every individual bulk purchase fragments into its own
+        // slice, and the Margin Advisor ends up "advising" on a single week's grocery note
+        // instead of the true Ingredients total for the whole selected period.
+        label = CATEGORY_LABELS[c.category] || "Nyingine/Other";
+      }
       m[label]=(m[label]||0)+c.amount;
     });
     // Limit to top 8 slices, group rest as "Nyingine / Other"
@@ -1229,7 +1248,7 @@ function AkiliTab() {
       return Object.fromEntries([...top, ["Nyingine / Other", rest]]);
     }
     return m;
-  },[c30]);
+  },[c30,staff]);
   const PALETTE=[t.gold,t.bl,t.gr,t.rd,t.pu,"#FF9800","#00BCD4","#8BC34A"];
   const svcData=[{label:"Pickup/Kuchukua",value:svcMap.pickup,color:t.bl},{label:"Delivery",value:svcMap.delivery,color:t.gr},{label:"Dine-in/Kula Hapa",value:svcMap.dinein,color:t.pu}].filter(d=>d.value>0);
   const costData=Object.entries(costMap).map(([k,v],i)=>({label:k,value:v,color:PALETTE[i%PALETTE.length]}));
