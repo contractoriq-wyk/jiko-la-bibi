@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.8-1 · 12 Jul 2026, margin-explained";
+const APP_VERSION = "V2.8-2 · 12 Jul 2026, margin-legend";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -1496,7 +1496,7 @@ function AkiliTab() {
       const marginAdviceRows = marginAdvice ? marginAdvice.top.slice(0,advisorShown).reduce((s,c)=>s+24+c.tips.length*54+16, 0) : 0;
 
       // Dynamic height: base sections + variable-length lists
-      let H = 680; // header + health + compass + margin ring + stats + trend chart baseline
+      let H = 700; // header + health + compass + margin ring + stats + trend chart baseline
       H += rowsForItems>0 ? (60+rowsForItems*46) : 0;
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
       H += dayHourAnalysis.bestDay ? (90+dayHourAnalysis.dayChart.length*26+30) : 0; // best day/hour block + weekday revenue bars + legend
@@ -1591,7 +1591,9 @@ function AkiliTab() {
       ctx.fillText("MARGIN", ringCx, ringCy+ringR+24);
       ctx.fillStyle="rgba(11,31,69,0.6)"; ctx.font="11px Arial";
       ctx.fillText(marginActionTip, ringCx, ringCy+ringR+42);
-      y += 150;
+      ctx.fillStyle="rgba(11,31,69,0.45)"; ctx.font="9px Arial";
+      ctx.fillText("\ud83d\udfe2 25%+ Afya Njema  \u00b7  \ud83d\udfe1 0-24% Boresha  \u00b7  \ud83d\udd34 <0% Hasara", ringCx, ringCy+ringR+58);
+      y += 168;
 
       // Stat boxes: Gross, Net, Sales, Total Expenses (4 across, matching the live screen)
       const stats = [
@@ -2102,7 +2104,12 @@ function AkiliTab() {
                 </p>
               </div>
             </div>
-            <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"10px 0 0",textAlign:"center"}}>Margin %</p>
+            <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"10px 0 10px",textAlign:"center"}}>Margin %</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"6px 12px",justifyContent:"center",borderTop:"1px solid "+t.border,paddingTop:10}}>
+              <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:4}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr,display:"inline-block"}}/>25%+ Afya Njema/Healthy</span>
+              <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:4}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gold,display:"inline-block"}}/>0-24% Boresha/Improve</span>
+              <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:4}}><span style={{width:7,height:7,borderRadius:"50%",background:t.rd,display:"inline-block"}}/>&lt;0% Hasara/Losing</span>
+            </div>
           </Card>
         );
       })()}
