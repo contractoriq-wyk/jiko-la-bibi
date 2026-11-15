@@ -45,7 +45,11 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.8-3 · 14 Nov 2026, beverage-sections";
+const APP_VERSION = "V2.9-1 · 14 Nov 2026, full-menu-edit";
+// Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
+const secLabel = s => s.name.sw + " / " + s.name.en;
+// Apply Msimamizi edits (rename / emoji) on top of a built-in menu item
+const withEdit = (m, edits) => { const e = edits && edits[m.id]; return e ? {...m, name:{sw:e.sw||m.name.sw, en:e.en||m.name.en}, emoji:e.em||m.emoji} : m; };
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -663,7 +667,7 @@ function LeoTab({onGoTo}) {
 /* ═══ TAB 2: INGIZA ═══ */
 function IngizaTab() {
   const {t} = useT();
-  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost,customItems} = useAdmin();
+  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost,customItems,menuEdits} = useAdmin();
   const [mode,setMode]=useState("sale");
   const [date,setDate]=useState(today());
   const [sec,setSec]=useState(sections[0].id);
@@ -682,7 +686,8 @@ function IngizaTab() {
   // Build virtual sections from custom items so they appear in Ingiza
   const customSections = useMemo(() => {
     const names = new Set();
-    customItems.forEach(ci => names.add(ci.sectionName || "Bidhaa Mpya"));
+    const builtIn = new Set(sections.map(secLabel));
+    customItems.forEach(ci => { const n = ci.sectionName || "Bidhaa Mpya"; if(!builtIn.has(n)) names.add(n); });
     return Array.from(names).map((name, i) => ({
       id: "custom_sec_" + i,
       sectionName: name,
@@ -703,7 +708,11 @@ function IngizaTab() {
   }
   let secItems;
   if (sections.find(s => s.id === sec)) {
-    secItems = menu.filter(m => m.section === sec);
+    const bs = sections.find(s => s.id === sec);
+    secItems = [
+      ...menu.filter(m => m.section === sec && !menuEdits[m.id]?.hidden).map(m => withEdit(m, menuEdits)),
+      ...customItems.filter(ci => ci.sectionName === secLabel(bs)).map(ci => customAsMenuItem(ci, sec))
+    ];
   } else {
     const customSec = customSections.find(s => s.id === sec);
     secItems = customSec
@@ -1174,7 +1183,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,menuEdits,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
   const [akiliRange,setAkiliRange]=useState("30days");
   const [topItemsN,setTopItemsN]=useState(10);
   const [slowN,setSlowN]=useState(6);
@@ -1356,7 +1365,7 @@ function AkiliTab() {
     allSales.forEach(s=>{
       if(!lastSaleMap[s.item_id] || s.sale_date > lastSaleMap[s.item_id]) lastSaleMap[s.item_id] = s.sale_date;
     });
-    const allMenuItems = [...menu, ...customItems.map(ci=>({id:ci.id, name:{sw:ci.sw}}))];
+    const allMenuItems = [...menu.filter(m=>!menuEdits[m.id]?.hidden).map(m=>withEdit(m,menuEdits)), ...customItems.map(ci=>({id:ci.id, name:{sw:ci.sw}}))];
     const todayStr2 = today();
     const results = allMenuItems.map(item=>{
       const last = lastSaleMap[item.id];
@@ -1376,7 +1385,7 @@ function AkiliTab() {
       })
       .slice(0,50);
     return results;
-  },[allSales,customItems]);
+  },[allSales,customItems,menuEdits]);
 
   // Shared Stock Forecast list — hoisted here so both the live UI and the Picha Kamili
   // export use the exact same filtered list (was previously computed separately in each).
@@ -2212,7 +2221,7 @@ function AkiliTab() {
 /* ═══ MENU TAB ═══ */
 function MenuTab() {
   const {t} = useT();
-  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,updateCustomItem,deleteCustomItem,stockQty,setStockQty} = useAdmin();
+  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,updateCustomItem,deleteCustomItem,stockQty,setStockQty,menuEdits,editMenuItem,resetMenuItem} = useAdmin();
   const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");const [qed,setQed]=useState(null);const [qv,setQv]=useState("");
   const [showAdd,setShowAdd]=useState(false);
   const BLANK={sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"};
@@ -2220,13 +2229,14 @@ function MenuTab() {
   const [editId,setEditId]=useState(null);
   const [newSecMode,setNewSecMode]=useState(false);
   // Section choices: ready-made beverage sections + any section already used by saved items
-  const PRESET_SECS=["Bia / Beer","Vinywaji vya Pombe / Alcoholic Drinks","Soda & Juisi / Soft Drinks & Juice","Maji / Water","Bidhaa Mpya / Specials"];
+  const PRESET_SECS=[...sections.map(secLabel),"Bia / Beer","Vinywaji vya Pombe / Alcoholic Drinks","Soda & Juisi / Soft Drinks & Juice","Maji / Water","Bidhaa Mpya / Specials"];
   const secChoices=[...new Set([...PRESET_SECS,...customItems.map(c=>c.sectionName||"Bidhaa Mpya / Specials")])];
   const setNI=k=>e=>setNewItem(p=>({...p,[k]:e.target.value}));
   function resetForm(){setNewItem(BLANK);setEditId(null);setNewSecMode(false);setShowAdd(false);}
   function startEdit(it){
     setNewItem({sw:it.sw||"",en:it.en||"",pr:String(it.pr||""),ph:it.ph||"",em:it.em||"🍽️",sectionName:it.sectionName||"Bidhaa Mpya / Specials"});
     setEditId(it.id);setNewSecMode(false);setShowAdd(true);
+    setTimeout(()=>formRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),80);
   }
   function saveNew(){
     if(!newItem.sw.trim()||!String(newItem.pr).trim())return;
@@ -2234,16 +2244,33 @@ function MenuTab() {
     if(editId)updateCustomItem(editId,clean); else addCustomItem(clean);
     resetForm();
   }
+  const formRef=useRef(null);
+  const builtInLabels=sections.map(secLabel);
+  const [eid,setEid]=useState(null);const [ef,setEf]=useState({sw:"",en:"",em:"",ph:""});
+  function addHere(label){setNewItem({...BLANK,sectionName:label});setEditId(null);setNewSecMode(false);setShowAdd(true);setTimeout(()=>formRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),80);}
+  function startEditBuiltin(item){const e=menuEdits[item.id]||{};setEf({sw:e.sw||item.name.sw,en:e.en||item.name.en||"",em:e.em||item.emoji||"",ph:e.ph||""});setEid(item.id);}
+  function saveBuiltin(item){
+    const o=menu.find(m=>m.id===item.id)||item; // compare with the ORIGINAL so unchanged fields stay un-overridden
+    const patch={sw:ef.sw.trim()===o.name.sw?"":ef.sw.trim(),en:ef.en.trim()===(o.name.en||"")?"":ef.en.trim(),em:ef.em.trim()===(o.emoji||"")?"":ef.em.trim(),ph:ef.ph.trim()};
+    editMenuItem(item.id,patch);setEid(null);
+  }
   return (
     <div style={{padding:"1rem"}}>
       {sections.map((sec,si)=><div key={sec.id} style={{marginBottom:14}}>
         <div style={{background:t.gold,borderRadius:"12px 12px 0 0",padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
           <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:900,fontFamily:"sans-serif"}}>{si+1}</div>
-          <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>{sec.name.sw}</span>
+          <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff",flex:1}}>{sec.name.sw}</span>
+          <button onClick={()=>addHere(secLabel(sec))} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>+ Ongeza</button>
         </div>
         <div style={{border:"1px solid "+t.border,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",background:t.bg2}}>
-          {menu.filter(m=>m.section===sec.id).map((item,i)=>{
+          {menu.filter(m=>m.section===sec.id).map(m0=>withEdit(m0,menuEdits)).map((item,i)=>{
             const cur=prices[item.id]??item.price??(item.sizes?item.sizes[0].price:0); const cost=itemCosts[item.id]; const oos=!!stock[item.id];
+            if(menuEdits[item.id]?.hidden) return <div key={item.id} style={{padding:"9px 14px",display:"flex",alignItems:"center",gap:8,borderTop:i>0?"1px solid "+t.border+"55":"none",opacity:0.6}}>
+              <span style={{fontSize:16,filter:"grayscale(1)"}}>{item.emoji}</span>
+              <div style={{flex:1,minWidth:0,fontFamily:"sans-serif",fontSize:12,color:t.dim2,textDecoration:"line-through",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name.sw}</div>
+              <span style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,fontWeight:700}}>IMEONDOLEWA</span>
+              <button onClick={()=>editMenuItem(item.id,{hidden:false})} style={{background:t.gr+"18",border:"1px solid "+t.gr+"44",color:t.gr,borderRadius:6,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ Rudisha</button>
+            </div>;
             return <div key={item.id} style={{padding:"10px 14px",background:i%2===0?t.bg4:"transparent",borderTop:i>0?"1px solid "+t.border+"55":"none",opacity:oos?0.5:1}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:18}}>{item.emoji}</span>
@@ -2269,8 +2296,33 @@ function MenuTab() {
                   <button onClick={()=>{setStockQty(item.id,qv);setQed(null);}} style={{background:t.bl,color:"#fff",border:"none",borderRadius:4,padding:"2px 7px",fontSize:11,cursor:"pointer",fontWeight:700}}>OK</button>
                 </div>:<button onClick={()=>{setQed(item.id);setQv(String(stockQty[item.id]||""));}} style={{background:"none",border:"none",fontFamily:"sans-serif",fontSize:10,color:stockQty[item.id]?t.bl:t.dim2,cursor:"pointer",padding:0}}>{stockQty[item.id]?stockQty[item.id]+" units":"Weka kiasi"}</button>}
               </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,paddingLeft:26,marginTop:6}}>
+                <button onClick={()=>startEditBuiltin(item)} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
+                <button onClick={()=>{if(confirm("Ondoa \""+item.name.sw+"\" kwenye menyu? / Remove from menu? (unaweza kurudisha / you can restore it)"))editMenuItem(item.id,{hidden:true});}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🗑 Ondoa</button>
+                {(menuEdits[item.id]?.sw||menuEdits[item.id]?.en||menuEdits[item.id]?.em||menuEdits[item.id]?.ph)&&<button onClick={()=>resetMenuItem(item.id)} style={{background:"none",border:"none",color:t.dim2,fontSize:10,cursor:"pointer",textDecoration:"underline",padding:0}}>Rudisha asili</button>}
+              </div>
+              {eid===item.id&&<div style={{background:t.bg4,border:"1px solid "+t.gold+"55",borderRadius:10,padding:10,margin:"8px 0 0 26px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"56px 1fr",gap:6,marginBottom:6}}>
+                  <input value={ef.em} onChange={e=>setEf(p=>({...p,em:e.target.value}))} style={{padding:8,borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:18,textAlign:"center",color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
+                  <input value={ef.sw} onChange={e=>setEf(p=>({...p,sw:e.target.value}))} placeholder="Jina la Kiswahili" style={{padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
+                </div>
+                <input value={ef.en} onChange={e=>setEf(p=>({...p,en:e.target.value}))} placeholder="English name" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+                <input value={ef.ph} onChange={e=>setEf(p=>({...p,ph:e.target.value}))} placeholder="Photo URL (optional)" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>saveBuiltin(item)} disabled={!ef.sw.trim()} style={{flex:1,background:t.gr,color:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>Hifadhi / Save</button>
+                  <button onClick={()=>setEid(null)} style={{background:t.bg2,color:t.dim2,border:"1px solid "+t.border,borderRadius:8,padding:"9px 14px",fontSize:12,cursor:"pointer"}}>✕</button>
+                </div>
+              </div>}
             </div>;
           })}
+          {customItems.filter(c=>c.sectionName===secLabel(sec)).map(it=>(
+            <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:"1px solid "+t.border+"55"}}>
+              <span style={{fontSize:18}}>{it.em||"🍽️"}</span>
+              <div style={{flex:1,minWidth:0}}><div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{it.sw}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>✨ Mpya · TZS {it.pr}</div></div>
+              <button onClick={()=>startEdit(it)} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
+              <button onClick={()=>{if(confirm("Delete this item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
+            </div>
+          ))}
         </div>
       </div>)}
 
@@ -2279,12 +2331,12 @@ function MenuTab() {
         <div style={{background:t.gold,borderRadius:"12px 12px 0 0",padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",fontWeight:900}}>✨</div>
-            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.length})</span>
+            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.filter(c=>!builtInLabels.includes(c.sectionName)).length})</span>
           </div>
           <button onClick={()=>{if(showAdd)resetForm();else setShowAdd(true);}} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{showAdd?"✕ Funga":"+ Ongeza"}</button>
         </div>
         <div style={{border:"1px solid "+t.border,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",background:t.bg2,padding:"12px"}}>
-          {showAdd && <div style={{background:t.bg4,borderRadius:10,padding:12,marginBottom:10}}>
+          {showAdd && <div ref={formRef} style={{background:t.bg4,borderRadius:10,padding:12,marginBottom:10}}>
             <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>{editId?"Edit Item / Hariri Bidhaa":"New Item / Bidhaa Mpya"}</p>
             <div style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:8,marginBottom:8}}>
               <input value={newItem.em} onChange={setNI("em")} placeholder="🍽️" style={{padding:"9px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:18,textAlign:"center",color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
@@ -2302,8 +2354,8 @@ function MenuTab() {
             <div style={{height:2}}/>
             <button onClick={saveNew} disabled={!newItem.sw||!newItem.pr||!newItem.sectionName.trim()} style={{width:"100%",background:(!newItem.sw||!newItem.pr)?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:(!newItem.sw||!newItem.pr)?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:(!newItem.sw||!newItem.pr)?"default":"pointer"}}>{editId?"Save Changes / Hifadhi Mabadiliko":"Save & Show on Website / Hifadhi"}</button>
           </div>}
-          {customItems.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
-          {customItems.map((it,i)=>(
+          {customItems.filter(c=>!builtInLabels.includes(c.sectionName)).length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
+          {customItems.filter(c=>!builtInLabels.includes(c.sectionName)).map((it,i)=>(
             <div key={it.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
               <span style={{fontSize:20}}>{it.em||"🍽️"}</span>
               <div style={{flex:1,minWidth:0}}>
