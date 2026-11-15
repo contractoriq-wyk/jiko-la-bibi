@@ -99,13 +99,15 @@ export function AdminProvider({ children }) {
           setCustomItems(formatted);
           save("jiko-custom-items", formatted);
         }
-        if(stf && stf.length > 0) {
-          setStaff(stf);
-          save("jiko-staff", stf);
+        // Supabase is the source of truth. If it returns an empty list, clear what this device cached
+        // (e.g. the last warning was deleted on another device) — but keep any "tmp_" record that has not finished saving yet.
+        if(stf) {
+          if(stf.length > 0) { setStaff(stf); save("jiko-staff", stf); }
+          else setStaff(prev => { const next = prev.filter(x => String(x.id).startsWith("tmp_")); save("jiko-staff", next); return next; });
         }
-        if(warn && warn.length > 0) {
-          setWarnings(warn);
-          save("jiko-warnings", warn);
+        if(warn) {
+          if(warn.length > 0) { setWarnings(warn); save("jiko-warnings", warn); }
+          else setWarnings(prev => { const next = prev.filter(x => String(x.id).startsWith("tmp_")); save("jiko-warnings", next); return next; });
         }
         if(bs){
           setGoalsState({daily:bs.daily_goal||0,weekly:bs.weekly_goal||0,monthly:bs.monthly_goal||0,compassTarget:bs.compass_target||2});
