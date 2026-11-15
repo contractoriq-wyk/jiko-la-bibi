@@ -38,6 +38,27 @@ export function AdminProvider({ children }) {
   // diverge per device. Values arrive via the init() fetch and the settings_rt/stockqty_rt
   // realtime subscriptions below. Until that first fetch resolves, these show 0/defaults —
   // `synced` tells the UI whether the real values have loaded yet.
+  // ─── Staff sign-in (Supabase Auth). Private data is only fetched once a signed-in session exists. ───
+  const [session,setSession]=useState(null);
+  const [authReady,setAuthReady]=useState(!supabase);
+  useEffect(()=>{
+    if(!supabase) return;
+    let alive=true;
+    supabase.auth.getSession().then(({data})=>{ if(!alive)return; setSession(data?.session||null); setAuthReady(true); }).catch(()=>{ if(alive) setAuthReady(true); });
+    const {data:sub}=supabase.auth.onAuthStateChange((_evt,sess)=>{ setSession(sess||null); setAuthReady(true); });
+    return ()=>{ alive=false; sub?.subscription?.unsubscribe(); };
+  },[]);
+  async function signIn(email,password){
+    if(!supabase) return {error:{message:"no-supabase"}};
+    const {error}=await supabase.auth.signInWithPassword({email:String(email||"").trim(),password});
+    return {error};
+  }
+  async function signOut(){
+    try{ if(supabase) await supabase.auth.signOut(); }catch(e){ console.warn("Sign-out failed:", e); }
+    // wipe private data this device had cached
+    ["jiko-staff","jiko-warnings"].forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
+    setStaff([]);setWarnings([]);setTodaySales([]);setAllSales([]);setAllCosts([]);setOrders([]);setItemCosts({});setStockQtyState({});setSynced(false);
+  }
   const [stockQty,setStockQtyState]=useState({});
   const [orders,setOrders]=useState([]);
   const [todaySales,setTodaySales]=useState([]);
@@ -71,7 +92,7 @@ export function AdminProvider({ children }) {
   }
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !session) return;   // nothing private is loaded until staff have signed in
     const today = todayStr();
     async function init() {
       try {
@@ -187,7 +208,7 @@ export function AdminProvider({ children }) {
       setLastSyncedAt(new Date());
     }).subscribe();
     return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);supabase.removeChannel(bss);supabase.removeChannel(sqs);supabase.removeChannel(mes);supabase.removeChannel(mls);supabase.removeChannel(cis);};
-  },[]);
+  },[session?.user?.id]);
 
   /* ─── COMPUTED ─── */
   const todayGross = useMemo(()=>todaySales.reduce((s,r)=>s+r.total_price,0),[todaySales]);
@@ -517,6 +538,7 @@ export function AdminProvider({ children }) {
       showFullWeek,toggleShowFullWeek,closedWeekday,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
+      session,authReady,signIn,signOut,authEnabled:!!supabase,
       menuEdits,editMenuItem,resetMenuItem,
       menuSections,menuOrder,setSectionOrder,setSectionPhoto,setItemOrder,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
