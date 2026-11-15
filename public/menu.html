@@ -216,7 +216,7 @@ html,body{background:#F9F3E8 !important;margin:0 !important;padding:0 !important
       <div class="svc"><div class="si">🤝</div><div class="st">Karibu! Tunahudumia kwa upole</div><div class="sd">Una uhitaji maalum? Tuambie</div></div>
     </div>
   </div>
-  <div class="addr">Karibu Mbezi Luis ama Kidigital @ <a href="https://jikolabibijjj.com">Jikolabibijjj.com</a> · Build V3.1-1</div>
+  <div class="addr">Karibu Mbezi Luis ama Kidigital @ <a href="https://jikolabibijjj.com">Jikolabibijjj.com</a> · Build V3.1-2</div>
   <div class="bband">
     <div class="bband-deco">— ✦ ✦ ✦ —</div>
     <div class="bband-txt">Karibu Unyamwezini Jiko La Bibi J J J</div>
@@ -462,7 +462,7 @@ async function renderMenu() {
       document.getElementById("a"+openIdx).classList.remove("o");
     }
     if(open){tb.classList.remove("o");tp.style.display="flex";document.getElementById("a"+si).classList.remove("o");openIdx=null;}
-    else{tb.classList.add("o");tp.style.display="none";document.getElementById("a"+si).classList.add("o");openIdx=si;setTimeout(()=>{tab.scrollIntoView({behavior:"smooth",block:"nearest"});},80);}
+    else{tb.classList.add("o");tp.style.display="none";document.getElementById("a"+si).classList.add("o");openIdx=si;setTimeout(()=>{tab.scrollIntoView({behavior:"smooth",block:"nearest"});},300);}
   });
   tab.appendChild(th);tab.appendChild(tp);tab.appendChild(tb);
   wrap.appendChild(tab);
@@ -535,19 +535,26 @@ document.addEventListener("click", function(e){
   setTimeout(function(){ btn.classList.remove("done"); btn.textContent = "+"; }, 1200);
 });
 
-// Auto-resize iframe
+// Auto-resize iframe — report the real height of the whole page every time it changes
+// (opening/closing a section, photos loading, live refresh, rotating the phone), so the
+// iframe always fits the content and never scrolls inside itself.
+var lastSentH=0;
 function notifyHeight(){
-  var sects=document.querySelector(".sects");
-  var bband=document.querySelector(".bband");
-  if(!sects)return;
-  var top=sects.getBoundingClientRect().top;
-  var bot=(bband||sects).getBoundingClientRect().bottom;
-  var h=bot-top+40;
-  try{window.parent.postMessage({jikoMenuHeight:Math.ceil(h)+20},"*");}catch(e){}
+  var h=Math.ceil(document.body.getBoundingClientRect().height);
+  if(h<200)return;
+  if(window.scrollY||document.documentElement.scrollTop||document.body.scrollTop){window.scrollTo(0,0);}
+  if(h===lastSentH)return;
+  lastSentH=h;
+  try{window.parent.postMessage({jikoMenuHeight:h+20},"*");}catch(e){}
 }
+// The page must never scroll inside the iframe — the website scrolls instead.
+window.addEventListener("scroll",function(){ if(window.scrollY){window.scrollTo(0,0);} });
+window.addEventListener("resize",function(){ lastSentH=0; notifyHeight(); });
+if(window.ResizeObserver){ new ResizeObserver(function(){ requestAnimationFrame(notifyHeight); }).observe(document.body); }
 window.addEventListener("load",function(){
   setTimeout(notifyHeight,100);
   setTimeout(notifyHeight,600);
+  setTimeout(notifyHeight,1500);
 });
 if(document.fonts){document.fonts.ready.then(function(){setTimeout(notifyHeight,100)});}
 </script>
