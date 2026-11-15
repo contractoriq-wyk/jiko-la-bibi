@@ -31,8 +31,8 @@ export const business = {
 
   // --- Opening hours (shown in footer) ---
   // EDIT THESE to the real hours.
-  hours_sw: "Kila siku: 7:00 asubuhi – 9:00 usiku",
-  hours_en: "Every day: 7:00 AM – 9:00 PM",
+  hours_sw: "Kila siku: 12:00 mchana – 11:00 usiku",
+  hours_en: "Every day: 12:00 PM – 11:00 PM",
 
   // --- Social links (leave "" to hide) ---
   instagram: "",
