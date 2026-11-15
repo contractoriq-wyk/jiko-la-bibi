@@ -41,29 +41,12 @@ const GLOBAL_CSS = `
 `;
 
 function BottomBanner() {
+  // Just the picture — the name, tagline and contact details are already in the picture and in the footer right below.
   return (
-    <div style={{ position:"relative", overflow:"hidden", marginTop:"2.5rem" }}>
-      <div style={{ backgroundImage:"url(/banner.jpg)", backgroundSize:"cover", backgroundPosition:"center", filter:"brightness(0.38)", position:"absolute", inset:0 }} />
-      <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(212,175,55,0.06) 0%,transparent 50%,rgba(212,175,55,0.04) 100%)", pointerEvents:"none" }} />
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:"linear-gradient(to right,transparent,#6b4e0a,#D4AF37,#f7e8a0,#D4AF37,#6b4e0a,transparent)" }} />
-      <div style={{ position:"relative", zIndex:1, padding:"3.5rem 1.5rem 4rem", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:"8px" }}>
-        <div style={{ fontSize:"11px", letterSpacing:"0.35em", color:"#D4AF37", textTransform:"uppercase", opacity:0.7, fontFamily:"sans-serif" }}>Unyamwezini</div>
-        <h2 className="shimmer-gold" style={{ fontFamily:"'Cinzel Decorative','Cinzel',Georgia,serif", fontSize:"clamp(18px,4.5vw,26px)", fontWeight:900, margin:"0 0 4px", letterSpacing:"0.04em" }}>Jiko La Bibi JJJ</h2>
-        <p style={{ fontFamily:"'Great Vibes',Georgia,serif", fontStyle:"italic", color:"rgba(253,245,228,0.7)", fontSize:"clamp(15px,4vw,20px)", margin:"0 0 1.4rem" }}>Taste of Tanzania in DAR</p>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:"14px", justifyContent:"center" }}>
-          {[
-            { icon:"ti-map-pin", text:"Mbezi Luis, Goba Road, Dar es Salaam" },
-            { icon:"ti-brand-whatsapp", text:"+255 655 709 024" },
-            { icon:"ti-clock", text:"Kila siku: 7:00 - 21:00" },
-          ].map((r,i) => (
-            <div key={i} className="l99-btn" style={{ color:"#FDF5E4", fontFamily:"sans-serif", fontSize:"13px", display:"flex", alignItems:"center", gap:"7px", background:"rgba(212,175,55,0.08)", border:"1px solid rgba(212,175,55,0.25)", borderRadius:"99px", padding:"7px 14px", cursor:"default" }}>
-              <i className={"ti "+r.icon} style={{ color:GOLD, fontSize:"15px" }} />
-              {r.text}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"2px", background:"linear-gradient(to right,transparent,#6b4e0a,#D4AF37,#6b4e0a,transparent)" }} />
+    <div style={{ position:"relative", overflow:"hidden", marginTop:"0.5rem", background:NAVY2 }}>
+      <div style={{ height:"2px", background:"linear-gradient(to right,transparent,#6b4e0a,#D4AF37,#f7e8a0,#D4AF37,#6b4e0a,transparent)" }} />
+      <img src="/banner.jpg" alt="Unyamwezini Jiko La Bibi JJJ — Taste of Tanzania in DAR" style={{ display:"block", width:"100%", height:"auto" }} />
+      <div style={{ height:"2px", background:"linear-gradient(to right,transparent,#6b4e0a,#D4AF37,#6b4e0a,transparent)" }} />
     </div>
   );
 }
@@ -124,7 +107,7 @@ function MenuPage() {
 
 function AboutPage() {
   const info = [
-    { icon:"ti-map-pin", label:"Mahali", value:"Mbezi Luis, Goba Road (Chingwalu St), Dar es Salaam" },
+    { icon:"ti-map-pin", label:"Mahali", value:"Goba Njia Nne, Dar es Salaam" },
     { icon:"ti-brand-whatsapp", label:"WhatsApp", value:"+255 655 709 024" },
     { icon:"ti-clock", label:"Saa za Kazi", value:"Kila siku: 7:00 asubuhi - 9:00 usiku" },
     { icon:"ti-credit-card", label:"Lipa Namba", value:business.lipaNamba + " - " + business.lipaName },
