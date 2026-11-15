@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.0-2 · 14 Nov 2026, PIN-login";
+const APP_VERSION = "V3.0-3 · 14 Nov 2026, orders-fix";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -2540,7 +2540,8 @@ function MaagizoTab() {
   const [f,setF]=useState({customer:"",phone:"",items:"",total:"",service:"pickup",notes:""});
   const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   function save(){if(!f.customer.trim()||!f.items.trim())return;addOrder({id:Date.now(),time:new Date().toISOString(),...f,total:parseInt(f.total)||0,status:"pending"});setF({customer:"",phone:"",items:"",total:"",service:"pickup",notes:""});setShow(false);}
-  const td=orders.filter(o=>new Date(o.time).toDateString()===new Date().toDateString());
+  // Orders saved by customers carry created_at (not time) — read either one.
+  const td=orders.filter(o=>new Date(o.created_at||o.time).toDateString()===new Date().toDateString());
   const inp={width:"100%",padding:"9px 11px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   return (
     <div style={{padding:"1rem"}}>
@@ -2578,8 +2579,8 @@ function MaagizoTab() {
       </Card>}
       {td.map(o=><Card key={o.id} style={{padding:"12px 14px",borderLeft:"3px solid "+(o.status==="done"?t.gr:t.gold),opacity:o.status==="done"?0.65:1,display:"flex",gap:8,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{o.customer}</div>
-          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"America/New_York"})} · {o.service}{o.phone?" · "+o.phone:""}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{o.customer||o.customer_name}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:1}}>{new Date(o.created_at||o.time).toLocaleTimeString("sw",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"America/New_York"})} · {o.service}{(o.phone||o.customer_phone)?" · "+(o.phone||o.customer_phone):""}</div>
           <div style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,marginTop:4}}>{o.items}</div>
           {o.total>0&&<div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.gold,marginTop:4}}>{fmt(o.total)}</div>}
         </div>
