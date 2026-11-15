@@ -351,10 +351,11 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <div style={{ minHeight:"100vh", background:"#F9F3E8", paddingBottom:"70px" }}>
+    <div style={{ minHeight:"100vh", background:"#F9F3E8", paddingBottom: page==="admin" ? 0 : "70px" }}>
       <style>{GLOBAL_CSS}</style>
 
-      <Header onCartClick={() => setCartOpen(true)} />
+      {/* Staff screen (Msimamizi) has its own header — hide the customer header, cart and bottom bar there */}
+      {page!=="admin" && <Header onCartClick={() => setCartOpen(true)} />}
 
       {page==="home"   && <HomePage />}
       {page==="menu"   && <MenuPage />}
@@ -364,8 +365,8 @@ export default function App() {
 
       {page!=="admin" && <Footer/>}
 
-      <InstallPrompt/>
-      <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />
+      {page!=="admin" && <InstallPrompt/>}
+      {page!=="admin" && <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />}
 
       {configItem   && <ItemModal item={configItem} onClose={() => setConfigItem(null)} />}
       {cartOpen     && <CartDrawer onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />}
