@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.10-1 · 14 Nov 2026, menu-layout";
+const APP_VERSION = "V2.10-2 · 15 Nov 2026, audit-polish";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1990,7 +1990,7 @@ function AkiliTab() {
           )}
         </div>
         <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"10px 0 0",lineHeight:1.5}}>
-          1:1 = Kuvunja Sawa / Breaking Even &nbsp;\u00b7&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;\u00b7&nbsp; 1:{compassTarget}+ = Lengo Limefikiwa / Target Reached
+          1:1 = Kuvunja Sawa / Breaking Even &nbsp;&middot;&nbsp; Chini ya 1:1 = Hasara / Losing &nbsp;&middot;&nbsp; 1:{compassTarget}+ = Lengo Limefikiwa / Target Reached
         </p>
         <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,textAlign:"center",margin:"6px 0 0",lineHeight:1.5,fontStyle:"italic"}}>
           Kadi hizi mbili huonyeshwa daima — swichi ya Na/Bila Wafanyakazi hapo juu haiathiri hesabu hii. / Both cards always show — the toggle above only affects Net/Margin/Health below, not these two ratios.
