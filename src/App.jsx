@@ -109,7 +109,7 @@ function AboutPage() {
   const info = [
     { icon:"ti-map-pin", label:"Mahali", value:"Goba Njia Nne, Dar es Salaam" },
     { icon:"ti-brand-whatsapp", label:"WhatsApp", value:"+255 655 709 024" },
-    { icon:"ti-clock", label:"Saa za Kazi", value:"Kila siku: 7:00 asubuhi - 9:00 usiku" },
+    { icon:"ti-clock", label:"Saa za Kazi", value:"Kila siku: 12:00 mchana - 11:00 usiku" },
     { icon:"ti-credit-card", label:"Lipa Namba", value:business.lipaNamba + " - " + business.lipaName },
     { icon:"ti-wifi", label:"WiFi", value:"WiFi ya Bure kwa Wateja wote" },
     { icon:"ti-device-tv", label:"Burudani", value:"Michezo na Entertainment kwa Wateja" },
