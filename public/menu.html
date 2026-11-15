@@ -353,7 +353,7 @@ async function applyAdminOverrides(rawData) {
       const target = BUILTIN[secName] && data.find(s => s.en === BUILTIN[secName]);
       if (target) { grouped[secName].forEach(it => target.items.push(it)); return; }
       data.push({
-        c: "#D4AF37", e: "✨", sw: secName, en: "Custom Items",
+        c: "#D4AF37", e: "✨", sw: secName.split("/")[0].trim(), en: secName.includes("/") ? secName.slice(secName.indexOf("/")+1).trim() : "Custom Items",
         p: [], items: grouped[secName]
       });
     });
