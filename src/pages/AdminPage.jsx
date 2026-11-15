@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.8-2 · 12 Jul 2026, margin-legend";
+const APP_VERSION = "V2.8-3 · 14 Nov 2026, beverage-sections";
 
 /* ═══ SHARED UI ═══ */
 function Card({children, style={}, glow=false}) {
@@ -2212,16 +2212,27 @@ function AkiliTab() {
 /* ═══ MENU TAB ═══ */
 function MenuTab() {
   const {t} = useT();
-  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,deleteCustomItem,stockQty,setStockQty} = useAdmin();
+  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,updateCustomItem,deleteCustomItem,stockQty,setStockQty} = useAdmin();
   const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");const [qed,setQed]=useState(null);const [qv,setQv]=useState("");
   const [showAdd,setShowAdd]=useState(false);
-  const [newItem,setNewItem]=useState({sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"});
+  const BLANK={sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"};
+  const [newItem,setNewItem]=useState(BLANK);
+  const [editId,setEditId]=useState(null);
+  const [newSecMode,setNewSecMode]=useState(false);
+  // Section choices: ready-made beverage sections + any section already used by saved items
+  const PRESET_SECS=["Bia / Beer","Vinywaji vya Pombe / Alcoholic Drinks","Soda & Juisi / Soft Drinks & Juice","Maji / Water","Bidhaa Mpya / Specials"];
+  const secChoices=[...new Set([...PRESET_SECS,...customItems.map(c=>c.sectionName||"Bidhaa Mpya / Specials")])];
   const setNI=k=>e=>setNewItem(p=>({...p,[k]:e.target.value}));
+  function resetForm(){setNewItem(BLANK);setEditId(null);setNewSecMode(false);setShowAdd(false);}
+  function startEdit(it){
+    setNewItem({sw:it.sw||"",en:it.en||"",pr:String(it.pr||""),ph:it.ph||"",em:it.em||"🍽️",sectionName:it.sectionName||"Bidhaa Mpya / Specials"});
+    setEditId(it.id);setNewSecMode(false);setShowAdd(true);
+  }
   function saveNew(){
-    if(!newItem.sw.trim()||!newItem.pr.trim())return;
-    addCustomItem(newItem);
-    setNewItem({sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"});
-    setShowAdd(false);
+    if(!newItem.sw.trim()||!String(newItem.pr).trim())return;
+    const clean={...newItem,sectionName:(newItem.sectionName||"").trim()||"Bidhaa Mpya / Specials"};
+    if(editId)updateCustomItem(editId,clean); else addCustomItem(clean);
+    resetForm();
   }
   return (
     <div style={{padding:"1rem"}}>
@@ -2270,11 +2281,11 @@ function MenuTab() {
             <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",fontWeight:900}}>✨</div>
             <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.length})</span>
           </div>
-          <button onClick={()=>setShowAdd(!showAdd)} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{showAdd?"✕ Funga":"+ Ongeza"}</button>
+          <button onClick={()=>{if(showAdd)resetForm();else setShowAdd(true);}} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{showAdd?"✕ Funga":"+ Ongeza"}</button>
         </div>
         <div style={{border:"1px solid "+t.border,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",background:t.bg2,padding:"12px"}}>
           {showAdd && <div style={{background:t.bg4,borderRadius:10,padding:12,marginBottom:10}}>
-            <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>New Item / Bidhaa Mpya</p>
+            <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>{editId?"Edit Item / Hariri Bidhaa":"New Item / Bidhaa Mpya"}</p>
             <div style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:8,marginBottom:8}}>
               <input value={newItem.em} onChange={setNI("em")} placeholder="🍽️" style={{padding:"9px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:18,textAlign:"center",color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
               <input value={newItem.sw} onChange={setNI("sw")} placeholder="Jina la Kiswahili *" style={{padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
@@ -2282,8 +2293,14 @@ function MenuTab() {
             <input value={newItem.en} onChange={setNI("en")} placeholder="English name (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
             <input value={newItem.pr} onChange={setNI("pr")} placeholder="Bei (e.g. 2,500) *" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
             <input value={newItem.ph} onChange={setNI("ph")} placeholder="Photo URL (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
-            <input value={newItem.sectionName} onChange={setNI("sectionName")} placeholder="Section name" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:10}}/>
-            <button onClick={saveNew} disabled={!newItem.sw||!newItem.pr} style={{width:"100%",background:(!newItem.sw||!newItem.pr)?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:(!newItem.sw||!newItem.pr)?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:(!newItem.sw||!newItem.pr)?"default":"pointer"}}>Save & Show on Website / Hifadhi</button>
+            <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.dim2,margin:"0 0 4px"}}>Sehemu / Section (mfano: Bia, Soda)</p>
+            <select value={newSecMode?"__new__":newItem.sectionName} onChange={e=>{if(e.target.value==="__new__"){setNewSecMode(true);setNewItem(p=>({...p,sectionName:""}));}else{setNewSecMode(false);setNewItem(p=>({...p,sectionName:e.target.value}));}}} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}>
+              {secChoices.map(n=><option key={n} value={n}>{n}</option>)}
+              <option value="__new__">➕ Sehemu mpya / New section…</option>
+            </select>
+            {newSecMode && <input value={newItem.sectionName} onChange={setNI("sectionName")} placeholder="Jina la sehemu / Section name (Kiswahili / English)" autoFocus style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.gold,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>}
+            <div style={{height:2}}/>
+            <button onClick={saveNew} disabled={!newItem.sw||!newItem.pr||!newItem.sectionName.trim()} style={{width:"100%",background:(!newItem.sw||!newItem.pr)?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:(!newItem.sw||!newItem.pr)?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:(!newItem.sw||!newItem.pr)?"default":"pointer"}}>{editId?"Save Changes / Hifadhi Mabadiliko":"Save & Show on Website / Hifadhi"}</button>
           </div>}
           {customItems.length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
           {customItems.map((it,i)=>(
@@ -2293,6 +2310,7 @@ function MenuTab() {
                 <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{it.sw}</div>
                 <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{it.sectionName} · TZS {it.pr}</div>
               </div>
+              <button onClick={()=>{startEdit(it);}} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
               <button onClick={()=>{if(confirm("Delete this custom item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
             </div>
           ))}
