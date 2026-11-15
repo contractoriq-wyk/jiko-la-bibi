@@ -269,16 +269,16 @@ async function fetchFromSupabase(path) {
     const res = await fetch(SB_URL + "/rest/v1/" + path, {
       headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY }
     });
-    return res.ok ? await res.json() : [];
+    return res.ok ? await res.json() : null;
   } catch(e) {
     console.warn("Supabase fetch failed for " + path, e);
-    return [];
+    return null;
   }
 }
 
 async function applyAdminOverrides(rawData) {
   // Fetch all three datasets in parallel
-  const [priceRows, stockRows, customRows, editRows, secRows, orderRows] = await Promise.all([
+  let [priceRows, stockRows, customRows, editRows, secRows, orderRows] = await Promise.all([
     fetchFromSupabase("price_overrides?select=item_id,price"),
     fetchFromSupabase("stock_status?select=item_id,out_of_stock"),
     fetchFromSupabase("custom_menu_items?select=*&active=eq.true&order=sort_order.asc"),
@@ -286,6 +286,15 @@ async function applyAdminOverrides(rawData) {
     fetchFromSupabase("menu_sections?select=*"),
     fetchFromSupabase("menu_order?select=*")
   ]);
+  // If Supabase could not be reached: keep what the customer already sees, or fall back to the last good copy
+  const got = [priceRows, stockRows, customRows, editRows, secRows, orderRows];
+  const failed = got.some(x => x === null);
+  if (failed && wrap.children.length) return null;           // refresh failed — leave the page as it is
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem("jiko-menu-cache") || "null"); } catch(e) {}
+  if (!failed) { try { localStorage.setItem("jiko-menu-cache", JSON.stringify(got)); } catch(e) {} }
+  else if (cache && cache.length === 6) { priceRows = cache[0]; stockRows = cache[1]; customRows = cache[2]; editRows = cache[3]; secRows = cache[4]; orderRows = cache[5]; }
+  [priceRows, stockRows, customRows, editRows, secRows, orderRows] = [priceRows, stockRows, customRows, editRows, secRows, orderRows].map(x => x || []);
   const edits = {};
   editRows.forEach(r => { edits[r.item_id] = r; });
   
@@ -394,6 +403,7 @@ let openIdx=null;
 let lastSig = "";
 async function renderMenu() {
   const nd = await applyAdminOverrides(D_RAW);
+  if (nd === null) return; // network blip during a refresh — keep the current menu on screen
   const sig = JSON.stringify(nd);
   if (sig === lastSig && wrap.children.length) return; // nothing changed in Msimamizi — leave the page alone
   lastSig = sig;
