@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.1-2 · 15 Nov 2026, menu-fix";
+const APP_VERSION = "V3.1-3 · 15 Nov 2026, location";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1020,7 +1020,7 @@ function RipodiTab() {
       <table><tr><th>Tarehe</th><th>Bidhaa</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr>${salesRows||"<tr><td colspan=5 style='text-align:center;color:#999'>Hakuna mauzo</td></tr>"}</table>
       <h2>Gharama / Expenses (${costs.length})</h2>
       <table><tr><th>Tarehe</th><th>Maelezo</th><th>Aina</th><th>Kiasi</th></tr>${costRows||"<tr><td colspan=4 style='text-align:center;color:#999'>Hakuna gharama</td></tr>"}</table>
-      <p style="margin-top:24px;font-size:10px;color:#999;text-align:center">Unyamwezini Jiko La Bibi JJJ &middot; Mbezi Luis, Goba Road, Dar es Salaam</p>
+      <p style="margin-top:24px;font-size:10px;color:#999;text-align:center">Unyamwezini Jiko La Bibi JJJ &middot; Goba Njia Nne, Dar es Salaam</p>
       <button onclick="window.print()" style="display:block;margin:24px auto 0;padding:12px 28px;background:#B8860B;color:#fff;border:none;border-radius:10px;font-weight:bold;cursor:pointer">🖨️ Print / Save PDF</button>
       </body></html>`);
     w.document.close();
