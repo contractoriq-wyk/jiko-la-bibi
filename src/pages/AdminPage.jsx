@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.0-1 · 15 Nov 2026, secure-login";
+const APP_VERSION = "V3.0-2 · 14 Nov 2026, PIN-login";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -473,7 +473,10 @@ function CostRow({cost, onEdit, i}) {
 
 /* ═══ PIN GATE ═══ */
 /* ═══ STAFF LOGIN (Supabase Auth) ═══ */
-function LoginGate() {
+// The 4-digit PIN signs in to one shared Supabase account; the real check happens on Supabase's server.
+const OWNER_LOGIN_EMAIL="msimamizi@jikolabibijjj.com";
+const OWNER_PW_PREFIX="jiko-bibi-";
+function LoginGate({onPin}) {
   const {t} = useT();
   const {signIn} = useAdmin();
   const [email,setEmail]=useState(()=>{try{return localStorage.getItem("jiko-login-email")||"";}catch{return "";}});
@@ -505,19 +508,27 @@ function LoginGate() {
         {err&&<p style={{color:"#ff8a8a",fontFamily:"sans-serif",fontSize:13,margin:0,textAlign:"center"}}>{err}</p>}
         <button type="submit" disabled={busy||!email.trim()||!pw} style={{marginTop:4,padding:14,borderRadius:12,border:"none",background:(busy||!email.trim()||!pw)?"rgba(255,255,255,0.15)":"linear-gradient(135deg,"+t.gold+",#b8860b)",color:(busy||!email.trim()||!pw)?"rgba(255,255,255,0.5)":"#0B1F45",fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"sans-serif"}}>{busy?"Inaingia… / Signing in…":"Ingia / Sign in"}</button>
       </form>
+      {onPin&&<button onClick={onPin} style={{marginTop:14,background:"none",border:"none",color:"rgba(255,255,255,0.5)",fontSize:12,fontFamily:"sans-serif",textDecoration:"underline",cursor:"pointer"}}>← Tumia PIN / Use PIN</button>}
       <p style={{color:"rgba(255,255,255,0.35)",fontSize:11,fontFamily:"sans-serif",margin:"1.4rem 0 0",textAlign:"center",maxWidth:300}}>Utaingia mara moja tu kwenye simu hii. / You only sign in once on this phone.</p>
     </div>
   );
 }
 
-function PinGate({onAuth}) {
+function PinGate({onAuth,check,onEmail}) {
   const {t} = useT();
-  const [pin,setPin]=useState(""), [err,setErr]=useState(false);
+  const [pin,setPin]=useState(""), [err,setErr]=useState(false), [busy,setBusy]=useState(false);
   const PAD=["1","2","3","4","5","6","7","8","9","","0","⌫"];
   function tap(k){
     if(k==="")return; if(k==="⌫"){setPin(p=>p.slice(0,-1));return;}
+    if(busy||pin.length>=4) return;
     const next=pin+k; setPin(next);
-    if(next.length===4){if(next===(business.adminPin||"5566"))onAuth();else{setErr(true);setPin("");setTimeout(()=>setErr(false),1400);}}
+    if(next.length===4){
+      if(check){
+        setBusy(true);
+        check(next).then(ok=>{ if(!ok){setErr(true);setPin("");setTimeout(()=>setErr(false),1400);} setBusy(false); });
+      } else if(next===(business.adminPin||"5566"))onAuth();
+      else{setErr(true);setPin("");setTimeout(()=>setErr(false),1400);}
+    }
   }
   return (
     <div style={{minHeight:"100vh",background:t.pinBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
@@ -531,6 +542,7 @@ function PinGate({onAuth}) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,72px)",gap:10}}>
         {PAD.map((k,i)=><button key={i} onClick={()=>tap(k)} style={{height:72,borderRadius:14,fontSize:"22px",fontWeight:700,fontFamily:"sans-serif",background:k===""?"transparent":k==="⌫"?"rgba(255,100,100,0.15)":"rgba(255,255,255,0.1)",color:k==="⌫"?"#ff6b6b":"#FFFFFF",border:k===""?"none":"1px solid rgba(255,255,255,0.15)",cursor:k===""?"default":"pointer"}}>{k}</button>)}
       </div>
+      {onEmail&&<button onClick={onEmail} style={{marginTop:22,background:"none",border:"none",color:"rgba(255,255,255,0.45)",fontSize:12,fontFamily:"sans-serif",textDecoration:"underline",cursor:"pointer"}}>Ingia kwa barua pepe / Sign in with email</button>}
     </div>
   );
 }
@@ -3151,7 +3163,8 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
-  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut} = useAdmin();
+  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut,signIn} = useAdmin();
+  const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
@@ -3187,7 +3200,7 @@ export default function AdminPage({onExit}) {
   );
   if(locked) return (
     <ThemeCtx.Provider value={{t,dark,toggle,presenterMode,togglePresenter}}>
-      {authEnabled ? <LoginGate/> : <PinGate onAuth={()=>setAuthed(true)}/>}
+      {authEnabled ? (emailMode ? <LoginGate onPin={()=>setEmailMode(false)}/> : <PinGate check={async(pin)=>{const {error}=await signIn(OWNER_LOGIN_EMAIL,OWNER_PW_PREFIX+pin);return !error;}} onEmail={()=>setEmailMode(true)}/>) : <PinGate onAuth={()=>setAuthed(true)}/>}
     </ThemeCtx.Provider>
   );
   return (
