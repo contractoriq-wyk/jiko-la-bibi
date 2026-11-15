@@ -147,6 +147,21 @@ html,body{background:#F9F3E8 !important;margin:0 !important;padding:0 !important
 .bband{padding:14px !important}
 .bband-txt{font-size:22px !important}
 
+/* V3.1-1: compact grid — simple items sit side by side (2 columns on phones, 3 on wider screens);
+   items with sizes or protein choices stay as full-width rows so their text has room. */
+.tbody.o{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px !important;padding:10px !important}
+@media (min-width:640px){.tbody.o{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tbody.o .ic.wide{grid-column:1 / -1}
+.tbody.o .ic:not(.wide){flex-direction:column;min-width:0}
+.tbody.o .ic:not(.wide) .iphoto{width:100% !important;min-height:0 !important;height:auto !important;aspect-ratio:1 / 1;flex-shrink:0}
+.tbody.o .ic:not(.wide) .iphoto img{width:100% !important;height:100% !important;object-fit:cover}
+.tbody.o .ic:not(.wide) .iinfo{padding:9px 10px 10px !important;gap:4px !important;min-width:0}
+.tbody.o .ic:not(.wide) .isw{font-size:11.5px !important;word-break:break-word}
+.tbody.o .ic:not(.wide) .ien{font-size:10.5px !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tbody.o .ic:not(.wide) .ifoot{margin-top:4px !important;padding-top:6px !important;gap:6px}
+.tbody.o .ic:not(.wide) .ipr{font-size:13px !important}
+.tbody.o .ic:not(.wide) .ab{width:30px;height:30px;flex-shrink:0}
+.tbody.o .ic:hover{transform:none !important}
 </style>
 </head>
 <body>
@@ -201,7 +216,7 @@ html,body{background:#F9F3E8 !important;margin:0 !important;padding:0 !important
       <div class="svc"><div class="si">🤝</div><div class="st">Karibu! Tunahudumia kwa upole</div><div class="sd">Una uhitaji maalum? Tuambie</div></div>
     </div>
   </div>
-  <div class="addr">Karibu Mbezi Luis ama Kidigital @ <a href="https://jikolabibijjj.com">Jikolabibijjj.com</a></div>
+  <div class="addr">Karibu Mbezi Luis ama Kidigital @ <a href="https://jikolabibijjj.com">Jikolabibijjj.com</a> · Build V3.1-1</div>
   <div class="bband">
     <div class="bband-deco">— ✦ ✦ ✦ —</div>
     <div class="bband-txt">Karibu Unyamwezini Jiko La Bibi J J J</div>
@@ -436,6 +451,7 @@ async function renderMenu() {
     const oosBtn = item.outOfStock ? '<button class="ab" style="background:#999 !important;cursor:not-allowed !important;opacity:0.5" disabled>×</button>' : '<button class="ab" data-si="'+si+'" data-ii="'+ii+'">+</button>';
     ii2.innerHTML='<div><div class="isw">'+item.sw+oosBadge+'</div><div class="ien">'+(item.en||"")+'</div>'+(item.ch?'<div class="ich" style="color:'+s.c+'bb">'+item.ch+'</div>':"")+(item.sz?'<div class="isz">'+item.sz+'</div>':"")+'</div><div class="ifoot">'+phtml+oosBtn+'</div>';
     if(item.outOfStock) ic.style.opacity = "0.5";
+    if(item.sz||item.ch) ic.classList.add("wide");
     ic.appendChild(ip);ic.appendChild(ii2);tb.appendChild(ic);
   });
   th.addEventListener("click",()=>{
