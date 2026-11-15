@@ -75,7 +75,7 @@ function MenuEmbed() {
     function onMsg(e) {
       if (e.data && e.data.jikoMenuHeight) {
         const incoming = e.data.jikoMenuHeight;
-        if (lastH.current === 0 || Math.abs(incoming - lastH.current) < 1200) {
+        if (incoming > 200 && incoming < 30000) {
           lastH.current = incoming;
           setHeight(incoming);
         }
