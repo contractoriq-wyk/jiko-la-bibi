@@ -26,6 +26,11 @@ export function AdminProvider({ children }) {
   });
   const [stock,setStock]=useState(()=>load("jiko-stock",{}));
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
+  // Edits to the built-in menu (rename / remove / restore). Supabase-backed only — no localStorage.
+  const [menuEdits,setMenuEdits]=useState({});
+  // Menu layout (section order + section photos, item order). Supabase-backed only.
+  const [menuSections,setMenuSections]=useState({});
+  const [menuOrder,setMenuOrder]=useState({});
   const [staff,setStaff]=useState(()=>load("jiko-staff",[]));
   const [warnings,setWarnings]=useState(()=>load("jiko-warnings",[]));
   // stockQty, goals, and includeStaffCosts are Supabase-backed only — no localStorage.
@@ -89,7 +94,7 @@ export function AdminProvider({ children }) {
         if(costs) setAllCosts(costs);
         if(ic?.length){const c={};ic.forEach(r=>{c[r.item_id]=r.cost_per_unit;});setItemCosts(c);}
         if(ords) setOrders(ords);
-        if(cust && cust.length > 0) {
+        if(cust) {
           const formatted = cust.map(c => ({id:c.id, sw:c.sw, en:c.en, pr:c.pr, ph:c.ph, em:c.em, sectionName:c.section_name}));
           setCustomItems(formatted);
           save("jiko-custom-items", formatted);
@@ -112,6 +117,15 @@ export function AdminProvider({ children }) {
           try { await supabase.from("business_settings").upsert({id:"main"}); } catch(e){ console.warn("business_settings init failed:", e); }
         }
         if(sq?.length){const q={};sq.forEach(r=>{q[r.item_id]=r.qty;});setStockQtyState(q);}
+        try{
+          const {data:me}=await supabase.from("menu_item_edits").select("*");
+          if(me){const m={};me.forEach(r=>{m[r.item_id]={hidden:!!r.hidden,sw:r.sw||"",en:r.en||"",em:r.em||"",ph:r.ph||""};});setMenuEdits(m);}
+        }catch(e){ console.warn("menu_item_edits load failed:", e); }
+        try{
+          const [{data:ms},{data:mo}]=await Promise.all([supabase.from("menu_sections").select("*"),supabase.from("menu_order").select("*")]);
+          if(ms){const m={};ms.forEach(r=>{m[r.key]={sort_order:r.sort_order,photo:r.photo||""};});setMenuSections(m);}
+          if(mo){const m={};mo.forEach(r=>{m[r.item_id]=r.pos;});setMenuOrder(m);}
+        }catch(e){ console.warn("menu layout load failed:", e); }
       } catch(e) {
         // A transient network failure here must not leave the app stuck showing "not synced"
         // forever — better to surface stale/default values and let realtime + retries catch up
@@ -151,7 +165,26 @@ export function AdminProvider({ children }) {
       if(data){const q={};data.forEach(r=>{q[r.item_id]=r.qty;});setStockQtyState(q);}
       setLastSyncedAt(new Date());
     }).subscribe();
-    return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);supabase.removeChannel(bss);supabase.removeChannel(sqs);};
+    const mes=supabase.channel("menuedits_rt").on("postgres_changes",{event:"*",schema:"public",table:"menu_item_edits"},async()=>{
+      const {data}=await supabase.from("menu_item_edits").select("*");
+      if(data){const m={};data.forEach(r=>{m[r.item_id]={hidden:!!r.hidden,sw:r.sw||"",en:r.en||"",em:r.em||"",ph:r.ph||""};});setMenuEdits(m);}
+      setLastSyncedAt(new Date());
+    }).subscribe();
+    const mls=supabase.channel("menulayout_rt").on("postgres_changes",{event:"*",schema:"public",table:"menu_sections"},async()=>{
+      const {data}=await supabase.from("menu_sections").select("*");
+      if(data){const m={};data.forEach(r=>{m[r.key]={sort_order:r.sort_order,photo:r.photo||""};});setMenuSections(m);}
+      setLastSyncedAt(new Date());
+    }).on("postgres_changes",{event:"*",schema:"public",table:"menu_order"},async()=>{
+      const {data}=await supabase.from("menu_order").select("*");
+      if(data){const m={};data.forEach(r=>{m[r.item_id]=r.pos;});setMenuOrder(m);}
+      setLastSyncedAt(new Date());
+    }).subscribe();
+    const cis=supabase.channel("custom_rt").on("postgres_changes",{event:"*",schema:"public",table:"custom_menu_items"},async()=>{
+      const {data}=await supabase.from("custom_menu_items").select("*").eq("active",true).order("sort_order",{ascending:true});
+      if(data){setCustomItems(data.map(c=>({id:c.id,sw:c.sw,en:c.en,pr:c.pr,ph:c.ph,em:c.em,sectionName:c.section_name})));}
+      setLastSyncedAt(new Date());
+    }).subscribe();
+    return()=>{supabase.removeChannel(xs);supabase.removeChannel(cs);supabase.removeChannel(os);supabase.removeChannel(bss);supabase.removeChannel(sqs);supabase.removeChannel(mes);supabase.removeChannel(mls);supabase.removeChannel(cis);};
   },[]);
 
   /* ─── COMPUTED ─── */
@@ -380,6 +413,47 @@ export function AdminProvider({ children }) {
     }
   }
 
+  /* ─── BUILT-IN MENU EDITS (rename / remove / restore) ─── */
+  async function editMenuItem(id,patch){
+    const cur=menuEdits[id]||{hidden:false,sw:"",en:"",em:"",ph:""};
+    const merged={...cur,...patch};
+    setMenuEdits(prev=>({...prev,[id]:merged}));
+    if(supabase){
+      try{ await supabase.from("menu_item_edits").upsert({item_id:id,hidden:!!merged.hidden,sw:merged.sw||null,en:merged.en||null,em:merged.em||null,ph:merged.ph||null,updated_at:new Date().toISOString()},{onConflict:"item_id"}); }
+      catch(e){ console.warn("Menu edit save failed:", e); }
+    }
+  }
+  async function resetMenuItem(id){
+    setMenuEdits(prev=>{const n={...prev};delete n[id];return n;});
+    if(supabase){
+      try{ await supabase.from("menu_item_edits").delete().eq("item_id",id); }
+      catch(e){ console.warn("Menu edit reset failed:", e); }
+    }
+  }
+
+  /* ─── MENU LAYOUT: section order, section photo, item order ─── */
+  async function setSectionOrder(keys){
+    setMenuSections(prev=>{const n={...prev};keys.forEach((k,i)=>{n[k]={photo:"",...(n[k]||{}),sort_order:i};});return n;});
+    if(supabase){
+      try{ await supabase.from("menu_sections").upsert(keys.map((k,i)=>({key:k,sort_order:i,updated_at:new Date().toISOString()})),{onConflict:"key"}); }
+      catch(e){ console.warn("Section order save failed:", e); }
+    }
+  }
+  async function setSectionPhoto(key,url){
+    setMenuSections(prev=>({...prev,[key]:{sort_order:null,...(prev[key]||{}),photo:url||""}}));
+    if(supabase){
+      try{ await supabase.from("menu_sections").upsert({key,photo:url||null,updated_at:new Date().toISOString()},{onConflict:"key"}); }
+      catch(e){ console.warn("Section photo save failed:", e); }
+    }
+  }
+  async function setItemOrder(ids){
+    setMenuOrder(prev=>{const n={...prev};ids.forEach((id,i)=>{n[id]=i;});return n;});
+    if(supabase){
+      try{ await supabase.from("menu_order").upsert(ids.map((id,i)=>({item_id:id,pos:i,updated_at:new Date().toISOString()})),{onConflict:"item_id"}); }
+      catch(e){ console.warn("Item order save failed:", e); }
+    }
+  }
+
   /* ─── CUSTOMER ORDERS ─── */
   async function addOrder(o){
     const rec={customer_name:o.customer||"Customer",customer_phone:o.phone||"",items:o.items||"",total:parseInt(o.total)||0,service:o.service||"pickup",notes:o.notes||"",status:o.status||"pending",source:o.source||"manual"};
@@ -441,6 +515,8 @@ export function AdminProvider({ children }) {
       showFullWeek,toggleShowFullWeek,closedWeekday,
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
+      menuEdits,editMenuItem,resetMenuItem,
+      menuSections,menuOrder,setSectionOrder,setSectionPhoto,setItemOrder,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
       warnings,addWarning,deleteWarning,
       stockQty,setStockQty,
