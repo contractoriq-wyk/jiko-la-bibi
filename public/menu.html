@@ -278,11 +278,14 @@ async function fetchFromSupabase(path) {
 
 async function applyAdminOverrides(rawData) {
   // Fetch all three datasets in parallel
-  const [priceRows, stockRows, customRows] = await Promise.all([
+  const [priceRows, stockRows, customRows, editRows] = await Promise.all([
     fetchFromSupabase("price_overrides?select=item_id,price"),
     fetchFromSupabase("stock_status?select=item_id,out_of_stock"),
-    fetchFromSupabase("custom_menu_items?select=*&active=eq.true&order=sort_order.asc")
+    fetchFromSupabase("custom_menu_items?select=*&active=eq.true&order=sort_order.asc"),
+    fetchFromSupabase("menu_item_edits?select=*")
   ]);
+  const edits = {};
+  editRows.forEach(r => { edits[r.item_id] = r; });
   
   // Build lookup maps
   const prices = {};
@@ -301,8 +304,17 @@ async function applyAdminOverrides(rawData) {
   // Apply overrides to menu data
   const data = JSON.parse(JSON.stringify(rawData));
   data.forEach(section => {
+    // Msimamizi edits: remove hidden items, rename / re-emoji / re-photo the rest
+    section.items = section.items.filter(it => !(it.id && edits[it.id] && edits[it.id].hidden));
     section.items.forEach(item => {
       if (!item.id) return;
+      const ed = edits[item.id];
+      if (ed) {
+        if (ed.sw) item.sw = ed.sw;
+        if (ed.en) item.en = ed.en;
+        if (ed.em) item.em = ed.em;
+        if (ed.ph) item.ph = ed.ph;
+      }
       if (prices[item.id] !== undefined && prices[item.id] !== null) {
         const newPrice = Number(prices[item.id]);
         if (item.sz && item.pr.includes("/")) {
@@ -327,7 +339,19 @@ async function applyAdminOverrides(rawData) {
         id: it.id, sw: it.sw, en: it.en, pr: it.pr, ph: it.ph, em: it.em
       });
     });
+    // Custom items assigned to a built-in section join that section instead of making a new one
+    const BUILTIN = {
+      "Vitafunwa & Vinywaji vya Moto / Hot Drinks & Snacks":"Hot Drinks & Snacks",
+      "Vyakula vya Mchana na Jioni / Lunch & Dinner":"Lunch & Dinner",
+      "Sahani za Kawaida / Standard Plates":"Standard Plates",
+      "Pilau / Pilau":"Pilau",
+      "Spesheli / Specials":"Specials",
+      "Vinywaji Baridi / Cold Drinks":"Cold Drinks",
+      "Supu na Vitafunwa vya Jioni / Evening Soups & Snacks":"Evening Soups & Snacks"
+    };
     Object.keys(grouped).forEach(secName => {
+      const target = BUILTIN[secName] && data.find(s => s.en === BUILTIN[secName]);
+      if (target) { grouped[secName].forEach(it => target.items.push(it)); return; }
       data.push({
         c: "#D4AF37", e: "✨", sw: secName, en: "Custom Items",
         p: [], items: grouped[secName]
@@ -335,7 +359,8 @@ async function applyAdminOverrides(rawData) {
     });
   }
   
-  return data;
+  // Hide a section entirely if every item in it was removed
+  return data.filter(s => s.items.length > 0);
 }
 
 let D = D_RAW; // initial fallback while async fetch resolves
