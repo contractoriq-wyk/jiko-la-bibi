@@ -3,7 +3,7 @@ import { useLang } from "../lang/LanguageContext";
 import { whatsappEnquiryLink } from "../utils/order";
 
 // Build label shown at the very bottom of the site so you can see which version is live.
-const SITE_VERSION = "V3.1-1 · 15 Nov 2026";
+const SITE_VERSION = "V3.1-2 · 15 Nov 2026";
 
 export default function Footer() {
   const { lang, t } = useLang();
