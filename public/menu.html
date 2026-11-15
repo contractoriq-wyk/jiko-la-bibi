@@ -278,11 +278,13 @@ async function fetchFromSupabase(path) {
 
 async function applyAdminOverrides(rawData) {
   // Fetch all three datasets in parallel
-  const [priceRows, stockRows, customRows, editRows] = await Promise.all([
+  const [priceRows, stockRows, customRows, editRows, secRows, orderRows] = await Promise.all([
     fetchFromSupabase("price_overrides?select=item_id,price"),
     fetchFromSupabase("stock_status?select=item_id,out_of_stock"),
     fetchFromSupabase("custom_menu_items?select=*&active=eq.true&order=sort_order.asc"),
-    fetchFromSupabase("menu_item_edits?select=*")
+    fetchFromSupabase("menu_item_edits?select=*"),
+    fetchFromSupabase("menu_sections?select=*"),
+    fetchFromSupabase("menu_order?select=*")
   ]);
   const edits = {};
   editRows.forEach(r => { edits[r.item_id] = r; });
@@ -303,6 +305,9 @@ async function applyAdminOverrides(rawData) {
   
   // Apply overrides to menu data
   const data = JSON.parse(JSON.stringify(rawData));
+  // Stable key for each built-in section (matches the section ids used in Msimamizi)
+  const SEC_KEYS = {"Hot Drinks & Snacks":"vitafunwa","Lunch & Dinner":"mchele","Standard Plates":"standard","Pilau":"pilau","Specials":"specials","Cold Drinks":"vinywaji","Evening Soups & Snacks":"jioni"};
+  data.forEach(sec => { sec.k = SEC_KEYS[sec.en] || sec.en; });
   data.forEach(section => {
     // Msimamizi edits: remove hidden items, rename / re-emoji / re-photo the rest
     section.items = section.items.filter(it => !(it.id && edits[it.id] && edits[it.id].hidden));
@@ -353,14 +358,26 @@ async function applyAdminOverrides(rawData) {
       const target = BUILTIN[secName] && data.find(s => s.en === BUILTIN[secName]);
       if (target) { grouped[secName].forEach(it => target.items.push(it)); return; }
       data.push({
-        c: "#D4AF37", e: "✨", sw: secName.split("/")[0].trim(), en: secName.includes("/") ? secName.slice(secName.indexOf("/")+1).trim() : "Custom Items",
+        k: secName, c: "#D4AF37", e: "✨", sw: secName.split("/")[0].trim(), en: secName.includes("/") ? secName.slice(secName.indexOf("/")+1).trim() : "Custom Items",
         p: [], items: grouped[secName]
       });
     });
   }
   
+  // Menu layout chosen in Msimamizi: item order, section photo, section order
+  const secInfo = {}; secRows.forEach(r => { secInfo[r.key] = r; });
+  const itemPos = {}; orderRows.forEach(r => { itemPos[r.item_id] = r.pos; });
+  data.forEach(sec => {
+    sec.items = sec.items.map((it, i) => ({ it, i }))
+      .sort((a, b) => ((itemPos[a.it.id] != null ? itemPos[a.it.id] : 1000 + a.i) - (itemPos[b.it.id] != null ? itemPos[b.it.id] : 1000 + b.i)) || a.i - b.i)
+      .map(o => o.it);
+    const si = secInfo[sec.k];
+    if (si && si.photo) sec.p = [si.photo];
+  });
+  const so = (sec, i) => (secInfo[sec.k] && secInfo[sec.k].sort_order != null) ? secInfo[sec.k].sort_order : 1000 + i;
   // Hide a section entirely if every item in it was removed
-  return data.filter(s => s.items.length > 0);
+  return data.map((sec, i) => ({ sec, i })).sort((a, b) => (so(a.sec, a.i) - so(b.sec, b.i)) || a.i - b.i)
+    .map(o => o.sec).filter(s => s.items.length > 0);
 }
 
 let D = D_RAW; // initial fallback while async fetch resolves
@@ -442,7 +459,7 @@ function buildItemPayload(si, ii) {
   const section = D[si];
   const item = section.items[ii];
   const payload = {
-    id: "menu_" + si + "_" + ii,
+    id: "menu_" + (item.id || (si + "_" + ii)),
     name: { sw: item.sw, en: item.en || item.sw },
     section: section.sw,
     emoji: item.em || section.e,
