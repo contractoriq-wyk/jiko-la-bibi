@@ -374,8 +374,14 @@ window.addEventListener("storage", function(e) {
 const wrap=document.getElementById("sects");
 let openIdx=null;
 
+let lastSig = "";
 async function renderMenu() {
-  D = await applyAdminOverrides(D_RAW);
+  const nd = await applyAdminOverrides(D_RAW);
+  const sig = JSON.stringify(nd);
+  if (sig === lastSig && wrap.children.length) return; // nothing changed in Msimamizi — leave the page alone
+  lastSig = sig;
+  D = nd;
+  const keepOpen = openIdx;
   wrap.innerHTML = ""; // clear in case of re-render
   D.forEach((s,si)=>{
   const tab=document.createElement("div");
@@ -412,9 +418,24 @@ async function renderMenu() {
   tab.appendChild(th);tab.appendChild(tp);tab.appendChild(tb);
   wrap.appendChild(tab);
   });
+  // keep the section the customer had open
+  if (keepOpen !== null && document.getElementById("b"+keepOpen)) {
+    document.getElementById("b"+keepOpen).classList.add("o");
+    document.getElementById("p"+keepOpen).style.display = "none";
+    document.getElementById("a"+keepOpen).classList.add("o");
+    openIdx = keepOpen;
+  } else { openIdx = null; }
   setTimeout(notifyHeight, 200);
 }
 renderMenu();
+// Live sync: pick up anything changed in Msimamizi (new items, prices, photos, renamed or removed items)
+// without the customer having to reload — on return to the page, and every 45 seconds while it is open.
+(function(){
+  let busy = false;
+  async function refresh(){ if (busy) return; busy = true; try { await renderMenu(); } catch(e){} busy = false; }
+  setInterval(function(){ if (!document.hidden) refresh(); }, 45000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) refresh(); });
+})();
 
 // ═══ ADD TO CART — POST TO PARENT REACT APP ═══
 function buildItemPayload(si, ii) {
