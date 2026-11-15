@@ -45,8 +45,12 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.9-2 · 14 Nov 2026, full-menu-edit";
+const APP_VERSION = "V2.9-3 · 14 Nov 2026, drink-sections";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
+// Ready-made drink sections (always shown in Menyu so items can be added straight into them)
+const SEC_BIA = "Bia / Beer / Lager";
+const SEC_POMBE = "Pombe Kali / Alcohol & Spirits";
+const SEC_SPECIALS = "Bidhaa Mpya / Specials";
 const secLabel = s => s.name.sw + " / " + s.name.en;
 // Apply Msimamizi edits (rename / emoji) on top of a built-in menu item
 const withEdit = (m, edits) => { const e = edits && edits[m.id]; return e ? {...m, name:{sw:e.sw||m.name.sw, en:e.en||m.name.en}, emoji:e.em||m.emoji} : m; };
@@ -691,7 +695,7 @@ function IngizaTab() {
     return Array.from(names).map((name, i) => ({
       id: "custom_sec_" + i,
       sectionName: name,
-      name: { sw: name.split("/")[0].trim(), en: (name.split("/")[1] || name).trim() }
+      name: { sw: name.split("/")[0].trim(), en: (name.includes("/") ? name.slice(name.indexOf("/")+1) : name).trim() }
     }));
   }, [customItems]);
   const allSections = [...sections, ...customSections];
@@ -2229,7 +2233,7 @@ function MenuTab() {
   const [editId,setEditId]=useState(null);
   const [newSecMode,setNewSecMode]=useState(false);
   // Section choices: ready-made beverage sections + any section already used by saved items
-  const PRESET_SECS=[...sections.map(secLabel),"Bia / Beer","Vinywaji vya Pombe / Alcoholic Drinks","Soda & Juisi / Soft Drinks & Juice","Maji / Water","Bidhaa Mpya / Specials"];
+  const PRESET_SECS=[...sections.map(secLabel),SEC_BIA,SEC_POMBE,SEC_SPECIALS];
   const secChoices=[...new Set([...PRESET_SECS,...customItems.map(c=>c.sectionName||"Bidhaa Mpya / Specials")])];
   const setNI=k=>e=>setNewItem(p=>({...p,[k]:e.target.value}));
   function resetForm(){setNewItem(BLANK);setEditId(null);setNewSecMode(false);setShowAdd(false);}
@@ -2246,6 +2250,9 @@ function MenuTab() {
   }
   const formRef=useRef(null);
   const builtInLabels=sections.map(secLabel);
+  // Own sections for custom items (Bia, Pombe Kali, and any other section name you typed) — shown as numbered blocks like the built-in ones
+  const blockSecs=[...new Set([SEC_BIA,SEC_POMBE,...customItems.map(c=>c.sectionName||SEC_SPECIALS).filter(n=>n!==SEC_SPECIALS&&!builtInLabels.includes(n))])];
+  const inCard=c=>{const n=c.sectionName||SEC_SPECIALS;return !builtInLabels.includes(n)&&!blockSecs.includes(n);};
   const [eid,setEid]=useState(null);const [ef,setEf]=useState({sw:"",en:"",em:"",ph:""});
   function addHere(label){setNewItem({...BLANK,sectionName:label});setEditId(null);setNewSecMode(false);setShowAdd(true);setTimeout(()=>formRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),80);}
   function startEditBuiltin(item){const e=menuEdits[item.id]||{};setEf({sw:e.sw||item.name.sw,en:e.en||item.name.en||"",em:e.em||item.emoji||"",ph:e.ph||""});setEid(item.id);}
@@ -2326,12 +2333,34 @@ function MenuTab() {
         </div>
       </div>)}
 
+      {blockSecs.map((name,bi)=>{
+        const its=customItems.filter(c=>(c.sectionName||SEC_SPECIALS)===name);
+        return <div key={name} style={{marginBottom:14}}>
+          <div style={{background:t.gold,borderRadius:"12px 12px 0 0",padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+            <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:900,fontFamily:"sans-serif"}}>{sections.length+bi+1}</div>
+            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff",flex:1}}>{name}</span>
+            <button onClick={()=>addHere(name)} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>+ Ongeza</button>
+          </div>
+          <div style={{border:"1px solid "+t.border,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",background:t.bg2}}>
+            {its.length===0&&<p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>Hakuna bidhaa bado — bonyeza "+ Ongeza". / Nothing here yet.</p>}
+            {its.map((it,i)=>(
+              <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:i%2===0?t.bg4:"transparent",borderTop:i>0?"1px solid "+t.border+"55":"none"}}>
+                <span style={{fontSize:18}}>{it.em||"🍽️"}</span>
+                <div style={{flex:1,minWidth:0}}><div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{it.sw}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>TZS {it.pr}</div></div>
+                <button onClick={()=>startEdit(it)} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
+                <button onClick={()=>{if(confirm("Delete this item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
+              </div>
+            ))}
+          </div>
+        </div>;
+      })}
+
       {/* ═══ CUSTOM ITEMS / BIDHAA MPYA ═══ */}
       <div style={{marginTop:18}}>
         <div style={{background:t.gold,borderRadius:"12px 12px 0 0",padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{background:"#fff",color:t.gold,width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",fontWeight:900}}>✨</div>
-            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.filter(c=>!builtInLabels.includes(c.sectionName)).length})</span>
+            <span style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:"#fff"}}>Bidhaa Mpya / Custom Items ({customItems.filter(inCard).length})</span>
           </div>
           <button onClick={()=>{if(showAdd)resetForm();else setShowAdd(true);}} style={{background:"#fff",color:t.gold,border:"none",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{showAdd?"✕ Funga":"+ Ongeza"}</button>
         </div>
@@ -2354,8 +2383,8 @@ function MenuTab() {
             <div style={{height:2}}/>
             <button onClick={saveNew} disabled={!newItem.sw||!newItem.pr||!newItem.sectionName.trim()} style={{width:"100%",background:(!newItem.sw||!newItem.pr)?t.bg4:"linear-gradient(135deg,"+t.gr+",#009940)",color:(!newItem.sw||!newItem.pr)?t.dim2:"#fff",border:"none",borderRadius:10,padding:11,fontSize:13,fontWeight:700,cursor:(!newItem.sw||!newItem.pr)?"default":"pointer"}}>{editId?"Save Changes / Hifadhi Mabadiliko":"Save & Show on Website / Hifadhi"}</button>
           </div>}
-          {customItems.filter(c=>!builtInLabels.includes(c.sectionName)).length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
-          {customItems.filter(c=>!builtInLabels.includes(c.sectionName)).map((it,i)=>(
+          {customItems.filter(inCard).length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
+          {customItems.filter(inCard).map((it,i)=>(
             <div key={it.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
               <span style={{fontSize:20}}>{it.em||"🍽️"}</span>
               <div style={{flex:1,minWidth:0}}>
