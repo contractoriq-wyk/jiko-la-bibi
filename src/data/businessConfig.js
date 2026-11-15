@@ -25,7 +25,7 @@ export const business = {
 
   // --- Location ---
   city: "Dar es Salaam",
-  area: "Mbezi Luis, Goba Road (Chingwalu St)",
+  area: "Goba Njia Nne",
   // Optional: paste a Google Maps share link here once the profile is verified
   mapsLink: "",
 
