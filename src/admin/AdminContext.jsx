@@ -346,7 +346,7 @@ export function AdminProvider({ children }) {
   /* ─── STAFF WARNINGS / MAONYO — verbal or written policy violation records ─── */
   async function addWarning(staffId, staffName, type, reason, date){
     const localId = "tmp_"+Date.now();
-    const rec = {id:localId, staff_id:staffId, staff_name:staffName, type:type||"verbal", reason:reason||"", warning_date:date||today()};
+    const rec = {id:localId, staff_id:staffId, staff_name:staffName, type:type||"verbal", reason:reason||"", warning_date:date||todayStr()};
     setWarnings(prev => {
       const next = [rec, ...prev];
       save("jiko-warnings", next);
@@ -355,7 +355,7 @@ export function AdminProvider({ children }) {
     if(supabase){
       try {
         const {data} = await supabase.from("staff_warnings").insert({
-          staff_id: staffId, staff_name: staffName, type: type||"verbal", reason: reason||"", warning_date: date||today()
+          staff_id: staffId, staff_name: staffName, type: type||"verbal", reason: reason||"", warning_date: date||todayStr()
         }).select().single();
         if(data) setWarnings(prev => {
           const next = prev.map(w => w.id===localId ? data : w);
