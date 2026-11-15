@@ -45,12 +45,49 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.9-3 · 14 Nov 2026, drink-sections";
+const APP_VERSION = "V2.9-4 · 14 Nov 2026, photo-upload";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
 const SEC_POMBE = "Pombe Kali / Alcohol & Spirits";
 const SEC_SPECIALS = "Bidhaa Mpya / Specials";
+// Photo picker: choose a picture from the phone, shrink it, upload to Supabase Storage (bucket "menu-photos"), return its public URL
+function PhotoPicker({value,onChange,t}){
+  const [busy,setBusy]=useState(false);const [msg,setMsg]=useState("");const inp=useRef(null);
+  async function pick(e){
+    const file=e.target.files&&e.target.files[0]; e.target.value=""; if(!file)return;
+    setBusy(true);setMsg("");
+    try{
+      const bmp=await createImageBitmap(file);
+      const max=900,k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+      const cv=document.createElement("canvas");cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+      cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+      const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.82));
+      const {supabase}=await import("../lib/supabase");
+      if(!supabase)throw new Error("no-supabase");
+      const path="item-"+Date.now()+"-"+Math.random().toString(36).slice(2,7)+".jpg";
+      const {error}=await supabase.storage.from("menu-photos").upload(path,blob,{contentType:"image/jpeg",upsert:false});
+      if(error)throw error;
+      const {data}=supabase.storage.from("menu-photos").getPublicUrl(path);
+      onChange(data.publicUrl);setMsg("✓ Picha imepakiwa / Uploaded");
+    }catch(err){ console.warn("Photo upload failed:",err); setMsg("✗ Imeshindikana / Failed — hakikisha SQL ya picha imeendeshwa (migration_photo_storage.sql)"); }
+    setBusy(false);
+  }
+  return <div style={{marginBottom:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      {value?<img src={value} alt="" style={{width:54,height:54,objectFit:"cover",borderRadius:8,border:"1px solid "+t.border,flexShrink:0}}/>:<div style={{width:54,height:54,borderRadius:8,border:"1px dashed "+t.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:t.dim2,flexShrink:0}}>📷</div>}
+      <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
+        <button type="button" onClick={()=>inp.current&&inp.current.click()} disabled={busy} style={{background:t.gold+"18",border:"1px solid "+t.gold+"55",color:t.gold,borderRadius:8,padding:"8px 10px",fontSize:12,fontWeight:700,cursor:busy?"default":"pointer"}}>{busy?"Inapakia… / Uploading…":(value?"📷 Badilisha Picha / Change photo":"📷 Pakia Picha / Upload photo")}</button>
+        {value&&!busy&&<button type="button" onClick={()=>{onChange("");setMsg("");}} style={{background:"none",border:"none",color:t.dim2,fontSize:10,textDecoration:"underline",cursor:"pointer",padding:0,textAlign:"left"}}>Ondoa picha / Remove photo</button>}
+      </div>
+    </div>
+    <input ref={inp} type="file" accept="image/*" onChange={pick} style={{display:"none"}}/>
+    {msg&&<p style={{fontFamily:"sans-serif",fontSize:10,color:msg.startsWith("✓")?t.gr:t.rd,margin:"5px 0 0"}}>{msg}</p>}
+  </div>;
+}
+// Small round thumbnail for a custom item: its photo if it has one, otherwise its emoji
+const ItemThumb = ({it,size=26}) => it.ph ? <img src={it.ph} alt="" style={{width:size+10,height:size+10,objectFit:"cover",borderRadius:8,flexShrink:0}}/> : <span style={{fontSize:size-8}}>{it.em||"🍽️"}</span>;
+
 const secLabel = s => s.name.sw + " / " + s.name.en;
 // Apply Msimamizi edits (rename / emoji) on top of a built-in menu item
 const withEdit = (m, edits) => { const e = edits && edits[m.id]; return e ? {...m, name:{sw:e.sw||m.name.sw, en:e.en||m.name.en}, emoji:e.em||m.emoji} : m; };
@@ -2314,7 +2351,7 @@ function MenuTab() {
                   <input value={ef.sw} onChange={e=>setEf(p=>({...p,sw:e.target.value}))} placeholder="Jina la Kiswahili" style={{padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 <input value={ef.en} onChange={e=>setEf(p=>({...p,en:e.target.value}))} placeholder="English name" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
-                <input value={ef.ph} onChange={e=>setEf(p=>({...p,ph:e.target.value}))} placeholder="Photo URL (optional)" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+                <PhotoPicker t={t} value={ef.ph} onChange={u=>setEf(p=>({...p,ph:u}))}/>
                 <div style={{display:"flex",gap:6}}>
                   <button onClick={()=>saveBuiltin(item)} disabled={!ef.sw.trim()} style={{flex:1,background:t.gr,color:"#fff",border:"none",borderRadius:8,padding:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>Hifadhi / Save</button>
                   <button onClick={()=>setEid(null)} style={{background:t.bg2,color:t.dim2,border:"1px solid "+t.border,borderRadius:8,padding:"9px 14px",fontSize:12,cursor:"pointer"}}>✕</button>
@@ -2324,7 +2361,7 @@ function MenuTab() {
           })}
           {customItems.filter(c=>c.sectionName===secLabel(sec)).map(it=>(
             <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:"1px solid "+t.border+"55"}}>
-              <span style={{fontSize:18}}>{it.em||"🍽️"}</span>
+              <ItemThumb it={it}/>
               <div style={{flex:1,minWidth:0}}><div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{it.sw}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>✨ Mpya · TZS {it.pr}</div></div>
               <button onClick={()=>startEdit(it)} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
               <button onClick={()=>{if(confirm("Delete this item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
@@ -2345,7 +2382,7 @@ function MenuTab() {
             {its.length===0&&<p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>Hakuna bidhaa bado — bonyeza "+ Ongeza". / Nothing here yet.</p>}
             {its.map((it,i)=>(
               <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:i%2===0?t.bg4:"transparent",borderTop:i>0?"1px solid "+t.border+"55":"none"}}>
-                <span style={{fontSize:18}}>{it.em||"🍽️"}</span>
+                <ItemThumb it={it}/>
                 <div style={{flex:1,minWidth:0}}><div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:t.text}}>{it.sw}</div><div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>TZS {it.pr}</div></div>
                 <button onClick={()=>startEdit(it)} style={{background:t.gold+"18",border:"1px solid "+t.gold+"44",color:t.gold,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Hariri</button>
                 <button onClick={()=>{if(confirm("Delete this item?"))deleteCustomItem(it.id);}} style={{background:t.rd+"18",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Futa</button>
@@ -2373,7 +2410,7 @@ function MenuTab() {
             </div>
             <input value={newItem.en} onChange={setNI("en")} placeholder="English name (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
             <input value={newItem.pr} onChange={setNI("pr")} placeholder="Bei (e.g. 2,500) *" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
-            <input value={newItem.ph} onChange={setNI("ph")} placeholder="Photo URL (optional)" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+            <PhotoPicker t={t} value={newItem.ph} onChange={u=>setNewItem(p=>({...p,ph:u}))}/>
             <p style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.dim2,margin:"0 0 4px"}}>Sehemu / Section (mfano: Bia, Soda)</p>
             <select value={newSecMode?"__new__":newItem.sectionName} onChange={e=>{if(e.target.value==="__new__"){setNewSecMode(true);setNewItem(p=>({...p,sectionName:""}));}else{setNewSecMode(false);setNewItem(p=>({...p,sectionName:e.target.value}));}}} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1px solid "+t.border,background:t.inputBg,fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:8}}>
               {secChoices.map(n=><option key={n} value={n}>{n}</option>)}
@@ -2386,7 +2423,7 @@ function MenuTab() {
           {customItems.filter(inCard).length===0 && !showAdd && <p style={{textAlign:"center",color:t.dim2,fontFamily:"sans-serif",fontSize:12,padding:"14px 0",margin:0}}>No custom items yet. Tap "+ Ongeza" to add one.</p>}
           {customItems.filter(inCard).map((it,i)=>(
             <div key={it.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
-              <span style={{fontSize:20}}>{it.em||"🍽️"}</span>
+              <ItemThumb it={it}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{it.sw}</div>
                 <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{it.sectionName} · TZS {it.pr}</div>
