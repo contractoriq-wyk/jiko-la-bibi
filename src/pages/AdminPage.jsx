@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.10-3 · 15 Nov 2026, safe-cleanup";
+const APP_VERSION = "V3.0-1 · 15 Nov 2026, secure-login";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -472,6 +472,44 @@ function CostRow({cost, onEdit, i}) {
 }
 
 /* ═══ PIN GATE ═══ */
+/* ═══ STAFF LOGIN (Supabase Auth) ═══ */
+function LoginGate() {
+  const {t} = useT();
+  const {signIn} = useAdmin();
+  const [email,setEmail]=useState(()=>{try{return localStorage.getItem("jiko-login-email")||"";}catch{return "";}});
+  const [pw,setPw]=useState(""); const [show,setShow]=useState(false);
+  const [busy,setBusy]=useState(false); const [err,setErr]=useState("");
+  async function go(e){
+    e&&e.preventDefault();
+    if(!email.trim()||!pw||busy) return;
+    setBusy(true);setErr("");
+    const {error}=await signIn(email,pw);
+    if(error){
+      const m=String(error.message||"");
+      setErr(/invalid login/i.test(m)?"Barua pepe au nywila si sahihi / Wrong email or password":/network|fetch/i.test(m)?"Hakuna mtandao / No connection — jaribu tena":"Imeshindikana / Could not sign in: "+m);
+      setBusy(false);
+    } else { try{localStorage.setItem("jiko-login-email",email.trim());}catch{} }
+  }
+  const field={width:"100%",padding:"13px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.08)",color:"#fff",fontSize:16,outline:"none",boxSizing:"border-box",fontFamily:"sans-serif"};
+  return (
+    <div style={{minHeight:"100vh",background:t.pinBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
+      <img src="/logo.png" alt="" width={88} height={88} style={{borderRadius:"50%",border:"3px solid "+t.gold,objectFit:"cover",marginBottom:"1rem",boxShadow:"0 0 28px "+t.gold+"44"}} onError={e=>{e.target.style.display="none";}}/>
+      <h1 style={{fontFamily:"Georgia,serif",fontSize:"22px",fontWeight:900,color:"#FFFFFF",margin:"0 0 4px"}}>Jiko La Bibi JJJ</h1>
+      <p style={{color:"rgba(255,255,255,0.5)",fontSize:"11px",fontFamily:"sans-serif",margin:"0 0 1.6rem",letterSpacing:"0.15em"}}>MSIMAMIZI · INGIA / SIGN IN</p>
+      <form onSubmit={go} style={{width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:12}}>
+        <input type="email" autoComplete="username" inputMode="email" autoCapitalize="none" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Barua pepe / Email" style={field}/>
+        <div style={{position:"relative"}}>
+          <input type={show?"text":"password"} autoComplete="current-password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Nywila / Password" style={{...field,paddingRight:64}}/>
+          <button type="button" onClick={()=>setShow(v=>!v)} style={{position:"absolute",right:8,top:8,bottom:8,background:"none",border:"none",color:t.gold,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"sans-serif"}}>{show?"Ficha":"Onyesha"}</button>
+        </div>
+        {err&&<p style={{color:"#ff8a8a",fontFamily:"sans-serif",fontSize:13,margin:0,textAlign:"center"}}>{err}</p>}
+        <button type="submit" disabled={busy||!email.trim()||!pw} style={{marginTop:4,padding:14,borderRadius:12,border:"none",background:(busy||!email.trim()||!pw)?"rgba(255,255,255,0.15)":"linear-gradient(135deg,"+t.gold+",#b8860b)",color:(busy||!email.trim()||!pw)?"rgba(255,255,255,0.5)":"#0B1F45",fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"sans-serif"}}>{busy?"Inaingia… / Signing in…":"Ingia / Sign in"}</button>
+      </form>
+      <p style={{color:"rgba(255,255,255,0.35)",fontSize:11,fontFamily:"sans-serif",margin:"1.4rem 0 0",textAlign:"center",maxWidth:300}}>Utaingia mara moja tu kwenye simu hii. / You only sign in once on this phone.</p>
+    </div>
+  );
+}
+
 function PinGate({onAuth}) {
   const {t} = useT();
   const [pin,setPin]=useState(""), [err,setErr]=useState(false);
@@ -3113,7 +3151,7 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
-  const {synced,lastSyncedAt} = useAdmin();
+  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut} = useAdmin();
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
@@ -3139,9 +3177,17 @@ export default function AdminPage({onExit}) {
   const ALL_TABS=[...PRIMARY_TABS,...MORE_TABS];
   const [showMore,setShowMore]=useState(false);
   const activeIsMore = MORE_TABS.some(tb=>tb.key===tab);
-  if(!authed) return (
+  // With Supabase connected: staff sign in with email + password (the session is remembered on the device).
+  // Without it (local/dev): fall back to the old PIN screen.
+  const locked = authEnabled ? !session : !authed;
+  if(authEnabled && !authReady) return (
     <ThemeCtx.Provider value={{t,dark,toggle,presenterMode,togglePresenter}}>
-      <PinGate onAuth={()=>setAuthed(true)}/>
+      <div style={{minHeight:"100vh",background:t.pinBg,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.6)",fontFamily:"sans-serif",fontSize:13}}>Inapakia… / Loading…</div>
+    </ThemeCtx.Provider>
+  );
+  if(locked) return (
+    <ThemeCtx.Provider value={{t,dark,toggle,presenterMode,togglePresenter}}>
+      {authEnabled ? <LoginGate/> : <PinGate onAuth={()=>setAuthed(true)}/>}
     </ThemeCtx.Provider>
   );
   return (
@@ -3168,7 +3214,7 @@ export default function AdminPage({onExit}) {
             </button>
             <ThemeToggle/>
             <button onClick={()=>setTab("backup")} style={{background:"none",border:"none",color:t.dim,cursor:"pointer",fontFamily:"sans-serif",fontSize:11,padding:"4px 6px",display:"flex",alignItems:"center",gap:3}} title="Backup"><i className="ti ti-cloud-download" style={{fontSize:14}}/></button>
-            <button onClick={()=>setAuthed(false)} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:11}}>Exit</button>
+            <button onClick={()=>{ if(authEnabled) signOut(); else setAuthed(false); }} title="Toka / Sign out" style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:11}}>Exit</button>
           </div>
         </div>
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
