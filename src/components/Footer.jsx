@@ -2,6 +2,9 @@ import { business } from "../data/businessConfig";
 import { useLang } from "../lang/LanguageContext";
 import { whatsappEnquiryLink } from "../utils/order";
 
+// Build label shown at the very bottom of the site so you can see which version is live.
+const SITE_VERSION = "V3.0-5 · 14 Nov 2026";
+
 export default function Footer() {
   const { lang, t } = useLang();
 
@@ -122,6 +125,7 @@ export default function Footer() {
           <span>© {new Date().getFullYear()} {business.name} · {business.city}, Tanzania</span>
           <span className="italic">Ladha ya Tanzania Katika Kila Kijiko 🇹🇿</span>
         </div>
+        <p className="mt-3 text-center text-[10px] tracking-wide text-cream/25">Build {SITE_VERSION}</p>
       </div>
     </footer>
   );
