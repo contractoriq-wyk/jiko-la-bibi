@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V2.9-1 · 14 Nov 2026, full-menu-edit";
+const APP_VERSION = "V2.9-2 · 14 Nov 2026, full-menu-edit";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 const secLabel = s => s.name.sw + " / " + s.name.en;
 // Apply Msimamizi edits (rename / emoji) on top of a built-in menu item
@@ -667,7 +667,7 @@ function LeoTab({onGoTo}) {
 /* ═══ TAB 2: INGIZA ═══ */
 function IngizaTab() {
   const {t} = useT();
-  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost,customItems,menuEdits} = useAdmin();
+  const {prices,recordSale,recordCost,allCosts,deleteCost,updateCost,customItems,menuEdits={}} = useAdmin();
   const [mode,setMode]=useState("sale");
   const [date,setDate]=useState(today());
   const [sec,setSec]=useState(sections[0].id);
@@ -1183,7 +1183,7 @@ function MalengoTab() {
 /* ═══ TAB 5: AKILI ═══ */
 function AkiliTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,menuEdits,goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,stockQty,customItems,menuEdits={},goals,setCompassTarget,includeStaffCosts,toggleIncludeStaffCosts,staff,showFullWeek,toggleShowFullWeek,closedWeekday} = useAdmin();
   const [akiliRange,setAkiliRange]=useState("30days");
   const [topItemsN,setTopItemsN]=useState(10);
   const [slowN,setSlowN]=useState(6);
@@ -2221,7 +2221,7 @@ function AkiliTab() {
 /* ═══ MENU TAB ═══ */
 function MenuTab() {
   const {t} = useT();
-  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,updateCustomItem,deleteCustomItem,stockQty,setStockQty,menuEdits,editMenuItem,resetMenuItem} = useAdmin();
+  const {prices,stock,itemCosts,overridePrice,toggleStock,setCost,customItems,addCustomItem,updateCustomItem,deleteCustomItem,stockQty,setStockQty,menuEdits={},editMenuItem,resetMenuItem} = useAdmin();
   const [ed,setEd]=useState(null);const [val,setVal]=useState("");const [ced,setCed]=useState(null);const [cv,setCv]=useState("");const [qed,setQed]=useState(null);const [qv,setQv]=useState("");
   const [showAdd,setShowAdd]=useState(false);
   const BLANK={sw:"",en:"",pr:"",ph:"",em:"🍽️",sectionName:"Bidhaa Mpya / Specials"};
