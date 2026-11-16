@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.1-5 · 15 Nov 2026, hours";
+const APP_VERSION = "V3.2-1 · 15 Nov 2026, drinks-expense";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -412,7 +412,7 @@ function EditModal({type, record, onSave, onDelete, onClose}) {
             <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} style={inp}/>
             <label style={{display:"block",fontSize:"10px",fontFamily:"sans-serif",fontWeight:700,color:t.dim2,textTransform:"uppercase",marginBottom:5}}>Category / Aina</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
-              {[["gas","Gas/Gesi"],["staff","Staff/Wafanyakazi"],["ingredients","Ingredients/Malighafi"],["rent","Rent/Pango"],["bulk_ingredients","Bulk Ingredients"],["equipment","Equipment/Vifaa"],["marketing","Marketing"],["other","Other/Nyingine"]].map(([k,l])=>(
+              {[["gas","Gas/Gesi"],["staff","Staff/Wafanyakazi"],["ingredients","Ingredients/Malighafi"],["rent","Rent/Pango"],["bulk_ingredients","Bulk Ingredients"],["bulk_cold_drinks","Cold Drinks/Baridi"],["bulk_beer","Beer/Bia"],["bulk_spirits","Gin & Spirits"],["equipment","Equipment/Vifaa"],["marketing","Marketing"],["other","Other/Nyingine"]].map(([k,l])=>(
                 <button key={k} onClick={()=>setCat(k)} style={{padding:"6px 8px",borderRadius:8,border:"1px solid "+(cat===k?t.gold:t.border),background:cat===k?t.gold+"18":"transparent",color:cat===k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"10px",fontWeight:cat===k?700:400,cursor:"pointer"}}>{l}</button>
               ))}
             </div>
@@ -462,7 +462,7 @@ function CostRow({cost, onEdit, i}) {
     <div style={{display:"flex",alignItems:"center",padding:"8px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3,gap:8}}>
       <div style={{flex:1}}>
         <span style={{fontFamily:"sans-serif",fontSize:"12px",fontWeight:700,color:t.text}}>{cost.description}</span>
-        <span style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,marginLeft:5}}>{cost.cost_date} · {cost.category}</span>
+        <span style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,marginLeft:5}}>{cost.cost_date} · {COST_CAT_LABEL[cost.category]||cost.category}</span>
         {isBulk&&<span style={{fontFamily:"sans-serif",fontSize:"8px",fontWeight:700,color:t.bl,background:t.bl+"18",borderRadius:4,padding:"1px 5px",marginLeft:4}}>BULK</span>}
       </div>
       <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.rd}}>{fmt(cost.amount)}</span>
@@ -472,6 +472,19 @@ function CostRow({cost, onEdit, i}) {
 }
 
 /* ═══ PIN GATE ═══ */
+/* ═══ EXPENSE CATEGORY LABELS (shared by the Input tab, edit window, lists and reports) ═══ */
+const BEV_CATS=[
+  {k:"bulk_cold_drinks",l:"🥤 Cold Drinks / Vinywaji Baridi"},
+  {k:"bulk_beer",l:"🍺 Beer / Bia"},
+  {k:"bulk_spirits",l:"🥃 Gin & Spirits / Pombe Kali"},
+];
+const COST_CAT_LABEL={
+  gas:"Gas/Gesi",staff:"Staff/Wafanyakazi",ingredients:"Ingredients/Malighafi",bulk_ingredients:"Bulk Ingredients",
+  rent:"Rent/Pango",equipment:"Equipment/Vifaa",marketing:"Marketing",other:"Nyingine/Other",bulk_other:"Other Bulk",
+  bulk_cold_drinks:"Cold Drinks/Vinywaji Baridi",bulk_beer:"Beer/Bia",bulk_spirits:"Gin & Spirits/Pombe Kali",
+  matengenezo:"Matengenezo/Maintenance",
+};
+
 /* ═══ STAFF LOGIN (Supabase Auth) ═══ */
 // The 4-digit PIN signs in to one shared Supabase account; the real check happens on Supabase's server.
 const OWNER_LOGIN_EMAIL="msimamizi@jikolabibijjj.com";
@@ -818,7 +831,7 @@ function IngizaTab() {
   const isToday=date===today();
   const recentCosts=allCosts.filter(c=>c.cost_date===date).slice(0,10);
   const DCATS=[{k:"gas",l:"Gas/Gesi"},{k:"staff",l:"Staff/Wafanyakazi"},{k:"ingredients",l:"Ingredients/Malighafi"},{k:"rent",l:"Rent/Pango"},{k:"matengenezo",l:"Matengenezo/Maintenance"},{k:"vifaa",l:"Vifaa/Materials"},{k:"contractor",l:"Mkandarasi/Contractor"},{k:"other",l:"Other/Nyingine"}];
-  const BCATS=[{k:"bulk_ingredients",l:"Bulk Ingredients"},{k:"equipment",l:"Equipment/Vifaa"},{k:"marketing",l:"Marketing"},{k:"bulk_other",l:"Other Bulk"}];
+  const BCATS=[{k:"bulk_ingredients",l:"🍚 Bulk Ingredients"},...BEV_CATS,{k:"equipment",l:"🔧 Equipment/Vifaa"},{k:"marketing",l:"📣 Marketing"},{k:"bulk_other",l:"📦 Other Bulk"}];
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
   async function doSale(){if(!item||saleBusy)return;setSaleBusy(true);await recordSale(item,qty,svc,date);setItem(null);setQty(1);setSaleBusy(false);setSaleOk(true);setTimeout(()=>setSaleOk(false),2000);}
   async function doCost(){if(!amount||costBusy)return;setCostBusy(true);await recordCost(cat,desc,amount,date,costType);setAmount("");setDesc("");setCostBusy(false);setCostOk(true);setTimeout(()=>setCostOk(false),2000);}
@@ -826,7 +839,7 @@ function IngizaTab() {
     <div style={{padding:"1rem"}}>
       <Card glow={!isToday} style={{padding:"1rem"}}>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:isToday?t.gr:t.gold,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>{isToday?"Today / Leo":"Past Date / Tarehe Iliyopita"}</p>
-        <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{...inp,border:"2px solid "+(isToday?t.gr:t.gold),fontWeight:700,fontSize:14,marginBottom:0}}/>
+        <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{...inp,border:"2px solid "+(isToday?t.gr:t.gold),fontWeight:700,fontSize:14,marginBottom:0,display:"block",minWidth:0,maxWidth:"100%",WebkitAppearance:"none",appearance:"none",minHeight:44}}/>
         {!isToday&&<p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.gold,marginTop:5,marginBottom:0}}>Entering data for: {date}</p>}
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,margin:"10px 0"}}>
@@ -874,15 +887,16 @@ function IngizaTab() {
             <button onClick={()=>{setCostType("bulk");setCat("bulk_ingredients");}} style={{padding:10,borderRadius:10,border:"1.5px solid "+(costType==="bulk"?t.pu:t.border),background:costType==="bulk"?t.pu+"15":"transparent",color:costType==="bulk"?t.pu:t.dim2,fontFamily:"sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>Bulk / Jumla</button>
           </div>
           <div style={{background:t.bg4,borderRadius:8,padding:"6px 10px",marginBottom:10,fontFamily:"sans-serif",fontSize:"10px",color:t.dim2}}>
-            {costType==="daily"?"Daily costs: gas, staff wages, small ingredients, rent.":"One-time bulk: large ingredient orders, equipment, marketing."}
+            {costType==="daily"?"Daily costs: gas, staff wages, small ingredients, rent.":"One-time bulk: big ingredient orders, drinks stock (cold drinks, beer, gin), equipment, marketing."}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}}>
-            {(costType==="daily"?DCATS:BCATS).map(c=><button key={c.k} onClick={()=>setCat(c.k)} style={{padding:"7px 8px",borderRadius:8,border:"1px solid "+(cat===c.k?t.gold:t.border),background:cat===c.k?t.gold+"18":"transparent",color:cat===c.k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"10px",fontWeight:cat===c.k?700:400,cursor:"pointer"}}>{c.l}</button>)}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+            {(costType==="daily"?DCATS:BCATS).map(c=>{const isBev=c.k.startsWith("bulk_")&&BEV_CATS.some(x=>x.k===c.k);return <button key={c.k} onClick={()=>setCat(c.k)} style={{padding:"9px 8px",minHeight:42,borderRadius:10,border:"1.5px solid "+(cat===c.k?t.gold:t.border),background:cat===c.k?t.gold+"18":(isBev?t.pu+"0d":"transparent"),color:cat===c.k?t.gold:t.dim2,fontFamily:"sans-serif",fontSize:"11px",lineHeight:1.2,fontWeight:cat===c.k?700:500,cursor:"pointer",minWidth:0,overflowWrap:"anywhere"}}>{c.l}</button>;})}
           </div>
-          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Maelezo Kamili / Full description (e.g. Mkaa 10kg, Fundi Umeme - Switch)" style={{...inp,marginBottom:8,borderColor:!desc?t.gold+"55":t.border}}/>{!desc&&<p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.gold,margin:"-3px 0 7px",fontStyle:"italic"}}>💡 Andika maelezo kamili kwa ripoti bora / Write full description for clearer reports</p>}
-          <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount / Kiasi (TZS)" style={{...inp,marginBottom:10}}/>
-          <button onClick={doCost} disabled={costBusy||!amount} style={{width:"100%",background:costOk?"linear-gradient(135deg,"+t.gr+",#009940)":!amount?t.bg4:"linear-gradient(135deg,"+t.rd+",#a80018)",color:!amount?t.dim2:"#fff",border:"none",borderRadius:12,padding:13,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:!amount?"default":"pointer",transition:"all 0.3s"}}>
-            {costOk?"✓ Saved!":costBusy?"Saving...":"SAVE EXPENSE / HIFADHI GHARAMA"}
+          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder={BEV_CATS.some(x=>x.k===cat)?"Maelezo / Details (e.g. Kreti 5 Kilimanjaro, Soda kreti 3)":"Maelezo Kamili / Full description (e.g. Mkaa 10kg, Fundi Umeme - Switch)"} style={{...inp,marginBottom:8,minHeight:44,borderColor:!desc?t.gold+"55":t.border}}/>{!desc&&<p style={{fontFamily:"sans-serif",fontSize:"10px",color:t.gold,margin:"-3px 0 8px",fontStyle:"italic"}}>💡 Andika maelezo kamili kwa ripoti bora / Write full description for clearer reports</p>}
+          <input type="number" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount / Kiasi (TZS)" style={{...inp,marginBottom:6,minHeight:44}}/>
+          <p style={{fontFamily:"Georgia,serif",fontSize:"15px",fontWeight:700,color:amount?t.rd:t.dim2,margin:"0 0 12px",minHeight:20}}>{amount?fmt(parseInt(amount)||0):"\u00a0"}</p>
+          <button onClick={doCost} disabled={costBusy||!amount} style={{width:"100%",background:costOk?"linear-gradient(135deg,"+t.gr+",#009940)":!amount?t.bg4:"linear-gradient(135deg,"+t.rd+",#a80018)",color:!amount?t.dim2:"#fff",border:"none",borderRadius:12,padding:14,minHeight:48,fontFamily:"sans-serif",fontSize:14,fontWeight:700,cursor:!amount?"default":"pointer",transition:"all 0.3s"}}>
+            {costOk?"✓ Saved! / Imehifadhiwa!":costBusy?"Saving...":"SAVE EXPENSE / HIFADHI GHARAMA"}
           </button>
         </Card>
       )}
@@ -1334,6 +1348,7 @@ function AkiliTab() {
     gas:"Gas/Gesi", staff:"Staff/Wafanyakazi", ingredients:"Ingredients/Malighafi",
     bulk_ingredients:"Ingredients/Malighafi", rent:"Rent/Pango",
     equipment:"Equipment/Vifaa", marketing:"Marketing", other:"Nyingine/Other",
+    bulk_cold_drinks:"Vinywaji Baridi/Cold Drinks", bulk_beer:"Bia/Beer", bulk_spirits:"Pombe Kali/Gin & Spirits",
   };
   const costMap=useMemo(()=>{
     const staffNameSet = new Set((staff||[]).map(s=>s.name));
@@ -3206,23 +3221,23 @@ export default function AdminPage({onExit}) {
   );
   return (
     <ThemeCtx.Provider value={{t,dark,toggle,presenterMode,togglePresenter}}>
-      <div style={{minHeight:"100vh",background:t.bg,paddingBottom:80}}>
-        <div style={{background:t.header,borderBottom:"1px solid "+t.border,padding:"11px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,backdropFilter:"blur(12px)"}}>
-          <button onClick={onExit} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,display:"flex",alignItems:"center",gap:5}}><i className="ti ti-arrow-left"/> Back</button>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{minHeight:"100vh",background:t.bg,paddingBottom:80,maxWidth:"100vw",overflowX:"clip"}}>
+        <div style={{background:t.header,borderBottom:"1px solid "+t.border,padding:"0 12px",height:48,boxSizing:"border-box",gap:8,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,backdropFilter:"blur(12px)"}}>
+          <button onClick={onExit} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,display:"flex",alignItems:"center",gap:5,flexShrink:0,padding:"4px 2px"}}><i className="ti ti-arrow-left"/> Back</button>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"stretch",flex:1,minWidth:0,textAlign:"center",whiteSpace:"nowrap",overflow:"hidden"}}>
             <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Msimamizi 🔐</span>
-            <span style={{fontFamily:"sans-serif",fontSize:8,color:t.dim2,letterSpacing:"0.3px"}}>{APP_VERSION}</span>
-            <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.3px",display:"flex",alignItems:"center",gap:3,marginTop:1,color:synced?t.gr:t.gold}}>
-              <span style={{width:5,height:5,borderRadius:"50%",background:synced?t.gr:t.gold,display:"inline-block"}}/>
-              {synced?"Imesawazishwa / Synced":"Inasawazisha... / Syncing..."}
+            <span style={{fontFamily:"sans-serif",fontSize:8,color:t.dim2,letterSpacing:"0.3px",overflow:"hidden",textOverflow:"ellipsis"}}>{APP_VERSION}</span>
+            <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.3px",display:"block",marginTop:1,color:synced?t.gr:t.gold,overflow:"hidden",textOverflow:"ellipsis"}}>
+              <span style={{width:5,height:5,borderRadius:"50%",background:synced?t.gr:t.gold,display:"inline-block",marginRight:4,verticalAlign:"middle"}}/>
+              {synced?"Imesawazishwa":"Inasawazisha..."}
               {synced && lastSyncedAt && (
                 <span style={{color:t.dim2}}>
-                  · {lastSyncedAt.toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})} ET
+                  · {lastSyncedAt.toLocaleString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"})} ET
                 </span>
               )}
             </span>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
             <button onClick={togglePresenter} title={presenterMode?"Presenter Mode: ON — tap to show real numbers":"Presenter Mode: OFF — tap to hide real numbers for demos"} style={{background:presenterMode?t.gold+"20":"none",border:presenterMode?"1px solid "+t.gold+"55":"1px solid transparent",borderRadius:8,color:presenterMode?t.gold:t.dim,cursor:"pointer",fontFamily:"sans-serif",fontSize:10,padding:"4px 7px",display:"flex",alignItems:"center",gap:4,fontWeight:presenterMode?700:400}}>
               <i className={"ti "+(presenterMode?"ti-eye-off":"ti-eye")} style={{fontSize:14}}/>{presenterMode?"Presenter":""}
             </button>
