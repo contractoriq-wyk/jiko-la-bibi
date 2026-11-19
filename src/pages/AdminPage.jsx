@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.2-7 · 18 Nov 2026, drinks-vs-food-flags";
+const APP_VERSION = "V3.2-8 · 18 Nov 2026, glow-alerts-spirits";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -665,7 +665,7 @@ function ReportPreviewModal({text, onClose}) {
 
 
 /* ═══ TAB 1: LEO ═══ */
-function LeoTab({onGoTo}) {
+function LeoTab({onGoTo,flags=[]}) {
   const {t, presenterMode} = useT();
   const {todaySales,todayGross,todayNet,todayOverhead,todayCosts,goals,updateSale,deleteSale,updateCost,deleteCost,allSales,allCosts,fetchRange,customItems} = useAdmin();
   const [editRec,setEditRec]=useState(null);
@@ -721,6 +721,15 @@ function LeoTab({onGoTo}) {
   if(todayOverhead>todayGross*0.5&&todayGross>0) alerts.push({c:t.rd,msg:"Expenses > 50% of revenue today / Gharama zaidi ya nusu ya mapato leo."});
   return (
     <div style={{padding:"1rem"}}>
+      {flags.length>0&&(()=>{const warn=flags.some(f=>f.c==="warn");const gc=warn?"#ffb300":"#2ecc71";return (
+        <button className="jiko-glow" onClick={()=>onGoTo("akili")} style={{"--glow":gc,display:"block",width:"100%",textAlign:"left",cursor:"pointer",background:gc+"18",border:"2px solid "+gc,borderRadius:14,padding:"11px 13px",marginBottom:10,fontFamily:"sans-serif",color:t.text}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:5}}>
+            <span style={{fontSize:11,fontWeight:800,letterSpacing:"0.5px",textTransform:"uppercase",color:warn?"#b36b00":"#1b8a4a"}}>🔔 Tahadhari / Alert · Chakula vs Vinywaji</span>
+            <span style={{fontSize:10,fontWeight:700,color:t.dim2,flexShrink:0}}>Akili ›</span>
+          </div>
+          {flags.slice(0,2).map((f,i)=><div key={i} style={{fontSize:12,lineHeight:1.45,marginTop:i?5:0}}>{f.msg}</div>)}
+          {flags.length>2&&<div style={{fontSize:10,color:t.dim2,marginTop:5}}>+{flags.length-2} zaidi / more — bonyeza / tap</div>}
+        </button>);})()}
       <div style={{background:t.heroBg,borderRadius:16,padding:"1.4rem",marginBottom:10,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,"+t.gold+","+t.gr+","+t.gold+")"}}/>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:"rgba(255,255,255,0.5)",margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"2px"}}>Mapato ya Leo / Today's Revenue</p>
@@ -992,6 +1001,35 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
 }
 
 /* ═══ TAB 3: RIPOTI ═══ */
+function computeWeekCmp(allSales,customItems){
+    const addD=(str,n)=>{const d=new Date(str+"T12:00:00");d.setDate(d.getDate()+n);return dateStrET(d);};
+    const tdy=today(); const dow=new Date(tdy+"T12:00:00").getDay(); // 0=Sun
+    const sinceMon=dow===0?6:dow-1;
+    const thisStart=addD(tdy,-sinceMon), lastStart=addD(thisStart,-7), lastSame=addD(lastStart,sinceMon), lastEnd=addD(lastStart,6);
+    const inR=(a,b)=>allSales.filter(r=>r.sale_date>=a&&r.sale_date<=b);
+    const cur=computeCatMix(inR(thisStart,tdy),[],customItems);
+    const prevSame=computeCatMix(inR(lastStart,lastSame),[],customItems);
+    const prevFull=computeCatMix(inR(lastStart,lastEnd),[],customItems);
+    return {cur,prevSame,prevFull,thisStart,lastStart,lastSame,lastEnd,days:sinceMon+1};
+}
+function buildMixFlags(wk){
+  const out=[];
+  {
+    const cw=wk.cur, pw=wk.prevSame;
+    const foodC=cw.m.food.rev, foodP=pw.m.food.rev, bevC=cw.bev, bevP=pw.bev;
+    if(cw.total>0&&pw.total>0&&foodP>0&&bevP>0){
+      const fg=Math.round((foodC-foodP)/foodP*100), bg=Math.round((bevC-bevP)/bevP*100), gap=bg-fg;
+      if(gap>=15) out.push({glow:true,c:bg>0?"good":"warn",msg:"🥂 Vinywaji vinakua haraka kuliko chakula wiki hii / Drinks are growing faster than food this week ("+(bg>0?"+":"")+bg+"% vs "+(fg>0?"+":"")+fg+"%)."+(fg<0?" Chakula kinashuka — angalia menyu ya chakula na bei. / Food is slipping — check the food menu and prices.":" Hakikisha jikoni inaendana na kasi ya baa. / Make sure the kitchen keeps pace with the bar.")});
+      else if(gap<=-15) out.push({glow:true,c:fg>0?"good":"warn",msg:"🍛 Chakula kinakua haraka kuliko vinywaji wiki hii / Food is growing faster than drinks this week ("+(fg>0?"+":"")+fg+"% vs "+(bg>0?"+":"")+bg+"%)."+(bg<0?" Vinywaji vinashuka — angalia stock na bei za baa. / Drinks are slipping — check bar stock and prices.":" Fikiria kuuza vinywaji pamoja na chakula. / Consider pairing drinks with meals.")});
+      const sh=Math.round(bevC/cw.total*100), shP=Math.round(bevP/pw.total*100);
+      if(Math.abs(sh-shP)>=10) out.push({glow:true,c:"info",msg:"📊 Sehemu ya vinywaji kwenye mauzo imebadilika: "+shP+"% → "+sh+"% (wiki iliyopita → hii). / Beverage share of sales moved from "+shP+"% to "+sh+"%."});
+      const alcC=cw.alc, alcP=pw.alc;
+      if(alcP>0&&alcC>0){ const ag=Math.round((alcC-alcP)/alcP*100); if(ag-fg>=25&&ag>=20) out.push({glow:true,c:"info",msg:"🍺 Pombe inakua kwa +"+ag+"% (chakula "+(fg>0?"+":"")+fg+"%). Hakikisha stock ya bia/pombe kali inatosha. / Alcohol is up +"+ag+"% — make sure beer/spirits stock keeps up."}); }
+    } else if(cw.total>0&&pw.total>0&&foodP===0&&bevP>0&&foodC>0) out.push({glow:true,c:"good",msg:"🍛 Chakula kimeanza kuuzwa wiki hii baada ya wiki iliyopita kuwa bila chakula. / Food sales picked up this week after none in the same days last week."});
+    else if(cw.total>0&&pw.total>0&&bevP===0&&bevC>0&&foodP>0) out.push({glow:true,c:"good",msg:"🥂 Vinywaji vimeanza kuuzwa wiki hii (wiki iliyopita hakukuwa na). / Drink sales started this week (none in the same days last week)."});
+  }
+  return out;
+}
 function deltaPct(cur,prev){ if(prev>0) return Math.round((cur-prev)/prev*100); return cur>0?null:0; }
 function computeCatMix(sales,costs,customItems){
   const cm={};(customItems||[]).forEach(c=>{cm[c.id]=c.sectionName||"";});
@@ -1489,19 +1527,9 @@ function AkiliTab() {
   },[s30,c30,customSecMap]);
   const [topFilter,setTopFilter]=useState("all");
   const itemCls=useMemo(()=>{const o={};s30.forEach(r=>{if(!(r.item_id in o))o[r.item_id]=classifyItem(r.item_id,r.section_id,r.item_name,customSecMap);});return o;},[s30,customSecMap]);
-  const itemsView=itemStats.filter(i=>{const c=itemCls[i.id]||"food";return topFilter==="all"||(topFilter==="food"&&c==="food")||(topFilter==="soft"&&c==="soft")||(topFilter==="alc"&&(c==="beer"||c==="spirits"));});
+  const itemsView=itemStats.filter(i=>{const c=itemCls[i.id]||"food";return topFilter==="all"||topFilter===c;});
   // Wiki Hii vs Wiki Iliyopita — like-for-like (same weekdays), Monday-start
-  const wkCmp=useMemo(()=>{
-    const addD=(str,n)=>{const d=new Date(str+"T12:00:00");d.setDate(d.getDate()+n);return dateStrET(d);};
-    const tdy=today(); const dow=new Date(tdy+"T12:00:00").getDay(); // 0=Sun
-    const sinceMon=dow===0?6:dow-1;
-    const thisStart=addD(tdy,-sinceMon), lastStart=addD(thisStart,-7), lastSame=addD(lastStart,sinceMon), lastEnd=addD(lastStart,6);
-    const inR=(a,b)=>allSales.filter(r=>r.sale_date>=a&&r.sale_date<=b);
-    const cur=computeCatMix(inR(thisStart,tdy),[],customItems);
-    const prevSame=computeCatMix(inR(lastStart,lastSame),[],customItems);
-    const prevFull=computeCatMix(inR(lastStart,lastEnd),[],customItems);
-    return {cur,prevSame,prevFull,thisStart,lastStart,lastSame,lastEnd,days:sinceMon+1};
-  },[allSales,customItems]);
+  const wkCmp=useMemo(()=>computeWeekCmp(allSales,customItems),[allSales,customItems]);
   useEffect(()=>{ const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); fetchRange(dateStrET(d),today()); },[]);
   const svcMap=useMemo(()=>{const m={pickup:0,delivery:0,dinein:0};s30.forEach(s=>{m[s.service_type]=(m[s.service_type]||0)+s.total_price;});return m;},[s30]);
   const CATEGORY_LABELS = {
@@ -1721,21 +1749,7 @@ function AkiliTab() {
   itemStats.filter(i=>i.margin<0&&i.qty>0).slice(0,2).forEach(i=>insights.push({c:"danger",msg:i.name+" is losing money (margin "+i.margin+"%). Raise price or stop selling."}));
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
   if(costs>gross*0.6&&gross>0)insights.push({c:"warn",msg:"Expenses are "+Math.round(costs/gross*100)+"% of revenue. Reduce costs to increase profit."});
-  // Chakula vs Vinywaji momentum — flags when one side is growing clearly faster (like-for-like with last week)
-  {
-    const cw=wkCmp.cur, pw=wkCmp.prevSame;
-    const foodC=cw.m.food.rev, foodP=pw.m.food.rev, bevC=cw.bev, bevP=pw.bev;
-    if(cw.total>0&&pw.total>0&&foodP>0&&bevP>0){
-      const fg=Math.round((foodC-foodP)/foodP*100), bg=Math.round((bevC-bevP)/bevP*100), gap=bg-fg;
-      if(gap>=15) insights.push({c:bg>0?"good":"warn",msg:"🥂 Vinywaji vinakua haraka kuliko chakula wiki hii / Drinks are growing faster than food this week ("+(bg>0?"+":"")+bg+"% vs "+(fg>0?"+":"")+fg+"%)."+(fg<0?" Chakula kinashuka — angalia menyu ya chakula na bei. / Food is slipping — check the food menu and prices.":" Hakikisha jikoni inaendana na kasi ya baa. / Make sure the kitchen keeps pace with the bar.")});
-      else if(gap<=-15) insights.push({c:fg>0?"good":"warn",msg:"🍛 Chakula kinakua haraka kuliko vinywaji wiki hii / Food is growing faster than drinks this week ("+(fg>0?"+":"")+fg+"% vs "+(bg>0?"+":"")+bg+"%)."+(bg<0?" Vinywaji vinashuka — angalia stock na bei za baa. / Drinks are slipping — check bar stock and prices.":" Fikiria kuuza vinywaji pamoja na chakula. / Consider pairing drinks with meals.")});
-      const sh=Math.round(bevC/cw.total*100), shP=Math.round(bevP/pw.total*100);
-      if(Math.abs(sh-shP)>=10) insights.push({c:"info",msg:"📊 Sehemu ya vinywaji kwenye mauzo imebadilika: "+shP+"% → "+sh+"% (wiki iliyopita → hii). / Beverage share of sales moved from "+shP+"% to "+sh+"%."});
-      const alcC=cw.alc, alcP=pw.alc;
-      if(alcP>0&&alcC>0){ const ag=Math.round((alcC-alcP)/alcP*100); if(ag-fg>=25&&ag>=20) insights.push({c:"info",msg:"🍺 Pombe inakua kwa +"+ag+"% (chakula "+(fg>0?"+":"")+fg+"%). Hakikisha stock ya bia/pombe kali inatosha. / Alcohol is up +"+ag+"% — make sure beer/spirits stock keeps up."}); }
-    } else if(cw.total>0&&pw.total>0&&foodP===0&&bevP>0&&foodC>0) insights.push({c:"good",msg:"🍛 Chakula kimeanza kuuzwa wiki hii baada ya wiki iliyopita kuwa bila chakula. / Food sales picked up this week after none in the same days last week."});
-    else if(cw.total>0&&pw.total>0&&bevP===0&&bevC>0&&foodP>0) insights.push({c:"good",msg:"🥂 Vinywaji vimeanza kuuzwa wiki hii (wiki iliyopita hakukuwa na). / Drink sales started this week (none in the same days last week)."});
-  }
+  buildMixFlags(wkCmp).slice().reverse().forEach(f=>insights.unshift(f));
   if(!Object.keys(itemCosts).length)insights.push({c:"info",msg:"Set item cooking costs in Menu tab to see true profit margins."});
 
   const [akiliPreview,setAkiliPreview]=useState(null);
@@ -2582,7 +2596,7 @@ function AkiliTab() {
           {itemsView.length>5 && <CountSelector value={topItemsN} onChange={setTopItemsN} total={itemsView.length}/>}
         </div>
         {catMix.bev>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-          {[["all","Zote / All"],["food","🍛 Chakula"],["soft","🥤 Bila Pombe"],["alc","🍺 Pombe"]].map(([k,l])=>(
+          {[["all","Zote / All"],["food","🍛 Chakula"],["soft","🥤 Bila Pombe"],["beer","🍺 Bia"],["spirits","🥃 Pombe Kali"]].map(([k,l])=>(
             <button key={k} onClick={()=>setTopFilter(k)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+(topFilter===k?t.gold:t.border||"#ccc"),background:topFilter===k?t.gold+"22":"transparent",color:topFilter===k?t.gold:t.dim2}}>{l}</button>
           ))}
         </div>}
@@ -2611,7 +2625,7 @@ function AkiliTab() {
       </Card>}
       {insights.length>0&&<div>
         <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Business Insights / Ushauri</p>
-        {insights.map((ins,i)=><div key={i} style={{background:ins.c==="good"?t.gr+"12":ins.c==="danger"?t.rd+"12":ins.c==="warn"?t.gold+"12":t.bl+"12",borderLeft:"3px solid "+(ins.c==="good"?t.gr:ins.c==="danger"?t.rd:ins.c==="warn"?t.gold:t.bl),borderRadius:"0 10px 10px 0",padding:"9px 13px",marginBottom:6,fontFamily:"sans-serif",fontSize:"12px",color:t.text,lineHeight:1.5}}>{ins.msg}</div>)}
+        {insights.map((ins,i)=><div key={i} className={ins.glow?"jiko-glow":undefined} style={{...(ins.glow?{"--glow":ins.c==="warn"?"#ffb300":"#2ecc71"}:{}),background:ins.c==="good"?t.gr+"12":ins.c==="danger"?t.rd+"12":ins.c==="warn"?t.gold+"12":t.bl+"12",borderLeft:"3px solid "+(ins.c==="good"?t.gr:ins.c==="danger"?t.rd:ins.c==="warn"?t.gold:t.bl),borderRadius:"0 10px 10px 0",padding:"9px 13px",marginBottom:6,fontFamily:"sans-serif",fontSize:"12px",color:t.text,lineHeight:1.5}}>{ins.msg}</div>)}
       </div>}
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <button onClick={sendAkiliReport} style={{flex:1,background:"rgba(37,211,102,0.12)",color:"#25d366",border:"1px solid rgba(37,211,102,0.3)",borderRadius:12,padding:12,fontFamily:"sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -3478,7 +3492,11 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
-  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut,signIn} = useAdmin();
+  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut,signIn,allSales:rootSales,customItems:rootCustom,fetchRange:rootFetch} = useAdmin();
+  // Glowing Chakula-vs-Vinywaji alerts: load the last ~16 days once signed in, then compute flags
+  const uid=session?.user?.id||"";
+  useEffect(()=>{ if(!uid) return; const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); rootFetch(dateStrET(d),today()); },[uid]);
+  const mixFlags=useMemo(()=>buildMixFlags(computeWeekCmp(rootSales||[],rootCustom||[])),[rootSales,rootCustom]);
   const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
@@ -3521,6 +3539,7 @@ export default function AdminPage({onExit}) {
   return (
     <ThemeCtx.Provider value={{t,dark,toggle,presenterMode,togglePresenter}}>
       <div style={{minHeight:"100vh",background:t.bg,paddingBottom:80,maxWidth:"100vw",overflowX:"clip"}}>
+        <style>{`@keyframes jikoGlow{0%,100%{box-shadow:0 0 6px 1px var(--glow,#ffb300)}50%{box-shadow:0 0 20px 5px var(--glow,#ffb300)}}@keyframes jikoPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.55}}.jiko-glow{animation:jikoGlow 1.6s ease-in-out infinite}.jiko-pulse{animation:jikoPulse 1.2s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.jiko-glow,.jiko-pulse{animation:none}.jiko-glow{box-shadow:0 0 12px 3px var(--glow,#ffb300)}}`}</style>
         <div style={{background:t.header,borderBottom:"1px solid "+t.border,padding:"0 12px",height:48,boxSizing:"border-box",gap:8,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,backdropFilter:"blur(12px)"}}>
           <button onClick={onExit} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,display:"flex",alignItems:"center",gap:5,flexShrink:0,padding:"4px 2px"}}><i className="ti ti-arrow-left"/> Back</button>
           <div style={{display:"flex",flexDirection:"column",alignItems:"stretch",flex:1,minWidth:0,textAlign:"center",whiteSpace:"nowrap",overflow:"hidden"}}>
@@ -3546,7 +3565,8 @@ export default function AdminPage({onExit}) {
           </div>
         </div>
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
-          {PRIMARY_TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+          {PRIMARY_TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{position:"relative",flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+            {tb.key==="akili"&&mixFlags.length>0&&tab!=="akili"&&<span className="jiko-pulse" aria-label="alert" style={{position:"absolute",top:4,right:8,width:10,height:10,borderRadius:"50%",background:mixFlags.some(f=>f.c==="warn")?"#ffb300":"#2ecc71",boxShadow:"0 0 8px 2px "+(mixFlags.some(f=>f.c==="warn")?"#ffb300":"#2ecc71")}}/>}
             <i className={"ti "+tb.icon} style={{fontSize:17,color:tab===tb.key?t.gold:t.dim2}}/>
             <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:tab===tb.key?t.gold:t.text,whiteSpace:"nowrap"}}>{tb.label}</span>
             <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:tab===tb.key?t.gold:t.dim,whiteSpace:"nowrap"}}>{tb.sub}</span>
@@ -3574,7 +3594,7 @@ export default function AdminPage({onExit}) {
             </div>
           </div>
         )}
-        {tab==="leo"    &&<LeoTab onGoTo={setTab}/>}
+        {tab==="leo"    &&<LeoTab onGoTo={setTab} flags={mixFlags}/>}
         {tab==="ingiza" &&<IngizaTab/>}
         {tab==="ripoti" &&<RipodiTab/>}
         {tab==="malengo"&&<MalengoTab/>}
