@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.6-2 · 19 Nov 2026, applicant-source";
+const APP_VERSION = "V3.6-3 · 19 Nov 2026, applicant-whatsapp";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3060,6 +3060,8 @@ function waPhone(p){
   else if(d.length===9&&/^[67]/.test(d)) d="255"+d;
   return d.length>=11?d:"";
 }
+// Which number to message an applicant on: their stated WhatsApp number, else the phone they gave. "no" = no WhatsApp (use SMS).
+function appWaNum(r){ const w=String(r.whatsapp||""); if(w==="no") return ""; if(w&&w!=="yes") return waPhone(w)||waPhone(r.phone); return waPhone(r.phone); }
 function niceDate(d){ try{ return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch{ return d; } }
 function buildNotice(k,{name,role,reason,date,when,days,paid,payNote}){
   const who="Kwa / To: *"+name+"*"+(role?" ("+role+")":"")+"\nTarehe / Date: "+niceDate(date);
@@ -3511,11 +3513,11 @@ function ApplicantsTab({onCount}) {
   }
   function startCompose(r,kind){ setOpen({id:r.id,kind}); setWhen(""); setEdit(null); }
   function send(r){
-    const num=waPhone(r.phone); if(!num) return;
+    const sms=r.whatsapp==="no"; const num=sms?waPhone(r.phone):appWaNum(r); if(!num) return;
     const kind=open.kind; const text=edit!==null?edit:applicantMsg(kind,r,when,place);
     if(kind==="interview") patch(r.id,{status:"interview",interview_at:when,contacted_at:new Date().toISOString()});
     else patch(r.id,{status:"not_now",contacted_at:new Date().toISOString()});
-    window.open("https://wa.me/"+num+"?text="+encodeURIComponent(text),"_blank");
+    window.open(sms?("sms:+"+num+"?body="+encodeURIComponent(text)):("https://wa.me/"+num+"?text="+encodeURIComponent(text)),"_blank");
     setOpen(null);
   }
 
@@ -3561,7 +3563,7 @@ function ApplicantsTab({onCount}) {
       {err&&<Card style={{padding:"1rem",marginBottom:10}}><p style={{fontFamily:"sans-serif",fontSize:12,color:t.rd,margin:0,lineHeight:1.6}}>⚠️ Jedwali la waombaji bado halijaundwa. Endesha <b>migration_job_applicants.sql</b> kwenye Supabase SQL editor mara moja. / The applicants table is not set up yet — run <b>migration_job_applicants.sql</b> once in the Supabase SQL editor.<br/><span style={{color:t.dim2,fontSize:10}}>{err}</span></p></Card>}
       {!loading&&!err&&shown.length===0&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center",padding:"1.5rem 0"}}>Hakuna waombaji hapa bado. / No applicants here yet.</p>}
       {shown.map(r=>{
-        const st=APP_STATUS[r.status]||APP_STATUS.new; const col=t[st.c]; const num=waPhone(r.phone); const isOpen=open&&open.id===r.id;
+        const st=APP_STATUS[r.status]||APP_STATUS.new; const col=t[st.c]; const noWa=r.whatsapp==="no"; const num=noWa?waPhone(r.phone):appWaNum(r); const isOpen=open&&open.id===r.id;
         const msg=isOpen?(edit!==null?edit:applicantMsg(open.kind,r,when,place)):"";
         return (
         <Card key={r.id} style={{padding:"12px 14px",marginBottom:10,borderLeft:"3px solid "+col}}>
@@ -3570,6 +3572,8 @@ function ApplicantsTab({onCount}) {
               <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{r.name}</div>
               <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{r.role_wanted||"—"}</div>
               <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:1}}>📞 {r.phone||"—"}{r.area?" · 📍 "+r.area:""}</div>
+              {noWa&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginTop:2,fontWeight:700}}>📵 Hana WhatsApp — tumia SMS / No WhatsApp — use SMS</div>}
+              {r.whatsapp&&r.whatsapp!=="yes"&&r.whatsapp!=="no"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",marginTop:2,fontWeight:700}}>💬 WhatsApp ni namba nyingine: {r.whatsapp}</div>}
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
               <span style={{fontSize:9,fontWeight:800,color:col,background:col+"18",padding:"2px 8px",borderRadius:5,textTransform:"uppercase"}}>{st.icon} {st.sw}</span>
@@ -3591,7 +3595,7 @@ function ApplicantsTab({onCount}) {
             <textarea value={msg} onChange={e=>setEdit(e.target.value)} rows={8} style={{...inp,fontSize:11,lineHeight:1.45,resize:"vertical"}}/>
             {!num&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginBottom:6}}>Namba ya simu si sahihi — hariri au piga simu. / Phone number looks invalid.</div>}
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>send(r)} disabled={!num||(open.kind==="interview"&&!when.trim())} style={{flex:1,background:(!num||(open.kind==="interview"&&!when.trim()))?t.bg:"#25D366",color:(!num||(open.kind==="interview"&&!when.trim()))?t.dim2:"#fff",border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:"pointer"}}>📲 Tuma WhatsApp / Send</button>
+              <button onClick={()=>send(r)} disabled={!num||(open.kind==="interview"&&!when.trim())} style={{flex:1,background:(!num||(open.kind==="interview"&&!when.trim()))?t.bg:"#25D366",color:(!num||(open.kind==="interview"&&!when.trim()))?t.dim2:"#fff",border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:"pointer"}}>{noWa?"📲 Tuma SMS / Send SMS":"📲 Tuma WhatsApp / Send"}</button>
               <button onClick={()=>setOpen(null)} style={{background:t.bg,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"10px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
             </div>
           </div>}
@@ -3602,7 +3606,9 @@ function ApplicantsTab({onCount}) {
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6,alignItems:"center"}}>
             {r.phone&&<a href={"tel:"+r.phone.replace(/[^0-9+]/g,"")} style={{fontFamily:"sans-serif",fontSize:10,color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>📞 Piga / Call</a>}
-            {num&&<a href={"https://wa.me/"+num} target="_blank" rel="noopener" style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>💬 Chat</a>}
+            {num&&!noWa&&<a href={"https://wa.me/"+num} target="_blank" rel="noopener" style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>💬 Chat</a>}
+            {num&&noWa&&<a href={"sms:+"+num} style={{fontFamily:"sans-serif",fontSize:10,color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>✉️ SMS</a>}
+            {r.phone&&<button onClick={()=>patch(r.id,{whatsapp:noWa?"yes":"no"})} style={{fontFamily:"sans-serif",fontSize:10,color:t.dim,border:"1px solid "+t.border,borderRadius:7,padding:"5px 10px",background:"transparent",cursor:"pointer",fontWeight:700}}>{noWa?"✅ Ina WhatsApp":"📵 Hana WhatsApp"}</button>}
             <select value={r.status} onChange={e=>patch(r.id,{status:e.target.value})} style={{fontFamily:"sans-serif",fontSize:10,padding:"5px 6px",borderRadius:7,border:"1px solid "+t.border,background:t.inputBg,color:t.inputColor}}>
               {Object.entries(APP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.sw}</option>)}
             </select>
