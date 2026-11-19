@@ -69,6 +69,16 @@ body::before{
   user-select:none;
 }
 .wrap,.hdr{position:relative;z-index:1}
+body.locked .tabs button:not([data-doc=omba]):not([data-doc=sera]){display:none}
+.unlock{margin:26px 0 10px;text-align:center}
+.unlock a{font-size:12px;color:rgba(11,31,69,0.35);text-decoration:none;cursor:pointer}
+.unlock .box{display:none;gap:6px;justify-content:center;margin-top:8px}
+.unlock .box.open{display:flex}
+.unlock input{padding:10px;border:2px solid rgba(11,31,69,0.15);border-radius:10px;font-size:14px;width:150px;text-align:center;text-transform:uppercase}
+.unlock button{padding:10px 14px;border:0;border-radius:10px;background:#B8860B;color:#fff;font-weight:700;cursor:pointer}
+.unlock .msg{font-size:12px;color:#b00020;margin-top:6px;min-height:14px}
+body.locked .no-lock{display:none}
+
 
 </style>
 </head>
@@ -76,7 +86,7 @@ body::before{
 
 <div class="hdr no-print">
   <h1>Ajira Digital 📋</h1>
-  <p>Unyamwezini Jiko La Bibi JJJ — Karibu! Jaza fomu ya ajira hapa / Welcome! Apply &amp; sign here</p>
+  <p id="hdrSub">Unyamwezini Jiko La Bibi JJJ — Karibu! Jaza fomu ya ajira hapa / Welcome! Apply &amp; sign here</p>
 </div>
 
 <div class="wrap">
@@ -97,6 +107,15 @@ body::before{
 
   <!-- FORM AREA -->
   <div id="formArea"></div>
+
+  <div class="unlock no-print" id="unlockBar">
+    <a onclick="toggleUnlock()">🔑 Wafanyakazi / Staff</a>
+    <div class="box" id="unlockBox">
+      <input id="unlockCode" type="text" placeholder="Code" autocomplete="off" onkeydown="if(event.key==='Enter')tryUnlock()">
+      <button onclick="tryUnlock()">OK</button>
+    </div>
+    <div class="msg" id="unlockMsg"></div>
+  </div>
 
 </div>
 
@@ -209,28 +228,77 @@ const DOCS = {
       {k:"wadhifa",l:"Wadhifa"},
     ],
     terms: `<ol>
-      <li><b>Mahudhurio:</b> Fika dakika 15 kabla ya zamu. Kuchelewa bila taarifa mara 3/mwezi = onyo la maandishi.</li>
-      <li><b>Usafi wa Chakula:</b> Nawa mikono kwa sabuni, vaa mavazi safi, funika nywele, osha vyombo mara baada ya matumizi. Mgonjwa asishike chakula.</li>
-      <li><b>Wateja:</b> Mteja ni kipaumbele. Tabasamu na heshima. Usibishane — mwite Mwajiri.</li>
-      <li><b>Fedha:</b> Pesa zihesabiwe kila siku. Lipa Namba ithibitishwe kabla ya kukabidhi chakula. Wizi = kufukuzwa mara moja + hatua za kisheria.</li>
-      <li><b>Nidhamu:</b> Hakuna lugha chafu, ugomvi, pombe au madawa kazini. Simu za binafsi kwa kiasi.</li>
-      <li><b>Siri:</b> Mapishi, bei, mauzo, na taarifa za wateja ni siri — hata baada ya kuacha kazi.</li>
-      <li><b>Likizo:</b> Ruhusa ya dharura kwa huruma. Likizo ndefu ipangwe wiki 2 kabla.</li>
-      <li><b>Hatua za Kinidhamu:</b> 1) Onyo la mdomo 2) Onyo la maandishi 3) Kusimamishwa bila malipo 4) Kufukuzwa. Makosa makubwa yataruka hatua.</li>
-      <li><b>Muundo wa Uongozi:</b> Biashara ina vitengo vitano — Jikoni, Ugavi, Mauzo, Fedha, na Masoko. Kila mfanyakazi atajua kitengo chake na msimamizi wake, na atatoa taarifa kwa msimamizi wa kitengo chake. Heshima itolewe kwa wasimamizi wote.</li>
+      <li><b>Mahudhurio:</b> Fika dakika 15 kabla ya zamu. Kuchelewa bila taarifa mara 3/mwezi = onyo la maandishi.<br><small>Attendance: arrive 15 minutes before your shift. Late without notice 3 times a month = written warning.</small></li>
+      <li><b>Usafi wa Chakula:</b> Nawa mikono kwa sabuni, vaa mavazi safi, funika nywele, osha vyombo mara baada ya matumizi. Mgonjwa asishike chakula.<br><small>Food hygiene: wash hands with soap, wear clean clothes, cover hair, wash utensils right after use. A sick person must not handle food.</small></li>
+      <li><b>Wateja Wote Sawa:</b> Tunahudumia wateja wote kwa usawa, heshima na utu — bila upendeleo kwa mteja mmoja, bila kuangalia kabila, dini, jinsia, hali ya maisha au mwonekano. Hakuna mteja anayepewa bei, huduma, kipaumbele au punguzo la siri nje ya utaratibu wa biashara. Tabasamu, heshima, na usibishane — mwite Mwajiri.<br><small>All customers are equal: we serve every customer equally, with respect and dignity. No favoritism toward any single customer, and no discrimination. No secret prices, discounts or priority outside the business's rules. Smile, be respectful, never argue — call the Employer.</small></li>
+      <li><b>Pombe Kazini — Hairuhusiwi Kabisa:</b> Mfanyakazi haruhusiwi kunywa pombe wala kuwa amelewa akiwa kazini (ndani ya zamu, wakati wa kuhudumia, au kwenye eneo la biashara akiwa na sare/majukumu). Pia hairuhusiwi kukubali au kunywa pombe anayonunuliwa na mteja akiwa kazini. Kukiuka = hatua ya kinidhamu hadi kufukuzwa. Madawa ya kulevya hayaruhusiwi kabisa.<br><small>Alcohol on duty is strictly prohibited: no drinking and no being intoxicated during a shift, while serving, or at the premises on duty. Staff may not accept or drink alcohol bought by customers while working. Violation = disciplinary action up to dismissal. Illegal drugs are never allowed.</small></li>
+      <li><b>Kufuata Sheria:</b> Tunafanya kazi kwa mujibu wa sheria za Tanzania na masharti ya leseni ya biashara. Hatuuzi pombe kwa watoto au kinyume na saa na masharti yanayoruhusiwa na serikali. Mfanyakazi asifanye kitu chochote kinyume cha sheria kwa jina la biashara.<br><small>Legal compliance: we follow Tanzanian law and our business licence conditions. We do not sell alcohol to minors or outside the hours and rules the government allows. No one may do anything illegal in the name of the business.</small></li>
+      <li><b>Fedha:</b> Pesa zihesabiwe kila siku. Lipa Namba ithibitishwe kabla ya kukabidhi chakula. Kila mauzo yaandikwe — hakuna kutoa bure au kupunguza bei bila idhini ya Mwajiri. Wizi = kufukuzwa mara moja + hatua za kisheria.<br><small>Money: cash counted daily; confirm Lipa Namba payment before handing over food. Every sale must be recorded — no free items or price cuts without the Employer's approval. Theft = immediate dismissal + legal action.</small></li>
+      <li><b>Nidhamu na Heshima:</b> Hakuna lugha chafu, ugomvi, unyanyasaji au vitisho — kwa wateja au wafanyakazi wenzako. Zawadi au rushwa kutoka kwa wateja ili kupata huduma maalum hairuhusiwi. Simu za binafsi kwa kiasi.<br><small>Discipline and respect: no bad language, fighting, harassment or threats — toward customers or coworkers. No accepting gifts or bribes for special treatment. Personal phone use kept minimal.</small></li>
+      <li><b>Siri:</b> Mapishi, bei, mauzo, na taarifa za wateja ni siri — hata baada ya kuacha kazi.<br><small>Confidentiality: recipes, prices, sales and customer information are secret — even after leaving.</small></li>
+      <li><b>Likizo:</b> Ruhusa ya dharura kwa huruma. Likizo ndefu ipangwe wiki 2 kabla.<br><small>Leave: emergency leave is granted with compassion. Plan long leave 2 weeks ahead.</small></li>
+      <li><b>Hatua za Kinidhamu:</b> 1) Onyo la mdomo 2) Onyo la maandishi 3) Kusimamishwa bila malipo 4) Kufukuzwa. Makosa makubwa (wizi, pombe kazini, kubagua wateja kwa makusudi, unyanyasaji) yataruka hatua.<br><small>Discipline: 1) verbal warning 2) written warning 3) unpaid suspension 4) dismissal. Serious offences (theft, alcohol on duty, deliberate favoritism/discrimination, harassment) may skip steps.</small></li>
+      <li><b>Muundo wa Uongozi:</b> Biashara ina vitengo vitano — Jikoni, Ugavi, Mauzo, Fedha, na Masoko. Kila mfanyakazi atajua kitengo chake na msimamizi wake, na atatoa taarifa kwa msimamizi wa kitengo chake. Heshima itolewe kwa wasimamizi wote.<br><small>Structure: five units — Kitchen, Supply, Sales, Finance and Marketing. Everyone knows their unit and supervisor and reports to them. Respect all supervisors.</small></li>
     </ol>
     <p style="margin-top:8px"><b>Kwa kutia sahihi, ninathibitisha nimesoma, nimeelewa, na ninakubali kufuata Sera zote za Kazi.</b></p>`
   }
 };
 
 let currentDoc = "omba";
+const STAFF_CODE = "UJLBJ3";
+function applyLock(locked){
+  document.body.classList.toggle("locked", locked);
+  document.getElementById("hdrSub").innerHTML = locked
+    ? "Unyamwezini Jiko La Bibi JJJ — Karibu! Omba kazi hapa / Welcome! Apply for a job here"
+    : "Unyamwezini Jiko La Bibi JJJ — Karibu! Jaza fomu ya ajira hapa / Welcome! Apply &amp; sign here";
+  const bar = document.getElementById("unlockBar");
+  if(bar) bar.style.display = locked ? "" : "none";
+  if(locked && currentDoc!=="omba" && currentDoc!=="sera"){
+    currentDoc="omba";
+    document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b.dataset.doc==="omba"));
+    renderApply();
+  }
+}
+function toggleUnlock(){
+  document.getElementById("unlockBox").classList.toggle("open");
+  const i=document.getElementById("unlockCode"); if(i) i.focus();
+}
+function tryUnlock(){
+  const v=(document.getElementById("unlockCode").value||"").trim().toUpperCase();
+  if(v===STAFF_CODE){
+    try{ sessionStorage.setItem("jiko_staff","1"); }catch(e){}
+    applyLock(false);
+  } else {
+    document.getElementById("unlockMsg").textContent="Code si sahihi / Wrong code";
+  }
+}
+function initLock(){
+  let ok=false;
+  try{
+    const q=new URLSearchParams(location.search).get("code");
+    if(q && q.trim().toUpperCase()===STAFF_CODE){ sessionStorage.setItem("jiko_staff","1"); ok=true; }
+    else if(sessionStorage.getItem("jiko_staff")==="1") ok=true;
+  }catch(e){}
+  applyLock(!ok);
+}
 let sigPads = {};
 
 function switchDoc(doc, btn){
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
   currentDoc = doc;
-  if(doc==="omba") renderApply(); else renderForm(doc);
+  if(doc==="omba") renderApply(); else if(doc==="sera" && document.body.classList.contains("locked")) renderPolicy(); else renderForm(doc);
+}
+
+function renderPolicy(){
+  const d = DOCS.sera;
+  document.getElementById("formArea").innerHTML = `
+    <div class="card">
+      <h2>📕 SERA ZA KAZI / OUR WORK POLICIES</h2>
+      <p style="font-size:13px;line-height:1.6;margin-bottom:6px">Hivi ndivyo tunavyofanya kazi — ili ujue tunasimamia nini kabla ya kuomba.<br><span style="opacity:.75">This is how we work — so you know what we stand for before you apply.</span></p>
+      <div class="terms" style="max-height:none;overflow:visible">${d.terms}</div>
+      <button class="btn btn-gold no-print" onclick="switchDoc('omba',document.querySelector('.tabs button[data-doc=omba]'))">🙋 Omba Kazi / Apply</button>
+    </div>`;
 }
 
 /* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
@@ -381,6 +449,7 @@ async function saveContract(){
 /* ── RECORDS ── */
 /* init */
 renderApply();
+initLock();
 </script>
 </body>
 </html>
