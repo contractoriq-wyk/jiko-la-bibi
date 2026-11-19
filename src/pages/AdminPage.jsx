@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.2-8 · 18 Nov 2026, glow-alerts-spirits";
+const APP_VERSION = "V3.2-9 · 18 Nov 2026, spirits-day-glow";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1029,6 +1029,21 @@ function buildMixFlags(wk){
     else if(cw.total>0&&pw.total>0&&bevP===0&&bevC>0&&foodP>0) out.push({glow:true,c:"good",msg:"🥂 Vinywaji vimeanza kuuzwa wiki hii (wiki iliyopita hakukuwa na). / Drink sales started this week (none in the same days last week)."});
   }
   return out;
+}
+// Pombe Kali (spirits) sold today vs your usual spirits day — returns a glow flag when it is a big day
+function spiritsTodayFlag(allSales,customItems){
+  const cm={};(customItems||[]).forEach(c=>{cm[c.id]=c.sectionName||"";});
+  const td=today(); const byDay={}; let tq=0, tr=0;
+  allSales.forEach(r=>{
+    if(classifyItem(r.item_id,r.section_id,r.item_name,cm)!=="spirits") return;
+    if(r.sale_date===td){tq+=r.quantity||0;tr+=r.total_price||0;}
+    else byDay[r.sale_date]=(byDay[r.sale_date]||0)+(r.quantity||0);
+  });
+  const days=Object.values(byDay); const avg=days.length?days.reduce((a,b)=>a+b,0)/days.length:0;
+  const hot = tq>=3 && (avg===0 ? tq>=5 : tq>=avg*1.5);
+  if(!hot) return [];
+  const usual = avg>0 ? " (kawaida/usual ~"+Math.round(avg)+")" : "";
+  return [{glow:true,c:"info",msg:"🥃 Pombe Kali leo / today: "+tq+" vipande/pcs · "+fmt(tr)+usual+" — siku nzuri ya pombe kali! / a big spirits day!"}];
 }
 function deltaPct(cur,prev){ if(prev>0) return Math.round((cur-prev)/prev*100); return cur>0?null:0; }
 function computeCatMix(sales,costs,customItems){
@@ -3496,7 +3511,7 @@ export default function AdminPage({onExit}) {
   // Glowing Chakula-vs-Vinywaji alerts: load the last ~16 days once signed in, then compute flags
   const uid=session?.user?.id||"";
   useEffect(()=>{ if(!uid) return; const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); rootFetch(dateStrET(d),today()); },[uid]);
-  const mixFlags=useMemo(()=>buildMixFlags(computeWeekCmp(rootSales||[],rootCustom||[])),[rootSales,rootCustom]);
+  const mixFlags=useMemo(()=>[...spiritsTodayFlag(rootSales||[],rootCustom||[]),...buildMixFlags(computeWeekCmp(rootSales||[],rootCustom||[]))],[rootSales,rootCustom]);
   const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
