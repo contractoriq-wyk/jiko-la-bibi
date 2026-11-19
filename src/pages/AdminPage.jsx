@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.5-2 · 19 Nov 2026, archive-contracts";
+const APP_VERSION = "V3.6-1 · 19 Nov 2026, hiring-switch";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3480,6 +3480,26 @@ function ApplicantsTab({onCount}) {
   useEffect(()=>{load();},[]);
   useEffect(()=>{ if(onCount) onCount(rows.filter(r=>r.status==="new").length); },[rows]);
 
+  // Hiring ON/OFF switch (site_flags.hiring_open) — controls the footer link + the Omba Kazi form
+  const [hiring,setHiring]=useState(null);   // null = unknown/not set up
+  const [hiringBusy,setHiringBusy]=useState(false);
+  const [hiringErr,setHiringErr]=useState("");
+  useEffect(()=>{ (async()=>{ try{
+    const {supabase}=await import("../lib/supabase"); if(!supabase) return;
+    const {data,error}=await supabase.from("site_flags").select("hiring_open").eq("id","main").maybeSingle();
+    if(!error && data) setHiring(!!data.hiring_open); else if(error) setHiringErr(error.message||"error");
+  }catch(e){ setHiringErr(String(e.message||e)); } })(); },[]);
+  async function toggleHiring(){
+    if(hiring===null||hiringBusy) return;
+    const next=!hiring; setHiringBusy(true); setHiringErr("");
+    try{
+      const {supabase}=await import("../lib/supabase");
+      const {error}=await supabase.from("site_flags").upsert({id:"main",hiring_open:next,updated_at:new Date().toISOString()});
+      if(error) setHiringErr(error.message||"error"); else setHiring(next);
+    }catch(e){ setHiringErr(String(e.message||e)); }
+    setHiringBusy(false);
+  }
+
   async function patch(id,fields){
     setRows(prev=>prev.map(r=>r.id===id?{...r,...fields}:r));
     try{ const {supabase}=await import("../lib/supabase"); if(supabase) await supabase.from("job_applicants").update(fields).eq("id",id); }catch(e){ console.warn("Applicant update failed",e); }
@@ -3509,6 +3529,20 @@ function ApplicantsTab({onCount}) {
         <Chip label="Mahojiano" value={counts.interview} color={t.gr} icon="✅"/>
         <Chip label="Wote / All" value={rows.length} color={t.bl} icon="🙋"/>
       </div>
+      <Card style={{padding:"12px 14px",marginBottom:10,borderLeft:"3px solid "+(hiring===false?t.rd:t.gr)}}>
+        {hiring===null?(
+          <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0,lineHeight:1.6}}>⚙️ Swichi ya kupokea maombi bado haijaundwa. Endesha <b>migration_hiring_switch.sql</b> kwenye Supabase mara moja. / The hiring switch is not set up yet — run <b>migration_hiring_switch.sql</b> once in Supabase.{hiringErr&&<><br/><span style={{fontSize:10}}>{hiringErr}</span></>}</p>
+        ):(
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:hiring?t.gr:t.rd}}>{hiring?"🟢 Tunapokea maombi / Hiring is ON":"🔴 Hatupokei maombi / Hiring is OFF"}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim,marginTop:3,lineHeight:1.5}}>{hiring?"Kiungo cha \"Tunaajiri\" kinaonekana kwenye tovuti, na fomu ya Omba Kazi iko wazi. / The footer link shows and the form is open.":"Kiungo kimefichwa, na fomu inasema hatupokei maombi. / Link hidden; the form says we are not hiring."}</div>
+              {hiringErr&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginTop:3}}>{hiringErr}</div>}
+            </div>
+            <button onClick={toggleHiring} disabled={hiringBusy} style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,padding:"9px 12px",borderRadius:10,cursor:"pointer",border:"1px solid "+(hiring?t.rd:t.gr),background:(hiring?t.rd:t.gr)+"22",color:hiring?t.rd:t.gr,flexShrink:0,opacity:hiringBusy?0.5:1}}>{hiring?"Zima / Turn OFF":"Washa / Turn ON"}</button>
+          </div>
+        )}
+      </Card>
       <a href="/ajira" target="_blank" rel="noopener" style={{display:"block",textAlign:"center",fontFamily:"sans-serif",fontSize:11,color:t.dim,marginBottom:10,textDecoration:"underline"}}>Kiungo cha waombaji: jikolabibijjj.com/ajira (kichupo cha 🙋 Omba Kazi) / Applicant link</a>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
         {[["new","🆕 Wapya"],["interview","✅ Mahojiano"],["not_now","⏳ Si Sasa"],["hired","🎉 Ameajiriwa"],["all","Wote"]].map(([k,l])=>(
