@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.2-9 · 18 Nov 2026, spirits-day-glow";
+const APP_VERSION = "V3.4-1 · 19 Nov 2026, applicants-tab";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3043,7 +3043,107 @@ function BackupTab() {
 }
 
 /* ═══ TAB: WAFANYAKAZI & WAKANDARASI / STAFF & CONTRACTORS ═══ */
-function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay, myWarnings, onAddWarning, onDeleteWarning, onReactivate, isFormer, totalPayroll}) {
+// ── Barua / Staff Notices — discipline & termination messages sent via WhatsApp (wa.me link; the owner taps Send) ──
+const NOTICE_TYPES=[
+  {k:"verbal",  db:"verbal",  tag:"ONYO LA MDOMO",           sw:"Onyo la Mdomo",           en:"Verbal warning",      c:"gold"},
+  {k:"written", db:"written", tag:"ONYO LA MAANDISHI",       sw:"Onyo la Maandishi",       en:"Written warning",     c:"rd"},
+  {k:"final",   db:"written", tag:"ONYO LA MWISHO",          sw:"Onyo la Mwisho",          en:"Final warning",       c:"rd"},
+  {k:"hearing", db:"written", tag:"WITO WA KUSIKILIZWA",     sw:"Wito wa Kusikilizwa",     en:"Hearing invitation",  c:"bl"},
+  {k:"suspend", db:"written", tag:"KUSIMAMISHWA KAZI",       sw:"Kusimamishwa Kazi",       en:"Suspension",          c:"pu"},
+  {k:"terminate",db:"written",tag:"KUSITISHWA AJIRA",        sw:"Kusitisha Ajira",         en:"Termination",         c:"rd"},
+];
+function waPhone(p){
+  let d=String(p||"").replace(/[^0-9]/g,"");
+  if(!d) return "";
+  if(d.startsWith("00")) d=d.slice(2);
+  if(d.startsWith("0")) d="255"+d.slice(1);
+  else if(d.length===9&&/^[67]/.test(d)) d="255"+d;
+  return d.length>=11?d:"";
+}
+function niceDate(d){ try{ return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch{ return d; } }
+function buildNotice(k,{name,role,reason,date,when,days,paid,payNote}){
+  const who="Kwa / To: *"+name+"*"+(role?" ("+role+")":"")+"\nTarehe / Date: "+niceDate(date);
+  const why=reason?reason:"…";
+  const B={
+    verbal:{t:"KUMBUKUMBU YA ONYO LA MDOMO / VERBAL WARNING RECORD",
+      sw:"Hii ni kumbukumbu ya onyo la mdomo lililotolewa kwako kuhusu: "+why+".\nTunatarajia mabadiliko ya haraka.",
+      en:"This records the verbal warning given to you about: "+why+".\nWe expect immediate improvement."},
+    written:{t:"ONYO LA MAANDISHI / WRITTEN WARNING",
+      sw:"Unapewa onyo la maandishi kuhusu: "+why+".\nKurudia kosa hili kunaweza kusababisha hatua kali zaidi, ikiwemo onyo la mwisho au kusitishwa kwa ajira.",
+      en:"You are given a written warning about: "+why+".\nRepeating this may lead to stronger action, including a final warning or termination of employment."},
+    final:{t:"ONYO LA MWISHO / FINAL WARNING",
+      sw:"Hili ni onyo lako la MWISHO kuhusu: "+why+".\nKosa jingine linaweza kusababisha kusitishwa kwa ajira yako.",
+      en:"This is your FINAL warning about: "+why+".\nAnother offence may result in termination of your employment."},
+    hearing:{t:"WITO WA KUSIKILIZWA / HEARING INVITATION",
+      sw:"Unaitwa kusikilizwa kuhusu: "+why+".\nSiku na saa: "+(when||"…")+".\nUna haki ya kujieleza na kuja na mfanyakazi mwenzako wa kukusaidia.",
+      en:"You are invited to a hearing about: "+why+".\nDate & time: "+(when||"…")+".\nYou have the right to explain your side and bring a co-worker to support you."},
+    suspend:{t:"KUSIMAMISHWA KAZI / SUSPENSION",
+      sw:"Umesimamishwa kazi kwa siku "+(days||"…")+" kuanzia "+niceDate(date)+" kwa sababu ya: "+why+".\nMshahara wakati wa kusimamishwa: "+(paid?"UTALIPWA":"HAUTALIPWA")+".\nUtajulishwa uamuzi wa mwisho.",
+      en:"You are suspended for "+(days||"…")+" day(s) from "+niceDate(date)+" because of: "+why+".\nPay during suspension: "+(paid?"PAID":"UNPAID")+".\nYou will be told the final decision."},
+    terminate:{t:"KUSITISHWA KWA AJIRA / TERMINATION OF EMPLOYMENT",
+      sw:"Tunasikitika kukujulisha kuwa ajira yako imesitishwa kuanzia "+niceDate(when||date)+" kutokana na: "+why+"."+(payNote?"\nMalipo ya mwisho: "+payNote+".":"")+"\nTafadhali rudisha mali zote za kazi (funguo, sare, n.k.).",
+      en:"We regret to inform you that your employment is terminated effective "+niceDate(when||date)+" due to: "+why+"."+(payNote?"\nFinal pay: "+payNote+".":"")+"\nPlease return all work property (keys, uniform, etc.)."},
+  }[k];
+  return "📋 *"+B.t+"*\nUnyamwezini Jiko La Bibi JJJ\n\n"+who+"\n\n"+B.sw+"\n\n"+B.en+"\n\nTafadhali jibu *NIMEPOKEA* kuthibitisha umepokea. / Please reply *RECEIVED* to confirm.\n\n— Uongozi / Management";
+}
+function NoticeComposer({s,onClose,onSaved,onRemove}){
+  const {t}=useT();
+  const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6};
+  const [k,setK]=useState("written");
+  const [reason,setReason]=useState("");
+  const [date,setDate]=useState(today());
+  const [when,setWhen]=useState("");
+  const [days,setDays]=useState("");
+  const [paid,setPaid]=useState(false);
+  const [payNote,setPayNote]=useState("");
+  const [phone,setPhone]=useState(s.phone||"");
+  const [edit,setEdit]=useState(null);
+  const [removeToo,setRemoveToo]=useState(true);
+  const [copied,setCopied]=useState(false);
+  const nt=NOTICE_TYPES.find(x=>x.k===k);
+  const built=buildNotice(k,{name:s.name,role:s.role,reason:reason.trim(),date,when:k==="terminate"?(when||date):when,days,paid,payNote});
+  const text=edit!==null?edit:built;
+  const num=waPhone(phone);
+  const up=fn=>e=>{fn(e.target.value);setEdit(null);};
+  const ready=reason.trim().length>0;
+  function save(){
+    onSaved(s.id,s.name,nt.db,"["+nt.tag+"] "+reason.trim(),date);
+    if(k==="terminate"&&removeToo) onRemove(s);
+  }
+  function send(){
+    if(!ready||!num) return;
+    save();
+    window.open("https://wa.me/"+num+"?text="+encodeURIComponent(text),"_blank");
+    onClose();
+  }
+  function copy(){ try{navigator.clipboard.writeText(text);setCopied(true);setTimeout(()=>setCopied(false),1800);}catch{} }
+  return (
+    <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:10,border:"1px solid "+t.rd+"33"}}>
+      <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"0.5px",margin:"0 0 8px"}}>📲 Barua kwa {s.name} / Notice via WhatsApp</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:8}}>
+        {NOTICE_TYPES.map(x=>{const col=t[x.c];return <button key={x.k} onClick={()=>{setK(x.k);setEdit(null);}} style={{padding:"7px 4px",borderRadius:8,border:"1.5px solid "+(k===x.k?col:t.border),background:k===x.k?col+"18":"transparent",color:k===x.k?col:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer",lineHeight:1.25}}>{x.sw}<br/><span style={{fontWeight:500}}>{x.en}</span></button>;})}
+      </div>
+      {k==="terminate"&&<div style={{background:t.gold+"15",border:"1px solid "+t.gold+"55",borderRadius:8,padding:"7px 9px",marginBottom:8,fontFamily:"sans-serif",fontSize:10,color:t.text,lineHeight:1.5}}>⚠️ Kabla ya kusitisha ajira: hakikisha kuna sababu halali na umefuata utaratibu wa haki (onyo, kusikilizwa, notisi, malipo ya mwisho) kulingana na Sheria ya Ajira na Mahusiano Kazini Tanzania. Waulize Afisa Kazi kama huna uhakika. / Before terminating: make sure there is a valid reason and a fair process (warnings, hearing, notice, final pay) under Tanzania's Employment &amp; Labour Relations Act. Ask a labour officer if unsure.</div>}
+      <input value={reason} onChange={up(setReason)} placeholder="Sababu / Reason *" style={inp}/>
+      <input type="date" value={date} onChange={up(setDate)} style={inp}/>
+      {(k==="hearing")&&<input value={when} onChange={up(setWhen)} placeholder="Siku na saa / Date & time (e.g. Ijumaa saa 4 asubuhi)" style={inp}/>}
+      {(k==="terminate")&&<><input type="date" value={when||date} onChange={up(setWhen)} style={inp}/><input value={payNote} onChange={up(setPayNote)} placeholder="Malipo ya mwisho / Final pay note (optional)" style={inp}/></>}
+      {(k==="suspend")&&<><input type="number" value={days} onChange={up(setDays)} placeholder="Siku / Number of days" style={inp}/><button onClick={()=>{setPaid(p=>!p);setEdit(null);}} style={{width:"100%",marginBottom:6,padding:8,borderRadius:8,border:"1.5px solid "+(paid?t.gr:t.border),background:paid?t.gr+"18":"transparent",color:paid?t.gr:t.dim2,fontSize:11,fontWeight:700,cursor:"pointer"}}>{paid?"✅ Na mshahara / Paid":"❌ Bila mshahara / Unpaid"} (bonyeza kubadili / tap to switch)</button></>}
+      <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Simu ya WhatsApp / WhatsApp number (07xx…)" style={inp}/>
+      {!num&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginBottom:6}}>Weka namba sahihi (mfano 0712 345 678). / Enter a valid number (e.g. 0712 345 678).</div>}
+      <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",margin:"4px 0 4px"}}>Ujumbe / Message (unaweza kuhariri / editable)</p>
+      <textarea value={text} onChange={e=>setEdit(e.target.value)} rows={9} style={{...inp,fontSize:11,lineHeight:1.45,resize:"vertical"}}/>
+      {k==="terminate"&&<label style={{display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif",fontSize:11,color:t.text,marginBottom:8}}><input type="checkbox" checked={removeToo} onChange={e=>setRemoveToo(e.target.checked)}/> Mhamishe kwenye Zamani/Former baada ya kutuma / Move to Former Staff after sending</label>}
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={send} disabled={!ready||!num} style={{flex:2,background:(!ready||!num)?t.bg4:"#25D366",color:(!ready||!num)?t.dim2:"#fff",border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:(!ready||!num)?"default":"pointer"}}>📲 Tuma WhatsApp / Send</button>
+        <button onClick={copy} style={{flex:1,background:t.bg,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:10,fontSize:11,cursor:"pointer"}}>{copied?"✓":"📋 Nakili"}</button>
+        <button onClick={onClose} style={{background:t.bg,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"10px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+      </div>
+      <p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"7px 0 0",lineHeight:1.5}}>Itafungua WhatsApp na ujumbe tayari — bonyeza Send hapo. Rekodi huhifadhiwa kwenye Maonyo. / Opens WhatsApp with the message ready — tap Send there. A record is saved in Warnings history.</p>
+    </div>
+  );
+}
+function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit, onSave, onDelete, onPay, payForm, setPayForm, showPay, setShowPay, myWarnings, onAddWarning, onDeleteWarning, onRemove, onReactivate, isFormer, totalPayroll}) {
   const {t, presenterMode} = useT();
   const isContractor = s.type === "contractor";
   const isSeasonal = s.type === "seasonal";
@@ -3055,6 +3155,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
   const periodLabel = isContractor ? "Kazi iliyofanyika / Job done" : (isSeasonal ? "Maelezo / Description" : "Kipindi / Period (e.g. Mwezi wa 6)");
   const [showWarnForm,setShowWarnForm]=useState(false);
   const [showWarnList,setShowWarnList]=useState(false);
+  const [showNotice,setShowNotice]=useState(false);
   const [warnType,setWarnType]=useState("verbal");
   const [warnReason,setWarnReason]=useState("");
   const [warnDate,setWarnDate]=useState(today());
@@ -3106,9 +3207,9 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.rd,textTransform:"uppercase",letterSpacing:"0.5px",margin:"0 0 6px"}}>Maonyo / Warnings History</p>
             {myWarnings.map(w=>(
               <div key={w.id} style={{display:"flex",alignItems:"flex-start",gap:6,padding:"5px 0",borderBottom:"1px solid "+t.rd+"15"}}>
-                <span style={{fontSize:9,fontWeight:700,color:w.type==="written"?t.rd:t.gold,background:(w.type==="written"?t.rd:t.gold)+"18",padding:"1px 6px",borderRadius:4,flexShrink:0,marginTop:1}}>{w.type==="written"?"MAANDISHI":"MDOMO"}</span>
+                {(()=>{const m=String(w.reason||"").match(/^\[([^\]]+)\]\s*/);const lbl=m?m[1]:(w.type==="written"?"MAANDISHI":"MDOMO");return <span style={{fontSize:9,fontWeight:700,color:w.type==="written"?t.rd:t.gold,background:(w.type==="written"?t.rd:t.gold)+"18",padding:"1px 6px",borderRadius:4,flexShrink:0,marginTop:1}}>{lbl}</span>;})()}
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"sans-serif",fontSize:11,color:t.text}}>{w.reason}</div>
+                  <div style={{fontFamily:"sans-serif",fontSize:11,color:t.text}}>{String(w.reason||"").replace(/^\[[^\]]+\]\s*/,"")}</div>
                   <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:1}}>{w.warning_date}</div>
                 </div>
                 <button onClick={()=>onDeleteWarning(w.id)} style={{background:"none",border:"none",color:t.dim2,fontSize:12,cursor:"pointer",padding:0,flexShrink:0}}>✕</button>
@@ -3129,6 +3230,8 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             </div>
           </div>}
 
+          {showNotice && !isFormer && <NoticeComposer s={s} onClose={()=>setShowNotice(false)} onSaved={(...a)=>{onAddWarning(...a);setShowWarnList(true);}} onRemove={onRemove}/>}
+
           {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
             <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
             <input value={payForm.period} onChange={setPF("period")} placeholder={periodLabel} style={{...inp,marginBottom:6,fontSize:12}}/>
@@ -3144,6 +3247,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
             <button onClick={()=>onStartEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
             <button onClick={()=>setShowWarnForm(!showWarnForm)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>⚠️ Onyo</button>
+            <button onClick={()=>setShowNotice(v=>!v)} style={{background:"#25D36622",color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📲 Barua</button>
             <button onClick={()=>onDelete(s)} style={{background:t.dim2+"15",color:t.dim2,border:"1px solid "+t.dim2+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🚪 Toa</button>
           </>}
           {isFormer && <button onClick={()=>onReactivate(s)} style={{background:t.gr+"15",color:t.gr,border:"1px solid "+t.gr+"40",borderRadius:7,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>↩️ Rejesha</button>}
@@ -3214,7 +3318,7 @@ function WafanyakaziTab() {
       reactivateStaff(s.id);
   }
   const inp = {width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:13,color:t.inputColor,outline:"none",boxSizing:"border-box"};
-  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay,onAddWarning:addWarning,onDeleteWarning:deleteWarning,totalPayroll};
+  const cardProps = {form,setForm,onStartEdit:startEdit,onCancelEdit:cancelEdit,onSave:saveStaff,onDelete:delMember,onPay:doPay,payForm,setPayForm,showPay,setShowPay,onAddWarning:addWarning,onDeleteWarning:deleteWarning,onRemove:m=>deleteStaff(m.id),totalPayroll};
 
   return (
     <div style={{padding:"1rem"}}>
@@ -3279,6 +3383,136 @@ function WafanyakaziTab() {
           {formerStaff.map(s => <StaffMemberCard key={s.id} s={s} isEditing={false} isFormer myWarnings={warningsFor(s.id)} onReactivate={doReactivate} {...cardProps}/>)}
         </div>}
       </div>}
+    </div>
+  );
+}
+
+/* ═══ TAB: WAOMBAJI / JOB APPLICANTS — short intros from the Ajira page; reply via WhatsApp ═══ */
+const APP_STATUS={
+  new:      {sw:"Mpya",          en:"New",        c:"gold", icon:"🆕"},
+  interview:{sw:"Mahojiano",     en:"Interview",  c:"gr",   icon:"✅"},
+  not_now:  {sw:"Si Sasa",       en:"Not now",    c:"dim2", icon:"⏳"},
+  hired:    {sw:"Ameajiriwa",    en:"Hired",      c:"bl",   icon:"🎉"},
+};
+function applicantMsg(kind,a,when,place){
+  const first=(a.name||"").trim().split(/\s+/)[0]||a.name;
+  const role=(a.role_wanted||"kazi").split("/")[0].trim();
+  if(kind==="interview") return "Habari *"+first+"*,\n\nAsante kwa kuomba kazi ya *"+role+"* Unyamwezini Jiko La Bibi JJJ. Tungependa kukuona kwa mahojiano:\n📅 "+(when||"…")+"\n📍 "+(place||"Goba Njia Nne")+"\n\nTafadhali jibu *NDIYO* kuthibitisha, au tuambie wakati mwingine unaofaa.\n\n— — —\nHello *"+first+"*,\n\nThank you for applying for the *"+role+"* position at Unyamwezini Jiko La Bibi JJJ. We would like to meet you for an interview:\n📅 "+(when||"…")+"\n📍 "+(place||"Goba Njia Nne")+"\n\nPlease reply *YES* to confirm, or tell us another time that suits you.\n\n— Uongozi / Management";
+  return "Habari *"+first+"*,\n\nAsante kwa kuomba kazi ya *"+role+"* Unyamwezini Jiko La Bibi JJJ. Kwa sasa hatuna nafasi inayokufaa, lakini tumehifadhi taarifa zako na tutakutafuta nafasi ikipatikana. Tunakutakia kila la heri.\n\n— — —\nHello *"+first+"*,\n\nThank you for applying for the *"+role+"* position at Unyamwezini Jiko La Bibi JJJ. We have no suitable opening right now, but we have saved your details and will contact you if one comes up. We wish you all the best.\n\n— Uongozi / Management";
+}
+function etStamp(ts){ try{ return new Date(ts).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"; }catch{ return ts||""; } }
+function ApplicantsTab({onCount}) {
+  const {t} = useT();
+  const [rows,setRows]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState("");
+  const [filter,setFilter]=useState("new");
+  const [open,setOpen]=useState(null);       // {id,kind}
+  const [when,setWhen]=useState("");
+  const [place,setPlace]=useState("Goba Njia Nne");
+  const [edit,setEdit]=useState(null);
+  const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6};
+
+  async function load(){
+    try{
+      const {supabase}=await import("../lib/supabase");
+      if(!supabase){setLoading(false);return;}
+      const {data,error}=await supabase.from("job_applicants").select("*").order("created_at",{ascending:false}).limit(300);
+      if(error){ setErr(error.message||"error"); } else { setErr(""); setRows(data||[]); }
+    }catch(e){ setErr(String(e.message||e)); }
+    setLoading(false);
+  }
+  useEffect(()=>{load();},[]);
+  useEffect(()=>{ if(onCount) onCount(rows.filter(r=>r.status==="new").length); },[rows]);
+
+  async function patch(id,fields){
+    setRows(prev=>prev.map(r=>r.id===id?{...r,...fields}:r));
+    try{ const {supabase}=await import("../lib/supabase"); if(supabase) await supabase.from("job_applicants").update(fields).eq("id",id); }catch(e){ console.warn("Applicant update failed",e); }
+  }
+  async function remove(r){
+    if(!confirm("Futa ombi la "+r.name+"? / Delete "+r.name+"'s application?")) return;
+    setRows(prev=>prev.filter(x=>x.id!==r.id));
+    try{ const {supabase}=await import("../lib/supabase"); if(supabase) await supabase.from("job_applicants").delete().eq("id",r.id); }catch(e){}
+  }
+  function startCompose(r,kind){ setOpen({id:r.id,kind}); setWhen(""); setEdit(null); }
+  function send(r){
+    const num=waPhone(r.phone); if(!num) return;
+    const kind=open.kind; const text=edit!==null?edit:applicantMsg(kind,r,when,place);
+    if(kind==="interview") patch(r.id,{status:"interview",interview_at:when,contacted_at:new Date().toISOString()});
+    else patch(r.id,{status:"not_now",contacted_at:new Date().toISOString()});
+    window.open("https://wa.me/"+num+"?text="+encodeURIComponent(text),"_blank");
+    setOpen(null);
+  }
+
+  const counts={}; Object.keys(APP_STATUS).forEach(k=>{counts[k]=rows.filter(r=>r.status===k).length;});
+  const shown=rows.filter(r=>filter==="all"||r.status===filter);
+
+  return (
+    <div style={{padding:"1rem"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+        <Chip label="Wapya / New" value={counts.new} color={t.gold} icon="🆕"/>
+        <Chip label="Mahojiano" value={counts.interview} color={t.gr} icon="✅"/>
+        <Chip label="Wote / All" value={rows.length} color={t.bl} icon="🙋"/>
+      </div>
+      <a href="/ajira" target="_blank" rel="noopener" style={{display:"block",textAlign:"center",fontFamily:"sans-serif",fontSize:11,color:t.dim,marginBottom:10,textDecoration:"underline"}}>Kiungo cha waombaji: jikolabibijjj.com/ajira (kichupo cha 🙋 Omba Kazi) / Applicant link</a>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+        {[["new","🆕 Wapya"],["interview","✅ Mahojiano"],["not_now","⏳ Si Sasa"],["hired","🎉 Ameajiriwa"],["all","Wote"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setFilter(k)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 11px",borderRadius:99,cursor:"pointer",border:"1px solid "+(filter===k?t.gold:t.border),background:filter===k?t.gold+"22":"transparent",color:filter===k?t.gold:t.dim2}}>{l}{k!=="all"&&counts[k]?" ("+counts[k]+")":""}</button>
+        ))}
+      </div>
+      {loading&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center"}}>Inapakia… / Loading…</p>}
+      {err&&<Card style={{padding:"1rem",marginBottom:10}}><p style={{fontFamily:"sans-serif",fontSize:12,color:t.rd,margin:0,lineHeight:1.6}}>⚠️ Jedwali la waombaji bado halijaundwa. Endesha <b>migration_job_applicants.sql</b> kwenye Supabase SQL editor mara moja. / The applicants table is not set up yet — run <b>migration_job_applicants.sql</b> once in the Supabase SQL editor.<br/><span style={{color:t.dim2,fontSize:10}}>{err}</span></p></Card>}
+      {!loading&&!err&&shown.length===0&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center",padding:"1.5rem 0"}}>Hakuna waombaji hapa bado. / No applicants here yet.</p>}
+      {shown.map(r=>{
+        const st=APP_STATUS[r.status]||APP_STATUS.new; const col=t[st.c]; const num=waPhone(r.phone); const isOpen=open&&open.id===r.id;
+        const msg=isOpen?(edit!==null?edit:applicantMsg(open.kind,r,when,place)):"";
+        return (
+        <Card key={r.id} style={{padding:"12px 14px",marginBottom:10,borderLeft:"3px solid "+col}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{r.name}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{r.role_wanted||"—"}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:1}}>📞 {r.phone||"—"}{r.area?" · 📍 "+r.area:""}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <span style={{fontSize:9,fontWeight:800,color:col,background:col+"18",padding:"2px 8px",borderRadius:5,textTransform:"uppercase"}}>{st.icon} {st.sw}</span>
+              <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:4}}>{etStamp(r.created_at)}</div>
+            </div>
+          </div>
+          {(r.experience||r.available_from||r.message)&&<div style={{marginTop:8,padding:"8px 10px",background:t.bg4,borderRadius:8,fontFamily:"sans-serif",fontSize:11,color:t.text,lineHeight:1.55}}>
+            {r.experience&&<div><b>Uzoefu / Experience:</b> {r.experience}</div>}
+            {r.available_from&&<div><b>Kuanza / Start:</b> {r.available_from}</div>}
+            {r.message&&<div><b>Ujumbe / Why:</b> {r.message}</div>}
+          </div>}
+          {r.status==="interview"&&r.interview_at&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.gr,marginTop:6,fontWeight:700}}>📅 {r.interview_at}{r.contacted_at?" · alitumiwa / sent "+etStamp(r.contacted_at):""}</div>}
+          {r.status==="not_now"&&r.contacted_at&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:6}}>Alijibiwa / Replied {etStamp(r.contacted_at)}</div>}
+
+          {isOpen&&<div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:10,border:"1px solid "+(open.kind==="interview"?t.gr:t.dim2)+"55"}}>
+            <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",margin:"0 0 6px"}}>{open.kind==="interview"?"📅 Ujumbe wa Mahojiano / Interview invite":"⏳ Ujumbe wa Si Sasa / Not-now reply"}</p>
+            {open.kind==="interview"&&<><input value={when} onChange={e=>{setWhen(e.target.value);setEdit(null);}} placeholder="Siku na saa / Day & time (e.g. Ijumaa 21 Nov saa 5 asubuhi) *" style={inp}/><input value={place} onChange={e=>{setPlace(e.target.value);setEdit(null);}} placeholder="Mahali / Place" style={inp}/></>}
+            <textarea value={msg} onChange={e=>setEdit(e.target.value)} rows={8} style={{...inp,fontSize:11,lineHeight:1.45,resize:"vertical"}}/>
+            {!num&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginBottom:6}}>Namba ya simu si sahihi — hariri au piga simu. / Phone number looks invalid.</div>}
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>send(r)} disabled={!num||(open.kind==="interview"&&!when.trim())} style={{flex:1,background:(!num||(open.kind==="interview"&&!when.trim()))?t.bg:"#25D366",color:(!num||(open.kind==="interview"&&!when.trim()))?t.dim2:"#fff",border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:"pointer"}}>📲 Tuma WhatsApp / Send</button>
+              <button onClick={()=>setOpen(null)} style={{background:t.bg,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"10px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>}
+
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:10}}>
+            <button onClick={()=>startCompose(r,"interview")} style={{flex:"1 1 120px",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Mahojiano<br/><span style={{fontWeight:500,fontSize:9}}>Yes, interview</span></button>
+            <button onClick={()=>startCompose(r,"not_now")} style={{flex:"1 1 120px",background:t.dim2+"18",color:t.dim,border:"1px solid "+t.dim2+"55",borderRadius:8,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>⏳ Si Sasa<br/><span style={{fontWeight:500,fontSize:9}}>No, not now</span></button>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6,alignItems:"center"}}>
+            {r.phone&&<a href={"tel:"+r.phone.replace(/[^0-9+]/g,"")} style={{fontFamily:"sans-serif",fontSize:10,color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>📞 Piga / Call</a>}
+            {num&&<a href={"https://wa.me/"+num} target="_blank" rel="noopener" style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"5px 10px",textDecoration:"none",fontWeight:700}}>💬 Chat</a>}
+            <select value={r.status} onChange={e=>patch(r.id,{status:e.target.value})} style={{fontFamily:"sans-serif",fontSize:10,padding:"5px 6px",borderRadius:7,border:"1px solid "+t.border,background:t.inputBg,color:t.inputColor}}>
+              {Object.entries(APP_STATUS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.sw}</option>)}
+            </select>
+            <button onClick={()=>remove(r)} style={{marginLeft:"auto",background:"none",border:"none",color:t.dim2,fontSize:11,cursor:"pointer"}}>🗑</button>
+          </div>
+          {r.status==="hired"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.bl,marginTop:6,lineHeight:1.5}}>🎉 Mwongeze kwenye tabu ya Wafanya na mfanye asaini mkataba kwenye Ajira. / Add them in Wafanya and have them sign in Ajira.</div>}
+        </Card>);
+      })}
     </div>
   );
 }
@@ -3469,6 +3703,8 @@ function ChuoTab() {
         <ChuoBullet title="+ Ongeza Mfanyakazi / Add Staff" body="Chagua aina: Kudumu (mshahara wa mwezi), Msimu (malipo yanayobadilika), au Mkandarasi (kwa kazi moja). / Choose type: Long-term (monthly salary), Seasonal (variable pay), or Contractor (per-job)." />
         <ChuoBullet title="💰 Lipa / Pay" body="Bonyeza kumlipa mfanyakazi — kiasi kinaingia MOJA KWA MOJA kwenye gharama za biashara (Ripoti/Akili). / Tap to pay a staff member — the amount automatically flows into business expenses (visible in Ripoti/Akili)." />
         <ChuoBullet title="✏️ Hariri / Edit" body="Badilisha jina, kazi, mshahara, au maelezo ya mfanyakazi wakati wowote. / Change name, role, salary, or notes for any staff member anytime." />
+        <ChuoBullet title="🙋 Waombaji / Applicants" body="Watu wanaoomba kazi wanajaza utangulizi mfupi kwenye jikolabibijjj.com/ajira (kichupo cha Omba Kazi) — si mkataba. Hapa (Zaidi → Waombaji) unawaona, unabonyeza ✅ Mahojiano (unaandika siku/saa) au ⏳ Si Sasa, kisha unatuma WhatsApp. / People apply with a short intro at jikolabibijjj.com/ajira (Omba Kazi tab) — not a contract. Here (More → Waombaji) you see them, tap ✅ Interview (enter day/time) or ⏳ Not now, then send on WhatsApp."/>
+        <ChuoBullet title="📲 Barua / Notice (WhatsApp)" body="Bonyeza 📲 Barua kwenye kadi ya mfanyakazi → chagua aina (Onyo la Mdomo, Maandishi, Mwisho, Wito wa Kusikilizwa, Kusimamishwa, Kusitisha Ajira) → andika sababu → Tuma WhatsApp. Ujumbe wa Kiswahili + Kiingereza unafunguka kwenye WhatsApp tayari; wewe bonyeza Send. Rekodi inahifadhiwa kwenye Maonyo. / Tap 📲 Barua on a staff card → pick a type → enter the reason → Send. A Swahili + English message opens in WhatsApp ready to send; you tap Send. A record is saved in Warnings history."/>
         <ChuoBullet title="⚠️ Onyo / Warning" body="Rekodi onyo la mdomo au la maandishi kwa ukiukaji wa sera — andika sababu na tarehe. Onyo zote zinahifadhiwa kwa kudumu. / Record a verbal or written warning for policy violations — write the reason and date. All warnings are saved permanently." />
         <ChuoBullet title="🚪 Toa / Remove" body="Mfanyakazi anahamishwa kwenye sehemu ya 'Zamani/Former' — HAIFUTWI kabisa. Historia yote (malipo, maonyo) inabaki. / Staff member moves to the 'Former' section — NOT deleted entirely. All history (payments, warnings) stays intact." />
         <ChuoBullet title="↩️ Rejesha / Restore (kwenye Zamani)" body="Ukimrudisha mfanyakazi wa zamani, bonyeza hii kumfanya awe hai tena. / To bring back a former employee, tap this to reactivate them." />
@@ -3512,9 +3748,12 @@ export default function AdminPage({onExit}) {
   const uid=session?.user?.id||"";
   useEffect(()=>{ if(!uid) return; const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); rootFetch(dateStrET(d),today()); },[uid]);
   const mixFlags=useMemo(()=>[...spiritsTodayFlag(rootSales||[],rootCustom||[]),...buildMixFlags(computeWeekCmp(rootSales||[],rootCustom||[]))],[rootSales,rootCustom]);
+  const [newApps,setNewApps]=useState(0);
   const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
+  // new job applicants (Waombaji) — pulse the More button so you notice them
+  useEffect(()=>{ if(!uid||tab==="waombaji") return; let off=false; (async()=>{ try{ const {supabase}=await import("../lib/supabase"); if(!supabase) return; const {count,error}=await supabase.from("job_applicants").select("id",{count:"exact",head:true}).eq("status","new"); if(!off&&!error&&typeof count==="number") setNewApps(count); }catch{} })(); return ()=>{off=true;}; },[uid,tab]);
   const [dark,setDark]=useState(()=>localStorage.getItem("jiko-theme")==="dark");
   function toggle(){const nd=!dark;setDark(nd);localStorage.setItem("jiko-theme",nd?"dark":"light");}
   const [presenterMode,setPresenterMode]=useState(false);
@@ -3531,6 +3770,7 @@ export default function AdminPage({onExit}) {
   const MORE_TABS=[
     {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
     {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
+    {key:"waombaji", icon:"ti-user-search", label:"Waombaji", sub:"Applicants"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
     {key:"chuo", icon:"ti-school", label:"Chuo", sub:"Training"},
@@ -3586,7 +3826,8 @@ export default function AdminPage({onExit}) {
             <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:tab===tb.key?t.gold:t.text,whiteSpace:"nowrap"}}>{tb.label}</span>
             <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:tab===tb.key?t.gold:t.dim,whiteSpace:"nowrap"}}>{tb.sub}</span>
           </button>)}
-          <button onClick={()=>setShowMore(true)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:activeIsMore?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+          <button onClick={()=>setShowMore(true)} style={{position:"relative",flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:activeIsMore?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
+            {newApps>0&&!activeIsMore&&<span className="jiko-pulse" aria-label="new applicants" style={{position:"absolute",top:4,right:8,width:10,height:10,borderRadius:"50%",background:"#ffb300",boxShadow:"0 0 8px 2px #ffb300"}}/>}
             <i className="ti ti-dots" style={{fontSize:17,color:activeIsMore?t.gold:t.dim2}}/>
             <span style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:activeIsMore?t.gold:t.text,whiteSpace:"nowrap"}}>{activeIsMore ? (MORE_TABS.find(tb=>tb.key===tab)||{}).label : "Zaidi"}</span>
             <span style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:600,color:activeIsMore?t.gold:t.dim,whiteSpace:"nowrap"}}>More</span>
@@ -3599,7 +3840,8 @@ export default function AdminPage({onExit}) {
               <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 12px",paddingLeft:6}}>Zaidi / More Options</p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 {MORE_TABS.map(tb=>(
-                  <button key={tb.key} onClick={()=>{setTab(tb.key);setShowMore(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:"1.5px solid "+(tab===tb.key?t.gold:t.border),background:tab===tb.key?t.gold+"12":t.bg4,cursor:"pointer"}}>
+                  <button key={tb.key} onClick={()=>{setTab(tb.key);setShowMore(false);}} style={{position:"relative",display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:"1.5px solid "+(tab===tb.key?t.gold:t.border),background:tab===tb.key?t.gold+"12":t.bg4,cursor:"pointer"}}>
+                    {tb.key==="waombaji"&&newApps>0&&<span className="jiko-glow" style={{"--glow":"#ffb300",position:"absolute",top:6,right:8,minWidth:20,height:20,borderRadius:10,background:"#ffb300",color:"#3a2a00",fontFamily:"sans-serif",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 5px"}}>{newApps}</span>}
                     <i className={"ti "+tb.icon} style={{fontSize:24,color:tab===tb.key?t.gold:t.dim}}/>
                     <span style={{fontFamily:"sans-serif",fontSize:13,fontWeight:700,color:tab===tb.key?t.gold:t.text}}>{tb.label}</span>
                     <span style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{tb.sub}</span>
@@ -3617,6 +3859,7 @@ export default function AdminPage({onExit}) {
         {tab==="menu"   &&<MenuTab/>}
         {tab==="maagizo"&&<MaagizoTab/>}
         {tab==="wafanyakazi" &&<WafanyakaziTab/>}
+        {tab==="waombaji" &&<ApplicantsTab onCount={setNewApps}/>}
         {tab==="ajira" &&<AjiraTab/>}
         {tab==="backup" &&<BackupTab/>}
         {tab==="chuo" &&<ChuoTab/>}
