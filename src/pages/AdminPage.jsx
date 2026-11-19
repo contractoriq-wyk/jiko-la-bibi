@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.4-1 · 19 Nov 2026, applicants-tab";
+const APP_VERSION = "V3.5-1 · 19 Nov 2026, waajiriwa-hire-notnow";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3086,10 +3086,10 @@ function buildNotice(k,{name,role,reason,date,when,days,paid,payNote}){
   }[k];
   return "📋 *"+B.t+"*\nUnyamwezini Jiko La Bibi JJJ\n\n"+who+"\n\n"+B.sw+"\n\n"+B.en+"\n\nTafadhali jibu *NIMEPOKEA* kuthibitisha umepokea. / Please reply *RECEIVED* to confirm.\n\n— Uongozi / Management";
 }
-function NoticeComposer({s,onClose,onSaved,onRemove}){
+function NoticeComposer({s,onClose,onSaved,onRemove,initial="written"}){
   const {t}=useT();
   const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6};
-  const [k,setK]=useState("written");
+  const [k,setK]=useState(initial);
   const [reason,setReason]=useState("");
   const [date,setDate]=useState(today());
   const [when,setWhen]=useState("");
@@ -3155,7 +3155,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
   const periodLabel = isContractor ? "Kazi iliyofanyika / Job done" : (isSeasonal ? "Maelezo / Description" : "Kipindi / Period (e.g. Mwezi wa 6)");
   const [showWarnForm,setShowWarnForm]=useState(false);
   const [showWarnList,setShowWarnList]=useState(false);
-  const [showNotice,setShowNotice]=useState(false);
+  const [showNotice,setShowNotice]=useState(false); // false | notice type key
   const [warnType,setWarnType]=useState("verbal");
   const [warnReason,setWarnReason]=useState("");
   const [warnDate,setWarnDate]=useState(today());
@@ -3230,7 +3230,7 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             </div>
           </div>}
 
-          {showNotice && !isFormer && <NoticeComposer s={s} onClose={()=>setShowNotice(false)} onSaved={(...a)=>{onAddWarning(...a);setShowWarnList(true);}} onRemove={onRemove}/>}
+          {showNotice && !isFormer && <NoticeComposer key={showNotice} initial={showNotice} s={s} onClose={()=>setShowNotice(false)} onSaved={(...a)=>{onAddWarning(...a);setShowWarnList(true);}} onRemove={onRemove}/>}
 
           {showPay===s.id && <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:8}}>
             <input type="number" value={payForm.amount} onChange={setPF("amount")} placeholder="Kiasi / Amount (TZS)" style={{...inp,marginBottom:6,fontSize:12}}/>
@@ -3247,7 +3247,8 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
             <button onClick={()=>{setPayForm({amount:String(s.monthly_salary||""),date:today(),period:""});setShowPay(showPay===s.id?null:s.id);}} style={{background:t.gold+"20",color:t.gold,border:"1px solid "+t.gold+"55",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>💰 Lipa</button>
             <button onClick={()=>onStartEdit(s)} style={{background:t.bl+"15",color:t.bl,border:"1px solid "+t.bl+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>✏️ Hariri</button>
             <button onClick={()=>setShowWarnForm(!showWarnForm)} style={{background:t.rd+"15",color:t.rd,border:"1px solid "+t.rd+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>⚠️ Onyo</button>
-            <button onClick={()=>setShowNotice(v=>!v)} style={{background:"#25D36622",color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📲 Barua</button>
+            <button onClick={()=>setShowNotice(v=>v?false:"written")} style={{background:"#25D36622",color:"#128C7E",border:"1px solid #25D36688",borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📲 Barua</button>
+            <button onClick={()=>setShowNotice("terminate")} style={{background:t.rd,color:"#fff",border:"none",borderRadius:7,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>🛑 Kusitisha<br/><span style={{fontWeight:500,fontSize:8}}>Terminate</span></button>
             <button onClick={()=>onDelete(s)} style={{background:t.dim2+"15",color:t.dim2,border:"1px solid "+t.dim2+"40",borderRadius:7,padding:"4px 10px",fontSize:10,cursor:"pointer"}}>🚪 Toa</button>
           </>}
           {isFormer && <button onClick={()=>onReactivate(s)} style={{background:t.gr+"15",color:t.gr,border:"1px solid "+t.gr+"40",borderRadius:7,padding:"5px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>↩️ Rejesha</button>}
@@ -3387,6 +3388,58 @@ function WafanyakaziTab() {
   );
 }
 
+function welcomeMsg(name,role){
+  const first=(name||"").trim().split(/\s+/)[0]||name; const r=(role||"mfanyakazi").split("/")[0].trim();
+  return "Hongera *"+first+"*! 🎉\n\nUmechaguliwa kufanya kazi Unyamwezini Jiko La Bibi JJJ kama *"+r+"*. Tafadhali wasiliana nasi kuthibitisha siku ya kuanza.\n\n— — —\nCongratulations *"+first+"*! You have been selected to work at Unyamwezini Jiko La Bibi JJJ as *"+r+"*. Please contact us to confirm your start date.\n\n— Uongozi / Management";
+}
+function findStaffMatch(staff,name,phone){
+  const n=String(name||"").trim().toLowerCase(), p=waPhone(phone);
+  return (staff||[]).find(x=>(p&&waPhone(x.phone)===p)||(n&&String(x.name||"").trim().toLowerCase()===n));
+}
+// Add a person (from a signed contract or an applicant) to the Waajiriwa/Staff list, optionally with a WhatsApp welcome
+function HirePanel({person,onSave,onClose}){
+  const {t}=useT();
+  const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6};
+  const [name,setName]=useState(person.name||"");
+  const [role,setRole]=useState(person.role||"");
+  const [salary,setSalary]=useState(String(person.salary||"").replace(/[^0-9]/g,""));
+  const [type,setType]=useState(person.type||"seasonal");
+  const [phone,setPhone]=useState(person.phone||"");
+  const [welcome,setWelcome]=useState(false);
+  const TY=[["long_term","Kudumu","Long-term",t.gr],["seasonal","Msimu","Seasonal",t.bl],["contractor","Mkandarasi","Contractor",t.pu]];
+  const num=waPhone(phone);
+  function save(){
+    if(!name.trim()) return;
+    onSave({name:name.trim(),role:role.trim(),type,monthly_salary:salary,phone:phone.trim(),notes:person.notes||""}, welcome&&num?{num,text:welcomeMsg(name,role)}:null);
+  }
+  return (
+    <div style={{marginTop:8,padding:10,background:t.bg4,borderRadius:10,border:"1px solid "+t.gr+"55"}}>
+      <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.gr,textTransform:"uppercase",margin:"0 0 8px"}}>➕ Weka kwa Waajiriwa / Add to Staff</p>
+      <input value={name} onChange={e=>setName(e.target.value)} placeholder="Jina / Name *" style={inp}/>
+      <input value={role} onChange={e=>setRole(e.target.value)} placeholder="Kazi / Role (e.g. Mpishi, Mhudumu)" style={inp}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginBottom:6}}>
+        {TY.map(([k,sw,en,col])=><button key={k} onClick={()=>setType(k)} style={{padding:7,borderRadius:8,border:"1.5px solid "+(type===k?col:t.border),background:type===k?col+"18":"transparent",color:type===k?col:t.dim2,fontSize:10,fontWeight:700,cursor:"pointer"}}>{sw}<br/>{en}</button>)}
+      </div>
+      <input type="number" value={salary} onChange={e=>setSalary(e.target.value)} placeholder={type==="contractor"?"Kiwango cha Kazi / Job rate (TZS)":"Mshahara / Salary (TZS)"} style={inp}/>
+      <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Simu / Phone" style={inp}/>
+      <label style={{display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif",fontSize:11,color:t.text,marginBottom:8}}><input type="checkbox" checked={welcome} onChange={e=>setWelcome(e.target.checked)} disabled={!num}/> Tuma ujumbe wa "Karibu kazini" WhatsApp / Send a WhatsApp welcome {!num&&<span style={{color:t.rd}}>(weka simu)</span>}</label>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={save} disabled={!name.trim()} style={{flex:1,background:!name.trim()?t.bg:t.gr,color:!name.trim()?t.dim2:"#fff",border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:"pointer"}}>Hifadhi / Save</button>
+        <button onClick={onClose} style={{background:t.bg,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"10px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+      </div>
+    </div>
+  );
+}
+// Save a "not now" reply to the Waombaji list so it syncs and is not lost
+async function logNotNow(name,phone,roleLabel,note){
+  try{
+    const {supabase}=await import("../lib/supabase"); if(!supabase) return;
+    const now=new Date().toISOString(); const p=waPhone(phone)||phone;
+    const {data}=await supabase.from("job_applicants").select("id").eq("phone",phone).limit(1);
+    if(data&&data.length) await supabase.from("job_applicants").update({status:"not_now",contacted_at:now}).eq("id",data[0].id);
+    else await supabase.from("job_applicants").insert({name,phone:phone||p,role_wanted:roleLabel||"",status:"not_now",contacted_at:now,staff_note:note||""});
+  }catch(e){ console.warn("logNotNow failed",e); }
+}
 /* ═══ TAB: WAOMBAJI / JOB APPLICANTS — short intros from the Ajira page; reply via WhatsApp ═══ */
 const APP_STATUS={
   new:      {sw:"Mpya",          en:"New",        c:"gold", icon:"🆕"},
@@ -3403,6 +3456,8 @@ function applicantMsg(kind,a,when,place){
 function etStamp(ts){ try{ return new Date(ts).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"; }catch{ return ts||""; } }
 function ApplicantsTab({onCount}) {
   const {t} = useT();
+  const {staff,addStaff}=useAdmin();
+  const [hire,setHire]=useState(null);
   const [rows,setRows]=useState([]);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState("");
@@ -3510,7 +3565,8 @@ function ApplicantsTab({onCount}) {
             </select>
             <button onClick={()=>remove(r)} style={{marginLeft:"auto",background:"none",border:"none",color:t.dim2,fontSize:11,cursor:"pointer"}}>🗑</button>
           </div>
-          {r.status==="hired"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.bl,marginTop:6,lineHeight:1.5}}>🎉 Mwongeze kwenye tabu ya Wafanya na mfanye asaini mkataba kwenye Ajira. / Add them in Wafanya and have them sign in Ajira.</div>}
+          {(r.status==="hired"||r.status==="interview")&&(()=>{const ex=findStaffMatch(staff,r.name,r.phone);return ex?<div style={{fontFamily:"sans-serif",fontSize:10,color:t.gr,marginTop:6,fontWeight:700}}>✓ Yupo kwenye Waajiriwa / Already in Staff{ex.active===false?" (Zamani/Former)":""}</div>:<button onClick={()=>setHire(hire===r.id?null:r.id)} style={{marginTop:8,width:"100%",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎉 Ameajiriwa → ➕ Weka kwa Waajiriwa / Add to Staff</button>;})()}
+          {hire===r.id&&<HirePanel person={{name:r.name,phone:r.phone,role:(r.role_wanted||"").split("/")[0].trim(),type:"long_term"}} onClose={()=>setHire(null)} onSave={(m,w)=>{addStaff(m);patch(r.id,{status:"hired"});setHire(null);if(w) window.open("https://wa.me/"+w.num+"?text="+encodeURIComponent(w.text),"_blank");}}/>}
         </Card>);
       })}
     </div>
@@ -3520,6 +3576,11 @@ function ApplicantsTab({onCount}) {
 /* ═══ TAB: AJIRA RECORDS (owner oversight of signed contracts) ═══ */
 function AjiraTab() {
   const {t} = useT();
+  const {staff,addStaff}=useAdmin();
+  const [panel,setPanel]=useState(null);   // {id,kind:'hire'|'notnow'}
+  const [nnText,setNnText]=useState(null);
+  const [nnPhone,setNnPhone]=useState("");
+  const [replied,setReplied]=useState({}); // phone -> true (not-now already sent)
   const [records,setRecords]=useState([]);
   const [loading,setLoading]=useState(true);
   const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera", ubia:"🤝 Ushirikiano", wadau:"📋 Wadau Waanzilishi" };
@@ -3530,9 +3591,10 @@ function AjiraTab() {
         const {supabase} = await import("../lib/supabase");
         if(!supabase){setLoading(false);return;}
         const {data} = await supabase.from("signed_contracts")
-          .select("id,doc_type,employee_name,employee_phone,signed_at")
+          .select("id,doc_type,employee_name,employee_phone,signed_at,form_data")
           .order("signed_at",{ascending:false}).limit(200);
         setRecords(data||[]);
+        try{ const {data:ap}=await supabase.from("job_applicants").select("phone,status").eq("status","not_now"); const m={}; (ap||[]).forEach(a=>{const k=waPhone(a.phone)||a.phone; m[k]=true;}); setReplied(m); }catch{}
       } catch(e){ console.warn("Contracts load failed:",e); }
       setLoading(false);
     }
@@ -3574,16 +3636,42 @@ function AjiraTab() {
         <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Mikataba Iliyosainiwa / Signed Contracts</p>
         {loading && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Inapakia... / Loading...</p>}
         {!loading && records.length===0 && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Hakuna mikataba bado / No signed contracts yet</p>}
-        {records.map((r,i)=>(
-          <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
-            <span style={{fontSize:18}}>{(typeLabels[r.doc_type]||"📄").split(" ")[0]}</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text}}>{r.employee_name}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{typeLabels[r.doc_type]||r.doc_type} · {new Date(r.signed_at).toLocaleDateString("en-US",{timeZone:"America/New_York"})}{r.employee_phone?" · "+r.employee_phone:""}</div>
+        {records.map((r,i)=>{
+          const fd=r.form_data||{}; const canHire=r.doc_type==="muda_mfupi"||r.doc_type==="kudumu";
+          const ex=canHire?findStaffMatch(staff,r.employee_name,r.employee_phone):null;
+          const roleTxt=fd.wadhifa||fd.kazi||"";
+          const isRep=!!replied[waPhone(r.employee_phone)||r.employee_phone];
+          const open=panel&&panel.id===r.id?panel.kind:null;
+          const nnBuilt=applicantMsg("not_now",{name:r.employee_name,role_wanted:roleTxt||"kazi"});
+          const nnMsg=nnText!==null?nnText:nnBuilt; const nnNum=waPhone(nnPhone||r.employee_phone);
+          return (
+          <div key={r.id} style={{padding:"10px 12px",background:i%2===0?t.bg4:"transparent",borderRadius:8,marginBottom:3}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:18}}>{(typeLabels[r.doc_type]||"📄").split(" ")[0]}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{r.employee_name}{ex&&<span style={{marginLeft:6,fontSize:9,fontWeight:800,color:t.gr,background:t.gr+"18",padding:"1px 6px",borderRadius:4}}>✓ WAAJIRIWA{ex.active===false?" (Zamani)":""}</span>}{isRep&&!ex&&<span style={{marginLeft:6,fontSize:9,fontWeight:800,color:t.dim,background:t.dim2+"20",padding:"1px 6px",borderRadius:4}}>⏳ SI SASA</span>}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{typeLabels[r.doc_type]||r.doc_type} · {new Date(r.signed_at).toLocaleDateString("en-US",{timeZone:"America/New_York"})}{r.employee_phone?" · "+r.employee_phone:""}</div>
+              </div>
+              <button onClick={()=>viewRecord(r.id)} style={{background:t.bl+"15",border:"1px solid "+t.bl+"40",color:t.bl,borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Angalia</button>
             </div>
-            <button onClick={()=>viewRecord(r.id)} style={{background:t.bl+"15",border:"1px solid "+t.bl+"40",color:t.bl,borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}}>Angalia</button>
-          </div>
-        ))}
+            {canHire&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+              {!ex&&<button onClick={()=>setPanel(open==="hire"?null:{id:r.id,kind:"hire"})} style={{flex:"1 1 130px",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"7px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>➕ Waajiriwa<br/><span style={{fontWeight:500,fontSize:8}}>Add to staff</span></button>}
+              {!ex&&<button onClick={()=>{setNnText(null);setNnPhone(r.employee_phone||"");setPanel(open==="notnow"?null:{id:r.id,kind:"notnow"});}} style={{flex:"1 1 130px",background:t.dim2+"18",color:t.dim,border:"1px solid "+t.dim2+"55",borderRadius:8,padding:"7px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>⏳ Si Sasa<br/><span style={{fontWeight:500,fontSize:8}}>Not needed now</span></button>}
+              {ex&&<button onClick={()=>{setPanel(null);}} disabled style={{flex:1,background:"none",border:"none",color:t.dim2,fontSize:10,textAlign:"left",cursor:"default"}}>Tayari yupo kwenye tabu ya Waajiriwa. / Already in the Staff tab.</button>}
+            </div>}
+            {open==="hire"&&<HirePanel person={{name:r.employee_name,phone:r.employee_phone,role:roleTxt,salary:fd.mshahara||fd.malipo,type:r.doc_type==="kudumu"?"long_term":"seasonal",notes:"Alisaini mkataba "+new Date(r.signed_at).toLocaleDateString("en-US",{timeZone:"America/New_York"})}} onClose={()=>setPanel(null)} onSave={(m,w)=>{addStaff(m);setPanel(null);if(w) window.open("https://wa.me/"+w.num+"?text="+encodeURIComponent(w.text),"_blank");}}/>}
+            {open==="notnow"&&<div style={{marginTop:8,padding:10,background:t.bg,borderRadius:10,border:"1px solid "+t.dim2+"55"}}>
+              <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",margin:"0 0 6px"}}>⏳ Ujumbe wa Si Sasa / Not-now message (WhatsApp)</p>
+              <input value={nnPhone} onChange={e=>setNnPhone(e.target.value)} placeholder="Simu / Phone" style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+              <textarea value={nnMsg} onChange={e=>setNnText(e.target.value)} rows={8} style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:11,lineHeight:1.45,color:t.inputColor,outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:6}}/>
+              {!nnNum&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginBottom:6}}>Namba si sahihi. / Phone number looks invalid.</div>}
+              <div style={{display:"flex",gap:6}}>
+                <button disabled={!nnNum} onClick={()=>{ window.open("https://wa.me/"+nnNum+"?text="+encodeURIComponent(nnMsg),"_blank"); logNotNow(r.employee_name,r.employee_phone||nnPhone,typeLabels[r.doc_type]||"","Alisaini mkataba "+(typeLabels[r.doc_type]||"")); setReplied(p=>({...p,[nnNum]:true})); setPanel(null); }} style={{flex:1,background:nnNum?"#25D366":t.bg4,color:nnNum?"#fff":t.dim2,border:"none",borderRadius:8,padding:10,fontSize:12,fontWeight:800,cursor:"pointer"}}>📲 Tuma WhatsApp / Send</button>
+                <button onClick={()=>setPanel(null)} style={{background:t.bg4,color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"10px 12px",fontSize:12,cursor:"pointer"}}>✕</button>
+              </div>
+            </div>}
+          </div>);
+        })}
       </Card>
 
       <div style={{background:t.bg4,borderRadius:12,padding:"1rem",marginTop:10,border:"1px solid "+t.border}}>
@@ -3699,7 +3787,7 @@ function ChuoTab() {
         <ChuoBullet title="Wateja wa Kudumu / Repeat Customers" body="Kadi ya dhahabu inayoonyesha wateja walioagiza mara 2+ — fikiria zawadi ndogo kwa wateja hawa waaminifu. / Gold card showing customers who've ordered 2+ times — consider a small thank-you gesture for these loyal customers." />
       </ChuoSection>
 
-      <ChuoSection icon="👥" color={t.gr} titleSw="Wafanya / Staff" titleEn="Payroll, contractors & discipline" isOpen={open==="wafanya"} onToggle={()=>toggle("wafanya")}>
+      <ChuoSection icon="👥" color={t.gr} titleSw="Waajiriwa / Staff" titleEn="Payroll, contractors & discipline" isOpen={open==="wafanya"} onToggle={()=>toggle("wafanya")}>
         <ChuoBullet title="+ Ongeza Mfanyakazi / Add Staff" body="Chagua aina: Kudumu (mshahara wa mwezi), Msimu (malipo yanayobadilika), au Mkandarasi (kwa kazi moja). / Choose type: Long-term (monthly salary), Seasonal (variable pay), or Contractor (per-job)." />
         <ChuoBullet title="💰 Lipa / Pay" body="Bonyeza kumlipa mfanyakazi — kiasi kinaingia MOJA KWA MOJA kwenye gharama za biashara (Ripoti/Akili). / Tap to pay a staff member — the amount automatically flows into business expenses (visible in Ripoti/Akili)." />
         <ChuoBullet title="✏️ Hariri / Edit" body="Badilisha jina, kazi, mshahara, au maelezo ya mfanyakazi wakati wowote. / Change name, role, salary, or notes for any staff member anytime." />
@@ -3726,7 +3814,7 @@ function ChuoTab() {
       <ChuoSection icon="🔑" color={t.gold} titleSw="Mambo ya Jumla / General Navigation" titleEn="PIN, theme, and the More menu" isOpen={open==="jumla"} onToggle={()=>toggle("jumla")}>
         <ChuoBullet title="PIN ya Kuingia / Login PIN" body="Msimamizi anahitaji PIN kuingia — usimpe mtu yeyote asiyeaminika. / Msimamizi requires a PIN to enter — never share it with anyone untrusted." />
         <ChuoBullet title="☀️/🌙 Theme Toggle" body="Ipo juu kulia — inabadilisha kati ya mandhari nyeupe (mchana) na nyeusi (usiku). Chaguo lako linahifadhiwa. / Top-right — switches between light (day) and dark (night) themes. Your choice is remembered." />
-        <ChuoBullet title="Zaidi / More (nukta tatu)" body="Tabu za Malengo, Wafanya, Ajira, na Hifadhi ziko hapa ili menyu isijae. Bonyeza kufungua orodha kamili. / The Malengo, Wafanya, Ajira, and Hifadhi tabs live here to keep the main menu uncluttered. Tap to open the full list." />
+        <ChuoBullet title="Zaidi / More (nukta tatu)" body="Tabu za Malengo, Waajiriwa, Waombaji, Ajira, na Hifadhi ziko hapa ili menyu isijae. Bonyeza kufungua orodha kamili. / The Malengo, Waajiriwa (Staff), Waombaji, Ajira, and Hifadhi tabs live here to keep the main menu uncluttered. Tap to open the full list." />
         <ChuoBullet title="Back / Rudi" body="Juu kushoto — kinarudisha kwenye tovuti kuu ya wateja bila kutoka Msimamizi kabisa. / Top-left — returns to the main customer-facing website without fully exiting Msimamizi." />
         <ChuoBullet title="Exit / Toka" body="Kinafunga kikao cha Msimamizi kabisa — utahitaji PIN tena kuingia. / Fully closes the Msimamizi session — you'll need the PIN again to re-enter." />
       </ChuoSection>
@@ -3734,7 +3822,7 @@ function ChuoTab() {
       <div style={{background:t.gold+"10",border:"1px solid "+t.gold+"33",borderRadius:12,padding:"1rem",marginTop:14}}>
         <p style={{fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.gold,marginBottom:6}}>💡 Ushauri wa Mwisho / Final Tip</p>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,lineHeight:1.6,margin:0}}>
-          Mtu mpya anapaswa kuanza na tabu ya Leo (kuandika mauzo), kisha Ingiza (kuandika gharama), kisha Maagizo (kutimiza maagizo ya wateja). Vitu vingine (Malengo, Akili, Wafanya) vinaweza kujifunza baadaye. / A new person should start with Leo (recording sales), then Ingiza (recording costs), then Maagizo (fulfilling customer orders). Everything else (Malengo, Akili, Wafanya) can be learned later.
+          Mtu mpya anapaswa kuanza na tabu ya Leo (kuandika mauzo), kisha Ingiza (kuandika gharama), kisha Maagizo (kutimiza maagizo ya wateja). Vitu vingine (Malengo, Akili, Waajiriwa) vinaweza kujifunza baadaye. / A new person should start with Leo (recording sales), then Ingiza (recording costs), then Maagizo (fulfilling customer orders). Everything else (Malengo, Akili, Waajiriwa) can be learned later.
         </p>
       </div>
     </div>
@@ -3769,7 +3857,7 @@ export default function AdminPage({onExit}) {
   ];
   const MORE_TABS=[
     {key:"malengo",icon:"ti-target",          label:"Malengo", sub:"Goals"},
-    {key:"wafanyakazi", icon:"ti-users", label:"Wafanya", sub:"Staff"},
+    {key:"wafanyakazi", icon:"ti-users", label:"Waajiriwa", sub:"Staff"},
     {key:"waombaji", icon:"ti-user-search", label:"Waombaji", sub:"Applicants"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
