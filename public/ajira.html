@@ -302,6 +302,8 @@ function renderPolicy(){
 }
 
 /* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
+const SOURCES = ["Tangazo la Facebook / Facebook ad","Ukurasa wa Facebook / Facebook page","Tovuti ya Jiko La Bibi / Our website","Mdomo kwa mdomo (rafiki/ndugu) / Word of mouth","WhatsApp / Instagram / TikTok","Bango au mtaani / Signboard or in person","Nyingine / Other"];
+const SRC_LINK = {fbad:0, fb:1, web:2, wom:3, social:4, sign:5};
 const ROLES = ["Mpishi / Cook","Msaidizi wa Jikoni / Kitchen helper","Mhudumu / Waiter-Waitress","Bartender / Baa","Msafishaji / Cleaner","Dereva / Delivery","Nyingine / Other"];
 function esc(x){ return String(x||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 let hiringOpen = true; // false only when the owner switched applications off
@@ -319,6 +321,9 @@ function renderClosed(){
       <p style="font-size:13px;line-height:1.7">Kwa sasa hatupokei maombi ya kazi. Tafadhali angalia tena baadaye. Unaweza kusoma <b>Sera za Kazi</b> hapo juu.<br><span style="opacity:.75">Thank you for your interest! We are not taking job applications right now. Please check back later. You can read our <b>Work Policies</b> above.</span></p>
     </div>`;
 }
+let srcPre = -1;
+try{ const q=(new URLSearchParams(location.search).get("src")||"").toLowerCase(); if(q in SRC_LINK) srcPre=SRC_LINK[q]; }catch(e){}
+function srcChange(){ const v=(document.getElementById("a_src")||{}).value||""; const x=document.getElementById("a_srcx"); if(x) x.style.display = v.indexOf("Other")>-1 ? "block" : "none"; }
 function renderApply(){
   if(!hiringOpen){ renderClosed(); return; }
   document.getElementById("formArea").innerHTML = `
@@ -330,12 +335,16 @@ function renderApply(){
       <label>Kazi Unayoomba / Job you want</label><select id="a_role">${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
       <label>Unaishi Wapi? / Where do you live?</label><input id="a_area" maxlength="120" placeholder="Mtaa / Area (e.g. Goba, Mbezi)">
       <label>Uzoefu Wako (mfupi) / Your experience (short)</label><textarea id="a_exp" maxlength="300" rows="3" placeholder="Mfano: Nimepika miaka 2 hotelini / e.g. 2 years cooking in a hotel"></textarea>
+      <label>Ulitupata Wapi? / How did you find us?</label><select id="a_src"><option value="">— Chagua / Choose —</option>${SOURCES.map((x,i)=>`<option value="${esc(x)}"${i===srcPre?" selected":""}>${x}</option>`).join("")}</select>
+      <input id="a_srcx" maxlength="60" style="display:none" placeholder="Eleza / Please tell us (hiari / optional)">
       <label>Unaweza Kuanza Lini? / When can you start?</label><input id="a_start" maxlength="80" placeholder="Mfano: Wiki ijayo / Next week">
       <label>Kwa Nini Unataka Kazi Hii? (hiari) / Why this job? (optional)</label><textarea id="a_msg" maxlength="300" rows="2"></textarea>
       <input id="a_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
       <button class="btn btn-gold no-print" id="a_btn" onclick="submitApply()">📨 Tuma Ombi / Send Application</button>
       <div class="status" id="a_status"></div>
     </div>`;
+
+  const sel=document.getElementById("a_src"); if(sel){ sel.onchange=srcChange; srcChange(); }
 }
 async function submitApply(){
   if(!hiringOpen){ renderClosed(); return; }
@@ -347,10 +356,16 @@ async function submitApply(){
   if(phone.replace(/[^0-9]/g,"").length<9){ st.className="status err"; st.textContent="× Weka namba sahihi ya simu / Enter a valid phone number"; return; }
   try{ const last=+localStorage.getItem("ajira_applied_at")||0; if(Date.now()-last<60000){ st.className="status err"; st.textContent="× Subiri dakika moja kisha ujaribu tena / Please wait a minute"; return; } }catch(e){}
   btn.disabled = true; st.className="status ok"; st.textContent="Inatuma... / Sending...";
-  const rec = { name, phone, role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
+  let source = g("a_src"); const sx = g("a_srcx").trim(); if(source && sx && source.indexOf("Other")>-1) source = (source+": "+sx).slice(0,80);
+  const rec = { name, phone, source, role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
   try{
-    const res = await fetch(SB_URL + "/rest/v1/job_applicants", { method:"POST",
-      headers:{ "Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, Prefer:"return=minimal" }, body:JSON.stringify(rec) });
+    const post = body => fetch(SB_URL + "/rest/v1/job_applicants", { method:"POST",
+      headers:{ "Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, Prefer:"return=minimal" }, body:JSON.stringify(body) });
+    let res = await post(rec);
+    if(!res.ok){ // "source" column not created yet? never lose an applicant — resend without it
+      const t0 = await res.clone().text();
+      if(/source/i.test(t0)){ const r2 = Object.assign({}, rec); delete r2.source; res = await post(r2); }
+    }
     if(res.ok){
       try{ localStorage.setItem("ajira_applied_at", String(Date.now())); }catch(e){}
       document.getElementById("formArea").innerHTML = `<div class="card" style="text-align:center"><h2>✅ Ombi Lako Limepokelewa!</h2><p style="font-size:13px;line-height:1.7">Asante, <b>${esc(name)}</b>. Tutakutafuta kwa WhatsApp au simu ukichaguliwa kwa mahojiano.<br><span style="opacity:.75">Thank you! We will contact you on WhatsApp or phone if we would like to interview you.</span></p></div>`;
