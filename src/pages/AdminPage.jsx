@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.6-1 · 19 Nov 2026, hiring-switch";
+const APP_VERSION = "V3.6-2 · 19 Nov 2026, applicant-source";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3544,6 +3544,14 @@ function ApplicantsTab({onCount}) {
         )}
       </Card>
       <a href="/ajira" target="_blank" rel="noopener" style={{display:"block",textAlign:"center",fontFamily:"sans-serif",fontSize:11,color:t.dim,marginBottom:10,textDecoration:"underline"}}>Kiungo cha waombaji: jikolabibijjj.com/ajira (kichupo cha 🙋 Omba Kazi) / Applicant link</a>
+      {(()=>{ const sc={}; rows.forEach(r=>{ const k=(r.source||"").split(":")[0].split(" / ")[0].trim()||"Haijulikani"; sc[k]=(sc[k]||0)+1; }); const ent=Object.entries(sc).sort((a,b)=>b[1]-a[1]); if(rows.length===0) return null; const mx=ent[0][1];
+        return <Card style={{padding:"12px 14px",marginBottom:10}}>
+          <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>📣 WANATOKA WAPI? / WHERE THEY FIND US</div>
+          {ent.map(([k,n])=>(<div key={k} style={{marginBottom:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontFamily:"sans-serif",fontSize:11,color:t.text}}><span style={{overflowWrap:"anywhere"}}>{k}</span><b>{n}</b></div>
+            <div style={{height:5,borderRadius:3,background:t.bg4,marginTop:3}}><div style={{height:5,borderRadius:3,background:t.gold,width:Math.round(n/mx*100)+"%"}}/></div>
+          </div>))}
+        </Card>; })()}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
         {[["new","🆕 Wapya"],["interview","✅ Mahojiano"],["not_now","⏳ Si Sasa"],["hired","🎉 Ameajiriwa"],["all","Wote"]].map(([k,l])=>(
           <button key={k} onClick={()=>setFilter(k)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 11px",borderRadius:99,cursor:"pointer",border:"1px solid "+(filter===k?t.gold:t.border),background:filter===k?t.gold+"22":"transparent",color:filter===k?t.gold:t.dim2}}>{l}{k!=="all"&&counts[k]?" ("+counts[k]+")":""}</button>
@@ -3568,6 +3576,7 @@ function ApplicantsTab({onCount}) {
               <div style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,marginTop:4}}>{etStamp(r.created_at)}</div>
             </div>
           </div>
+          {r.source&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.gold,fontWeight:700,marginTop:6}}>📣 Alitupata / Found us: <span style={{color:t.text,fontWeight:600}}>{r.source}</span></div>}
           {(r.experience||r.available_from||r.message)&&<div style={{marginTop:8,padding:"8px 10px",background:t.bg4,borderRadius:8,fontFamily:"sans-serif",fontSize:11,color:t.text,lineHeight:1.55}}>
             {r.experience&&<div><b>Uzoefu / Experience:</b> {r.experience}</div>}
             {r.available_from&&<div><b>Kuanza / Start:</b> {r.available_from}</div>}
