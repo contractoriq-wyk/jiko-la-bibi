@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.5-1 · 19 Nov 2026, waajiriwa-hire-notnow";
+const APP_VERSION = "V3.5-2 · 19 Nov 2026, archive-contracts";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3581,6 +3581,10 @@ function AjiraTab() {
   const [nnText,setNnText]=useState(null);
   const [nnPhone,setNnPhone]=useState("");
   const [replied,setReplied]=useState({}); // phone -> true (not-now already sent)
+  const [archived,setArchived]=useState({}); // contract id -> true (hidden from the main list)
+  const [archReady,setArchReady]=useState(false); // true once the 'archived' column exists in Supabase
+  const [showArch,setShowArch]=useState(false);
+  const [archMsg,setArchMsg]=useState("");
   const [records,setRecords]=useState([]);
   const [loading,setLoading]=useState(true);
   const typeLabels = { muda_mfupi:"📄 Muda Mfupi", kudumu:"📜 Kudumu", sera:"📕 Sera", ubia:"🤝 Ushirikiano", wadau:"📋 Wadau Waanzilishi" };
@@ -3594,6 +3598,7 @@ function AjiraTab() {
           .select("id,doc_type,employee_name,employee_phone,signed_at,form_data")
           .order("signed_at",{ascending:false}).limit(200);
         setRecords(data||[]);
+        try{ const {data:ar,error:ae}=await supabase.from("signed_contracts").select("id").eq("archived",true); if(!ae){ const m={}; (ar||[]).forEach(a=>{m[a.id]=true;}); setArchived(m); setArchReady(true);} }catch{}
         try{ const {data:ap}=await supabase.from("job_applicants").select("phone,status").eq("status","not_now"); const m={}; (ap||[]).forEach(a=>{const k=waPhone(a.phone)||a.phone; m[k]=true;}); setReplied(m); }catch{}
       } catch(e){ console.warn("Contracts load failed:",e); }
       setLoading(false);
@@ -3614,6 +3619,20 @@ function AjiraTab() {
     } catch(e){ alert("Error: "+e.message); }
   }
 
+  async function setArch(ids,val){
+    if(!archReady){ setArchMsg("Endesha migration_archive_contracts.sql kwenye Supabase mara moja ili kuhifadhi kumbukumbu. / Run migration_archive_contracts.sql in Supabase once to enable Archive."); return; }
+    setArchMsg("");
+    setArchived(prev=>{const n={...prev}; ids.forEach(i=>{ if(val) n[i]=true; else delete n[i]; }); return n;});
+    try{ const {supabase}=await import("../lib/supabase"); await supabase.from("signed_contracts").update({archived:val}).in("id",ids); }catch(e){ console.warn("archive failed",e); }
+  }
+  async function delContract(r){
+    if(!confirm("FUTA KABISA mkataba wa "+r.employee_name+"? Hili haliwezi kurudishwa. (Kama unataka kuuficha tu, tumia Hifadhi/Archive.) / PERMANENTLY delete "+r.employee_name+"'s contract? This cannot be undone. (To just hide it, use Archive.)")) return;
+    setRecords(prev=>prev.filter(x=>x.id!==r.id));
+    try{ const {supabase}=await import("../lib/supabase"); await supabase.from("signed_contracts").delete().eq("id",r.id); }catch(e){ console.warn("delete failed",e); }
+  }
+  const archCount=records.filter(r=>archived[r.id]).length;
+  const visibleRecords=records.filter(r=>showArch?!!archived[r.id]:!archived[r.id]);
+  const repliedIds=visibleRecords.filter(r=>!!replied[waPhone(r.employee_phone)||r.employee_phone]&&!findStaffMatch(staff,r.employee_name,r.employee_phone)).map(r=>r.id);
   const counts = {
     total: records.length,
     kudumu: records.filter(r=>r.doc_type==="kudumu").length,
@@ -3633,10 +3652,16 @@ function AjiraTab() {
       </a>
 
       <Card style={{padding:"1rem"}}>
-        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Mikataba Iliyosainiwa / Signed Contracts</p>
+        <p style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 10px"}}>Mikataba Iliyosainiwa / Signed Contracts{showArch?" — 📥 Zilizohifadhiwa / Archived":""}</p>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+          {!showArch&&repliedIds.length>0&&<button onClick={()=>setArch(repliedIds,true)} style={{background:t.dim2+"18",color:t.dim,border:"1px solid "+t.dim2+"55",borderRadius:8,padding:"7px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>📥 Hifadhi zote za ⏳ Si Sasa ({repliedIds.length}) / Archive all replied</button>}
+          <button onClick={()=>setShowArch(v=>!v)} style={{background:"none",color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"7px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{showArch?"← Rudi kwenye orodha / Back to list":"📥 Zilizohifadhiwa / Archived ("+archCount+")"}</button>
+        </div>
+        {archMsg&&<p style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,lineHeight:1.5,margin:"0 0 10px"}}>⚠️ {archMsg}</p>}
+        {!loading&&showArch&&visibleRecords.length===0&&<p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Hakuna zilizohifadhiwa. / Nothing archived.</p>}
         {loading && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Inapakia... / Loading...</p>}
         {!loading && records.length===0 && <p style={{textAlign:"center",color:t.dim2,fontSize:12,padding:"1rem 0"}}>Hakuna mikataba bado / No signed contracts yet</p>}
-        {records.map((r,i)=>{
+        {visibleRecords.map((r,i)=>{
           const fd=r.form_data||{}; const canHire=r.doc_type==="muda_mfupi"||r.doc_type==="kudumu";
           const ex=canHire?findStaffMatch(staff,r.employee_name,r.employee_phone):null;
           const roleTxt=fd.wadhifa||fd.kazi||"";
@@ -3659,6 +3684,10 @@ function AjiraTab() {
               {!ex&&<button onClick={()=>{setNnText(null);setNnPhone(r.employee_phone||"");setPanel(open==="notnow"?null:{id:r.id,kind:"notnow"});}} style={{flex:"1 1 130px",background:t.dim2+"18",color:t.dim,border:"1px solid "+t.dim2+"55",borderRadius:8,padding:"7px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>⏳ Si Sasa<br/><span style={{fontWeight:500,fontSize:8}}>Not needed now</span></button>}
               {ex&&<button onClick={()=>{setPanel(null);}} disabled style={{flex:1,background:"none",border:"none",color:t.dim2,fontSize:10,textAlign:"left",cursor:"default"}}>Tayari yupo kwenye tabu ya Waajiriwa. / Already in the Staff tab.</button>}
             </div>}
+            <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end",alignItems:"center"}}>
+              <button onClick={()=>setArch([r.id],!archived[r.id])} style={{background:"none",border:"1px solid "+t.border,color:t.dim,borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{archived[r.id]?"↩️ Rejesha / Restore":"📥 Hifadhi / Archive"}</button>
+              <button onClick={()=>delContract(r)} style={{background:"none",border:"1px solid "+t.rd+"44",color:t.rd,borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>🗑 Futa / Delete</button>
+            </div>
             {open==="hire"&&<HirePanel person={{name:r.employee_name,phone:r.employee_phone,role:roleTxt,salary:fd.mshahara||fd.malipo,type:r.doc_type==="kudumu"?"long_term":"seasonal",notes:"Alisaini mkataba "+new Date(r.signed_at).toLocaleDateString("en-US",{timeZone:"America/New_York"})}} onClose={()=>setPanel(null)} onSave={(m,w)=>{addStaff(m);setPanel(null);if(w) window.open("https://wa.me/"+w.num+"?text="+encodeURIComponent(w.text),"_blank");}}/>}
             {open==="notnow"&&<div style={{marginTop:8,padding:10,background:t.bg,borderRadius:10,border:"1px solid "+t.dim2+"55"}}>
               <p style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase",margin:"0 0 6px"}}>⏳ Ujumbe wa Si Sasa / Not-now message (WhatsApp)</p>
