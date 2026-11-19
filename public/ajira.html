@@ -304,7 +304,23 @@ function renderPolicy(){
 /* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
 const ROLES = ["Mpishi / Cook","Msaidizi wa Jikoni / Kitchen helper","Mhudumu / Waiter-Waitress","Bartender / Baa","Msafishaji / Cleaner","Dereva / Delivery","Nyingine / Other"];
 function esc(x){ return String(x||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+let hiringOpen = true; // false only when the owner switched applications off
+async function checkHiring(){
+  try{
+    const r = await fetch(SB_URL + "/rest/v1/site_flags?id=eq.main&select=hiring_open", { headers:{ apikey:SB_KEY, Authorization:"Bearer "+SB_KEY } });
+    if(r.ok){ const j = await r.json(); if(j && j[0] && j[0].hiring_open === false) hiringOpen = false; }
+  }catch(e){}
+  if(currentDoc==="omba") renderApply();
+}
+function renderClosed(){
+  document.getElementById("formArea").innerHTML = `
+    <div class="card" style="text-align:center">
+      <h2>🙏 Asante kwa Kupendezwa!</h2>
+      <p style="font-size:13px;line-height:1.7">Kwa sasa hatupokei maombi ya kazi. Tafadhali angalia tena baadaye. Unaweza kusoma <b>Sera za Kazi</b> hapo juu.<br><span style="opacity:.75">Thank you for your interest! We are not taking job applications right now. Please check back later. You can read our <b>Work Policies</b> above.</span></p>
+    </div>`;
+}
 function renderApply(){
+  if(!hiringOpen){ renderClosed(); return; }
   document.getElementById("formArea").innerHTML = `
     <div class="card">
       <h2>🙋 OMBA KAZI / APPLY FOR A JOB</h2>
@@ -322,6 +338,7 @@ function renderApply(){
     </div>`;
 }
 async function submitApply(){
+  if(!hiringOpen){ renderClosed(); return; }
   const g = id => (document.getElementById(id)||{}).value||"";
   const st = document.getElementById("a_status"), btn = document.getElementById("a_btn");
   if(g("a_hp")) return; // spam trap
@@ -338,6 +355,8 @@ async function submitApply(){
       try{ localStorage.setItem("ajira_applied_at", String(Date.now())); }catch(e){}
       document.getElementById("formArea").innerHTML = `<div class="card" style="text-align:center"><h2>✅ Ombi Lako Limepokelewa!</h2><p style="font-size:13px;line-height:1.7">Asante, <b>${esc(name)}</b>. Tutakutafuta kwa WhatsApp au simu ukichaguliwa kwa mahojiano.<br><span style="opacity:.75">Thank you! We will contact you on WhatsApp or phone if we would like to interview you.</span></p></div>`;
     } else {
+      const closedNow = await (async()=>{ try{ const r=await fetch(SB_URL+"/rest/v1/site_flags?id=eq.main&select=hiring_open",{headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY}}); const j=await r.json(); return j&&j[0]&&j[0].hiring_open===false; }catch(e){ return false; } })();
+      if(closedNow){ hiringOpen=false; renderClosed(); return; }
       btn.disabled = false; st.className="status err"; st.textContent="× Imeshindwa kutuma. Jaribu tena. / Could not send. Please try again.";
     }
   }catch(e){ btn.disabled = false; st.className="status err"; st.textContent="× Mtandao umekataa / Network error"; }
@@ -450,6 +469,7 @@ async function saveContract(){
 /* init */
 renderApply();
 initLock();
+checkHiring();
 </script>
 </body>
 </html>
