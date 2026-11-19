@@ -4,7 +4,7 @@ import { useLang } from "../lang/LanguageContext";
 import { whatsappEnquiryLink } from "../utils/order";
 
 // Build label shown at the very bottom of the site so you can see which version is live.
-const SITE_VERSION = "V3.6-1 · 19 Nov 2026";
+const SITE_VERSION = "V3.6-2 · 19 Nov 2026";
 
 export default function Footer() {
   const { lang, t } = useLang();
@@ -143,7 +143,7 @@ export default function Footer() {
         </div>
         {hiring && (
           <p className="mt-4 text-center">
-            <a href="/ajira.html" className="inline-block rounded-full border border-gold/40 px-4 py-2 text-xs font-bold text-gold hover:bg-gold/10 transition-colors">
+            <a href="/ajira.html?src=web" className="inline-block rounded-full border border-gold/40 px-4 py-2 text-xs font-bold text-gold hover:bg-gold/10 transition-colors">
               💼 {lang === "sw" ? "Tunaajiri — Omba Kazi" : "We're Hiring — Apply Here"}
             </a>
           </p>
