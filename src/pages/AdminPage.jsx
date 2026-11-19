@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.2-1 · 15 Nov 2026, drinks-expense";
+const APP_VERSION = "V3.2-7 · 18 Nov 2026, drinks-vs-food-flags";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -478,6 +478,28 @@ const BEV_CATS=[
   {k:"bulk_beer",l:"🍺 Beer / Bia"},
   {k:"bulk_spirits",l:"🥃 Gin & Spirits / Pombe Kali"},
 ];
+// Chakula vs Vinywaji — classify a sale as food / soft (non-alcoholic) / beer / spirits
+const SOFT_IDS=new Set(["chai-maziwa","chai-rangi"]);
+const BEER_RE=/\b(bia|beer|lager|safari|kilimanjaro|serengeti|tusker|castle|balimi|ndovu|heineken|guinness|windhoek)\b/i;
+const SPIRIT_RE=/(pombe kali|spirit|alcohol|gin\b|konyagi|whisky|whiskey|vodka|rum\b|brandy|wine|mvinyo|valeur|k-vant|kvant|chubby|smirnoff|jameson|amarula)/i;
+const SOFT_RE=/(vinywaji|cold drink|soda|juice|maji|water|chai|tea|kahawa|coffee|maziwa)/i;
+function classifyItem(itemId,sectionId,itemName,customMap){
+  if(SOFT_IDS.has(itemId)) return "soft";
+  const sec=customMap[itemId]||"";
+  const hay=sec+" "+(sectionId||"");
+  if(BEER_RE.test(sec)) return "beer";
+  if(SPIRIT_RE.test(sec)) return "spirits";
+  if(sectionId==="vinywaji") return "soft";
+  if(sec && SOFT_RE.test(sec)) return "soft";
+  if(!sec && !["vitafunwa","mchele","standard","pilau","specials","jioni"].includes(sectionId)){
+    const n=itemName||"";
+    if(SPIRIT_RE.test(n)) return "spirits";
+    if(BEER_RE.test(n)) return "beer";
+    if(SOFT_RE.test(n)) return "soft";
+  }
+  return "food";
+}
+const CLS_META={food:{l:"🍛 Chakula / Food"},soft:{l:"🥤 Visivyo na Pombe / Non-alcoholic"},beer:{l:"🍺 Bia / Beer"},spirits:{l:"🥃 Pombe Kali / Gin & Spirits"}};
 const COST_CAT_LABEL={
   gas:"Gas/Gesi",staff:"Staff/Wafanyakazi",ingredients:"Ingredients/Malighafi",bulk_ingredients:"Bulk Ingredients",
   rent:"Rent/Pango",equipment:"Equipment/Vifaa",marketing:"Marketing",other:"Nyingine/Other",bulk_other:"Other Bulk",
@@ -561,7 +583,7 @@ function PinGate({onAuth,check,onEmail}) {
 }
 
 /* ═══ DAILY WHATSAPP SUMMARY ═══ */
-function buildDailyReportText(daySales, gross, overhead, net, dateLabel, dayCosts) {
+function buildDailyReportText(daySales, gross, overhead, net, dateLabel, dayCosts, mix) {
   const dateStr = dateLabel || new Date().toLocaleDateString("sw-TZ", {day:"numeric", month:"long", year:"numeric", timeZone:"America/New_York"});
   const itemMap = {};
   daySales.forEach(s => {
@@ -592,6 +614,13 @@ function buildDailyReportText(daySales, gross, overhead, net, dateLabel, dayCost
     net !== null ? `📈 Faida Halisi: ${fmt(net)}` : ``,
     `🧾 Idadi ya Mauzo: ${daySales.length}`,
     ``,
+    mix && mix.total>0 ? `🍽️ *Chakula vs Vinywaji / Food vs Beverages:*` : ``,
+    mix && mix.total>0 ? `   🍛 Chakula/Food: ${fmt(mix.m.food.rev)} (${Math.round(mix.m.food.rev/mix.total*100)}%)` : ``,
+    mix && mix.total>0 ? `   🥂 Vinywaji/Beverages: ${fmt(mix.bev)} (${Math.round(mix.bev/mix.total*100)}%)` : ``,
+    mix && mix.total>0 && mix.bev>0 ? `      🥤 Bila Pombe/Non-alc: ${fmt(mix.soft)}` : ``,
+    mix && mix.total>0 && mix.bev>0 ? `      🍺 Bia/Beer: ${fmt(mix.m.beer.rev)}` : ``,
+    mix && mix.total>0 && mix.bev>0 ? `      🥃 Pombe Kali/Spirits: ${fmt(mix.m.spirits.rev)}` : ``,
+    mix && mix.total>0 ? `` : ``,
     costLines ? `💸 *Chanzo cha Gharama / Cost Breakdown:*` : ``,
     costLines,
     ``,
@@ -638,7 +667,7 @@ function ReportPreviewModal({text, onClose}) {
 /* ═══ TAB 1: LEO ═══ */
 function LeoTab({onGoTo}) {
   const {t, presenterMode} = useT();
-  const {todaySales,todayGross,todayNet,todayOverhead,todayCosts,goals,updateSale,deleteSale,updateCost,deleteCost,allSales,allCosts,fetchRange} = useAdmin();
+  const {todaySales,todayGross,todayNet,todayOverhead,todayCosts,goals,updateSale,deleteSale,updateCost,deleteCost,allSales,allCosts,fetchRange,customItems} = useAdmin();
   const [editRec,setEditRec]=useState(null);
   const [editType,setEditType]=useState("sale");
   const [reportMode,setReportMode]=useState("today");
@@ -671,7 +700,7 @@ function LeoTab({onGoTo}) {
       let text;
       if(start===today()&&end===today()){
         const todayCosts = allCosts.filter(c=>c.cost_date===today());
-        text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label,todayCosts);
+        text = buildDailyReportText(todaySales,todayGross,todayOverhead,todayNet,label,todayCosts,computeCatMix(todaySales,todayCosts,customItems));
       } else {
         const {sales:freshSales, costs:freshCosts} = await fetchRange(start,end);
         const rangeSales=freshSales.filter(s=>s.sale_date>=start&&s.sale_date<=end);
@@ -679,11 +708,12 @@ function LeoTab({onGoTo}) {
         const gross=rangeSales.reduce((s,r)=>s+r.total_price,0);
         const overhead=rangeCosts.reduce((s,c)=>s+c.amount,0);
         const net=gross-overhead;
-        text = buildDailyReportText(rangeSales,gross,overhead,net,label,rangeCosts);
+        text = buildDailyReportText(rangeSales,gross,overhead,net,label,rangeCosts,computeCatMix(rangeSales,rangeCosts,customItems));
       }
       setPreviewText(text);
     } finally { setWaSending(false); }
   }
+  const catMixL=useMemo(()=>computeCatMix(todaySales,todayCosts,customItems),[todaySales,todayCosts,customItems]);
   const h=new Date().getHours();
   const alerts=[];
   if(todayGross===0&&h>9) alerts.push({c:t.rd,msg:"No sales yet today — is the menu ready? / Hakuna mauzo bado leo."});
@@ -707,6 +737,7 @@ function LeoTab({onGoTo}) {
           <div style={{textAlign:"center"}}><div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:900,color:t.gold}}>{presenterMode?"Lengo/Target":fmt(goals.daily)}</div><div style={{fontFamily:"sans-serif",fontSize:"9px",color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",marginTop:2}}>Daily Goal</div></div>
         </Card>
       )}
+      <FoodDrinkCard mix={catMixL}/>
       {alerts.map((a,i)=><div key={i} style={{borderLeft:"3px solid "+a.c,background:a.c+"12",borderRadius:"0 10px 10px 0",padding:"8px 12px",marginBottom:6,fontFamily:"sans-serif",fontSize:"12px",color:a.c,lineHeight:1.4}}>{a.msg}</div>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
         <button onClick={()=>onGoTo("ingiza")} style={{background:"linear-gradient(135deg,"+t.gr+",#009940)",color:"#fff",border:"none",borderRadius:12,padding:"13px 8px",fontFamily:"sans-serif",fontSize:"12px",fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px "+t.gr+"44",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -961,9 +992,56 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
 }
 
 /* ═══ TAB 3: RIPOTI ═══ */
+function deltaPct(cur,prev){ if(prev>0) return Math.round((cur-prev)/prev*100); return cur>0?null:0; }
+function computeCatMix(sales,costs,customItems){
+  const cm={};(customItems||[]).forEach(c=>{cm[c.id]=c.sectionName||"";});
+  const m={food:{rev:0,qty:0},soft:{rev:0,qty:0},beer:{rev:0,qty:0},spirits:{rev:0,qty:0}};
+  sales.forEach(r=>{const k=classifyItem(r.item_id,r.section_id,r.item_name,cm);m[k].rev+=r.total_price||0;m[k].qty+=r.quantity||0;});
+  const buy={soft:0,beer:0,spirits:0};
+  costs.forEach(c=>{if(c.category==="bulk_cold_drinks")buy.soft+=c.amount;else if(c.category==="bulk_beer")buy.beer+=c.amount;else if(c.category==="bulk_spirits")buy.spirits+=c.amount;});
+  const bev=m.soft.rev+m.beer.rev+m.spirits.rev, alc=m.beer.rev+m.spirits.rev;
+  return {m,buy,bev,alc,soft:m.soft.rev,total:m.food.rev+bev,bevQty:m.soft.qty+m.beer.qty+m.spirits.qty,buyTotal:buy.soft+buy.beer+buy.spirits};
+}
+function FoodDrinkCard({mix}){
+  const {t,presenterMode}=useT();
+  if(!mix||mix.total<=0) return null;
+  const pc=v=>Math.round(v/mix.total*100);
+  const rows=[["food","#1B6B20",mix.m.food.rev],["soft",t.bl,mix.soft],["beer",t.gold,mix.m.beer.rev],["spirits",t.pu,mix.m.spirits.rev]];
+  return (<Card style={{padding:"1rem"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+      <IconBadge emoji="🍽️" color={t.gold}/>
+      <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Chakula vs Vinywaji / Food vs Beverages</p>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+      {[["🍛","Chakula / Food",mix.m.food.rev,t.gr],["🥂","Vinywaji / Beverages",mix.bev,t.bl]].map(([em,lb,v,col])=>(
+        <div key={lb} style={{background:col+"14",border:"1px solid "+col+"44",borderRadius:12,padding:"10px",minWidth:0}}>
+          <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.dim2}}>{em} {lb}</div>
+          <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:col,margin:"2px 0",overflowWrap:"anywhere"}}>{presenterMode?pc(v)+"%":fmt(v)}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{pc(v)}%</div>
+        </div>))}
+    </div>
+    {rows.map(([k,col,v])=>(<div key={k} style={{marginBottom:9}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:8,fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.text,marginBottom:3}}>
+        <span style={{minWidth:0}}>{CLS_META[k].l}</span><span style={{flexShrink:0}}>{presenterMode?pc(v)+"%":fmt(v)}</span>
+      </div>
+      <Bar value={v} max={mix.total} color={col} h={6}/>
+    </div>))}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:4}}>
+      <div style={{background:t.gr+"14",borderRadius:10,padding:"8px 10px"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>Bila Pombe / Non-alc</div>
+        <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,color:t.gr}}>{presenterMode?pc(mix.soft)+"%":fmt(mix.soft)}</div>
+      </div>
+      <div style={{background:t.pu+"14",borderRadius:10,padding:"8px 10px"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>Pombe / Alcoholic</div>
+        <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,color:t.pu}}>{presenterMode?pc(mix.alc)+"%":fmt(mix.alc)}</div>
+      </div>
+    </div>
+    {!presenterMode&&mix.buyTotal>0&&<p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"10px 0 0"}}>Stock ya vinywaji iliyonunuliwa / Beverage stock bought: <b>{fmt(mix.buyTotal)}</b></p>}
+  </Card>);
+}
 function RipodiTab() {
   const {t, presenterMode} = useT();
-  const {allSales,allCosts,itemCosts,fetchRange,loading,goals,updateSale,deleteSale,updateCost,deleteCost,includeStaffCosts,toggleIncludeStaffCosts} = useAdmin();
+  const {allSales,allCosts,itemCosts,fetchRange,loading,goals,updateSale,deleteSale,updateCost,deleteCost,includeStaffCosts,toggleIncludeStaffCosts,customItems} = useAdmin();
   const [range,setRange]=useState("today");
   const [cStart,setCStart]=useState(today());
   const [cEnd,setCEnd]=useState(today());
@@ -995,12 +1073,13 @@ function RipodiTab() {
   const filteredSales = searchLower ? sales.filter(s=>(s.item_name||"").toLowerCase().includes(searchLower)) : sales;
   const filteredCosts = searchLower ? costs.filter(c=>((c.description||"")+" "+(c.category||"")).toLowerCase().includes(searchLower)) : costs;
   const byDate=useMemo(()=>{const m={};sales.forEach(s=>{if(!m[s.sale_date])m[s.sale_date]={gross:0,count:0};m[s.sale_date].gross+=s.total_price;m[s.sale_date].count+=s.quantity;});return Object.entries(m).sort(([a],[b])=>b.localeCompare(a));},[sales]);
+  const catMixR=useMemo(()=>computeCatMix(sales,costs,customItems),[sales,costs,customItems]);
   const wkGoal=range==="last7"&&goals.weekly?goals.weekly:null;
   const moGoal=range==="month"&&goals.monthly?goals.monthly:null;
   const inp={flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg,fontFamily:"sans-serif",fontSize:12,color:t.inputColor,outline:"none"};
   async function doFetch(){await fetchRange(start,end);setFetched(true);}
   function sendWA(){
-    const lines=["RIPOTI — "+start+(start!==end?" hadi "+end:""),"Mapato Ghafi: "+fmt(gross),"Daily Costs: "+fmt(dailyCosts.reduce((s,c)=>s+c.amount,0)),"Bulk Purchases: "+fmt(bulkCosts.reduce((s,c)=>s+c.amount,0)),"Faida Halisi: "+fmt(net),"Mauzo: "+sales.length,"","Unyamwezini Jiko La Bibi JJJ"].join("\n");
+    const lines=["RIPOTI — "+start+(start!==end?" hadi "+end:""),"Mapato Ghafi: "+fmt(gross),"Daily Costs: "+fmt(dailyCosts.reduce((s,c)=>s+c.amount,0)),"Bulk Purchases: "+fmt(bulkCosts.reduce((s,c)=>s+c.amount,0)),"Faida Halisi: "+fmt(net),"Mauzo: "+sales.length].concat(catMixR.total>0?["","Chakula/Food: "+fmt(catMixR.m.food.rev),"Vinywaji/Beverages: "+fmt(catMixR.bev),"  Bila Pombe/Non-alc: "+fmt(catMixR.soft),"  Bia/Beer: "+fmt(catMixR.m.beer.rev),"  Pombe Kali/Spirits: "+fmt(catMixR.m.spirits.rev)]:[]).concat(["","Unyamwezini Jiko La Bibi JJJ"]).join("\n");
     window.open("https://wa.me/?text="+encodeURIComponent(lines),"_blank");
   }
   function printZReport(){
@@ -1030,6 +1109,9 @@ function RipodiTab() {
         <div><div class="label">Faida Halisi</div><div class="val" style="color:${net>=0?'#1B7A20':'#C62828'}">${fmt(net)}</div></div>
         <div><div class="label">Mauzo</div><div class="val">${sales.length}</div></div>
       </div>
+      ${catMixR.total>0?`<h2>Chakula vs Vinywaji / Food vs Beverages</h2>
+      <table><tr><th>Aina</th><th style="text-align:right">Mauzo</th><th style="text-align:right">%</th></tr>
+      ${[["Chakula / Food",catMixR.m.food.rev],["Vinywaji Jumla / Beverages",catMixR.bev],["&nbsp;&nbsp;Bila Pombe / Non-alcoholic",catMixR.soft],["&nbsp;&nbsp;Bia / Beer",catMixR.m.beer.rev],["&nbsp;&nbsp;Pombe Kali / Gin &amp; Spirits",catMixR.m.spirits.rev]].map(([l,v])=>"<tr><td>"+l+"</td><td style='text-align:right'>"+fmt(v)+"</td><td style='text-align:right'>"+Math.round(v/catMixR.total*100)+"%</td></tr>").join("")}</table>`:""}
       <h2>Mauzo / Sales (${sales.length})</h2>
       <table><tr><th>Tarehe</th><th>Bidhaa</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr>${salesRows||"<tr><td colspan=5 style='text-align:center;color:#999'>Hakuna mauzo</td></tr>"}</table>
       <h2>Gharama / Expenses (${costs.length})</h2>
@@ -1064,6 +1146,7 @@ function RipodiTab() {
           <Chip label="Mauzo" value={sales.length} color={t.bl} icon="🧾"/>
         </div>
         <ComparisonRow range={range} cStart={cStart} cEnd={cEnd} currentGross={gross}/>
+        <FoodDrinkCard mix={catMixR}/>
         {wkGoal&&<Card style={{padding:"1rem"}}><p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 6px"}}>Weekly Goal</p><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Wiki</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:goalColor(gross,wkGoal,t)}}>{fmt(gross)} / {fmt(wkGoal)}</span></div><Bar value={gross} max={wkGoal} color={goalColor(gross,wkGoal,t)}/></Card>}
         {moGoal&&<Card style={{padding:"1rem"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"sans-serif",fontSize:"11px",color:t.text,fontWeight:700}}>Lengo la Mwezi</span><span style={{fontFamily:"sans-serif",fontSize:"11px",color:goalColor(gross,moGoal,t)}}>{fmt(gross)} / {fmt(moGoal)}</span></div><Bar value={gross} max={moGoal} color={goalColor(gross,moGoal,t)}/></Card>}
         {sales.length>0 || costs.length>0 ? <Card style={{padding:"1rem"}}>
@@ -1109,7 +1192,7 @@ const BUSINESS_START_DATE = "2026-05-06"; // Siku ya kwanza ya biashara / Busine
 
 function MalengoTab() {
   const {t, presenterMode} = useT();
-  const {goals,setGoal,todayGross,allSales,fetchRange} = useAdmin();
+  const {goals,setGoal,todayGross,allSales,fetchRange,todaySales,customItems} = useAdmin();
   const [dv,setDv]=useState(String(goals.daily||""));
   const [wv,setWv]=useState(String(goals.weekly||""));
   const [mv,setMv]=useState(String(goals.monthly||""));
@@ -1133,6 +1216,21 @@ function MalengoTab() {
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   const wkG=allSales.filter(s=>s.sale_date>=dateStrET(ws)).reduce((s,r)=>s+r.total_price,0);
   const moG=allSales.filter(s=>s.sale_date>=dateStrET(ms)).reduce((s,r)=>s+r.total_price,0);
+
+  // ═══ MCHANGANYIKO WA MALENGO / GOAL MIX — food vs beverage contribution to each goal (no new DB columns) ═══
+  const goalMix=useMemo(()=>{
+    const wsS=dateStrET(ws), msS=dateStrET(ms);
+    const wkS=allSales.filter(s=>s.sale_date>=wsS), moS=allSales.filter(s=>s.sale_date>=msS);
+    const hist=computeCatMix(allSales.filter(s=>s.sale_date>=BUSINESS_START_DATE),[],customItems);
+    return {
+      day:computeCatMix(todaySales||[],[],customItems),
+      wk:computeCatMix(wkS,[],customItems),
+      mo:computeCatMix(moS,[],customItems),
+      foodShare:hist.total>0?hist.m.food.rev/hist.total:null,
+      softShare:hist.total>0?hist.soft/hist.total:0,
+      alcShare:hist.total>0?hist.alc/hist.total:0
+    };
+  },[allSales,todaySales,customItems]);
 
   // ═══ DATA-DRIVEN GOAL SUGGESTIONS — ALL-TIME HISTORY ═══
   // Daily/Weekly use the full lifetime average per operating day (since business launch).
@@ -1189,6 +1287,9 @@ function MalengoTab() {
     if(wGoal>0) lines.push(`🗓️ Wiki/Week: ${fmt(wkG)} / ${fmt(wGoal)} (${pct(wkG,wGoal)}%)`);
     if(mGoal>0) lines.push(`📈 Mwezi/Month: ${fmt(moG)} / ${fmt(mGoal)} (${pct(moG,mGoal)}%)`);
     if(!dGoal && !wGoal && !mGoal) lines.push(`Hakuna malengo yaliyowekwa bado. / No goals set yet.`);
+    const mixLine=(lbl,m)=>m.total>0?`   ${lbl}: 🍛 ${fmt(m.m.food.rev)} · 🥤 ${fmt(m.soft)} · 🍺🥃 ${fmt(m.alc)}`:null;
+    const ml=[dGoal>0&&mixLine("Leo",goalMix.day),wGoal>0&&mixLine("Wiki",goalMix.wk),mGoal>0&&mixLine("Mwezi",goalMix.mo)].filter(Boolean);
+    if(ml.length){ lines.push(``,`🍽️ *Chakula · Bila Pombe · Pombe / Food · Non-alc · Alcohol:*`); ml.forEach(l=>lines.push(l)); }
     if(suggestion && suggestion.lastMonthTotal>0){
       lines.push(``,`🏆 ${suggestion.lastMonthName}: ${fmt(suggestion.lastMonthTotal)}`);
     }
@@ -1212,6 +1313,39 @@ function MalengoTab() {
           <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gold,display:"inline-block"}}/>50-89%</span>
           <span style={{fontSize:9,color:t.dim2,fontFamily:"sans-serif",display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.rd,display:"inline-block"}}/>&lt;50%</span>
         </div>
+      </Card>}
+      {(goals.daily>0||goals.weekly>0||goals.monthly>0)&&(goalMix.day.total>0||goalMix.wk.total>0||goalMix.mo.total>0)&&<Card style={{padding:"1.2rem",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <IconBadge emoji="🍽️" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Mchanganyiko wa Malengo / Goal Mix: Chakula vs Vinywaji</p>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 12px",lineHeight:1.5}}>Kila lengo limejazwa na nini? / What is filling each goal?</p>
+        {[["Leo / Today",goals.daily,goalMix.day],["Wiki / Week",goals.weekly,goalMix.wk],["Mwezi / Month",goals.monthly,goalMix.mo]].filter(([,g])=>g>0).map(([lb,g,m])=>{
+          const w=v=>Math.min(100,Math.max(0,v/g*100));
+          const wf=w(m.m.food.rev), ws2=Math.min(100-wf,w(m.soft)), wa=Math.min(100-wf-ws2,w(m.alc));
+          return (<div key={lb} style={{marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.text,marginBottom:5}}>
+              <span>{lb}</span><span style={{color:t.dim2,fontWeight:600}}>{presenterMode?pct(m.total,g)+"%":fmt(m.total)+" / "+fmt(g)}</span>
+            </div>
+            <div style={{display:"flex",height:10,borderRadius:99,overflow:"hidden",background:t.border+"55"}}>
+              <div style={{width:wf+"%",background:t.gr}}/><div style={{width:ws2+"%",background:t.bl}}/><div style={{width:wa+"%",background:t.pu}}/>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"2px 12px",marginTop:5,fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>
+              <span>🍛 {presenterMode?pct(m.m.food.rev,g)+"%":fmt(m.m.food.rev)}</span>
+              <span>🥤 {presenterMode?pct(m.soft,g)+"%":fmt(m.soft)}</span>
+              <span>🍺🥃 {presenterMode?pct(m.alc,g)+"%":fmt(m.alc)}</span>
+            </div>
+            {!presenterMode&&goalMix.foodShare!==null&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:4,fontStyle:"italic"}}>
+              Kulenga / Aim: 🍛 ~{fmt(Math.round(g*goalMix.foodShare/500)*500)} · 🥤 ~{fmt(Math.round(g*goalMix.softShare/500)*500)} · 🍺🥃 ~{fmt(Math.round(g*goalMix.alcShare/500)*500)}
+            </div>}
+          </div>);
+        })}
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",fontFamily:"sans-serif",fontSize:9,color:t.dim2}}>
+          <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.gr}}/>Chakula/Food</span>
+          <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.bl}}/>Bila Pombe/Non-alc</span>
+          <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:"50%",background:t.pu}}/>Pombe/Alcohol</span>
+        </div>
+        {!presenterMode&&goalMix.foodShare!==null&&<p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"8px 0 0",lineHeight:1.5}}>"Kulenga/Aim" inatumia mchanganyiko wa kawaida wa mauzo yako yote ({Math.round(goalMix.foodShare*100)}% chakula). / "Aim" uses your all-time sales mix ({Math.round(goalMix.foodShare*100)}% food).</p>}
       </Card>}
       {suggestion ? (
         <Card glow style={{padding:"1.2rem"}}>
@@ -1343,6 +1477,32 @@ function AkiliTab() {
     return {label:"Unapoteza", labelEn:"Losing Ground", color:t.rd};
   }
   const itemStats=useMemo(()=>{const m={};s30.forEach(s=>{if(!m[s.item_id])m[s.item_id]={id:s.item_id,name:s.item_name,qty:0,rev:0,cost:0};m[s.item_id].qty+=s.quantity;m[s.item_id].rev+=s.total_price;m[s.item_id].cost+=(itemCosts[s.item_id]||0)*s.quantity;});return Object.values(m).map(i=>({...i,profit:i.rev-i.cost,margin:i.rev?Math.round((i.rev-i.cost)/i.rev*100):0})).sort((a,b)=>b.rev-a.rev);},[s30,itemCosts]);
+  const customSecMap=useMemo(()=>{const m={};customItems.forEach(c=>{m[c.id]=c.sectionName||"";});return m;},[customItems]);
+  const catMix=useMemo(()=>{
+    const m={food:{rev:0,qty:0},soft:{rev:0,qty:0},beer:{rev:0,qty:0},spirits:{rev:0,qty:0}};
+    s30.forEach(r=>{const k=classifyItem(r.item_id,r.section_id,r.item_name,customSecMap);m[k].rev+=r.total_price||0;m[k].qty+=r.quantity||0;});
+    const buy={soft:0,beer:0,spirits:0};
+    c30.forEach(c=>{if(c.category==="bulk_cold_drinks")buy.soft+=c.amount;else if(c.category==="bulk_beer")buy.beer+=c.amount;else if(c.category==="bulk_spirits")buy.spirits+=c.amount;});
+    const bev=m.soft.rev+m.beer.rev+m.spirits.rev, alc=m.beer.rev+m.spirits.rev;
+    const total=m.food.rev+bev;
+    return {m,buy,bev,alc,soft:m.soft.rev,total,bevQty:m.soft.qty+m.beer.qty+m.spirits.qty,alcQty:m.beer.qty+m.spirits.qty,buyTotal:buy.soft+buy.beer+buy.spirits};
+  },[s30,c30,customSecMap]);
+  const [topFilter,setTopFilter]=useState("all");
+  const itemCls=useMemo(()=>{const o={};s30.forEach(r=>{if(!(r.item_id in o))o[r.item_id]=classifyItem(r.item_id,r.section_id,r.item_name,customSecMap);});return o;},[s30,customSecMap]);
+  const itemsView=itemStats.filter(i=>{const c=itemCls[i.id]||"food";return topFilter==="all"||(topFilter==="food"&&c==="food")||(topFilter==="soft"&&c==="soft")||(topFilter==="alc"&&(c==="beer"||c==="spirits"));});
+  // Wiki Hii vs Wiki Iliyopita — like-for-like (same weekdays), Monday-start
+  const wkCmp=useMemo(()=>{
+    const addD=(str,n)=>{const d=new Date(str+"T12:00:00");d.setDate(d.getDate()+n);return dateStrET(d);};
+    const tdy=today(); const dow=new Date(tdy+"T12:00:00").getDay(); // 0=Sun
+    const sinceMon=dow===0?6:dow-1;
+    const thisStart=addD(tdy,-sinceMon), lastStart=addD(thisStart,-7), lastSame=addD(lastStart,sinceMon), lastEnd=addD(lastStart,6);
+    const inR=(a,b)=>allSales.filter(r=>r.sale_date>=a&&r.sale_date<=b);
+    const cur=computeCatMix(inR(thisStart,tdy),[],customItems);
+    const prevSame=computeCatMix(inR(lastStart,lastSame),[],customItems);
+    const prevFull=computeCatMix(inR(lastStart,lastEnd),[],customItems);
+    return {cur,prevSame,prevFull,thisStart,lastStart,lastSame,lastEnd,days:sinceMon+1};
+  },[allSales,customItems]);
+  useEffect(()=>{ const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); fetchRange(dateStrET(d),today()); },[]);
   const svcMap=useMemo(()=>{const m={pickup:0,delivery:0,dinein:0};s30.forEach(s=>{m[s.service_type]=(m[s.service_type]||0)+s.total_price;});return m;},[s30]);
   const CATEGORY_LABELS = {
     gas:"Gas/Gesi", staff:"Staff/Wafanyakazi", ingredients:"Ingredients/Malighafi",
@@ -1503,7 +1663,7 @@ function AkiliTab() {
   const stockList = useMemo(()=>stockPredictions.filter(p=>stockQty[p.id]>0),[stockPredictions,stockQty]);
 
   // Resolved "how many to show" counts for each ranked list, driven by the CountSelector controls.
-  const topItemsShown = topItemsN==="All" ? itemStats.length : Math.min(topItemsN,itemStats.length);
+  const topItemsShown = topItemsN==="All" ? itemsView.length : Math.min(topItemsN,itemsView.length);
   const slowShown = slowN==="All" ? slowMoving.length : Math.min(slowN,slowMoving.length);
   const stockShown = stockN==="All" ? stockList.length : Math.min(stockN,stockList.length);
   const advisorShown = marginAdvice ? (advisorN==="All" ? marginAdvice.top.length : Math.min(advisorN,marginAdvice.top.length)) : 0;
@@ -1561,6 +1721,21 @@ function AkiliTab() {
   itemStats.filter(i=>i.margin<0&&i.qty>0).slice(0,2).forEach(i=>insights.push({c:"danger",msg:i.name+" is losing money (margin "+i.margin+"%). Raise price or stop selling."}));
   itemStats.filter(i=>i.margin>40&&i.qty>3).slice(0,2).forEach(i=>insights.push({c:"good",msg:i.name+" is your star product ("+i.margin+"% margin). Promote it more!"}));
   if(costs>gross*0.6&&gross>0)insights.push({c:"warn",msg:"Expenses are "+Math.round(costs/gross*100)+"% of revenue. Reduce costs to increase profit."});
+  // Chakula vs Vinywaji momentum — flags when one side is growing clearly faster (like-for-like with last week)
+  {
+    const cw=wkCmp.cur, pw=wkCmp.prevSame;
+    const foodC=cw.m.food.rev, foodP=pw.m.food.rev, bevC=cw.bev, bevP=pw.bev;
+    if(cw.total>0&&pw.total>0&&foodP>0&&bevP>0){
+      const fg=Math.round((foodC-foodP)/foodP*100), bg=Math.round((bevC-bevP)/bevP*100), gap=bg-fg;
+      if(gap>=15) insights.push({c:bg>0?"good":"warn",msg:"🥂 Vinywaji vinakua haraka kuliko chakula wiki hii / Drinks are growing faster than food this week ("+(bg>0?"+":"")+bg+"% vs "+(fg>0?"+":"")+fg+"%)."+(fg<0?" Chakula kinashuka — angalia menyu ya chakula na bei. / Food is slipping — check the food menu and prices.":" Hakikisha jikoni inaendana na kasi ya baa. / Make sure the kitchen keeps pace with the bar.")});
+      else if(gap<=-15) insights.push({c:fg>0?"good":"warn",msg:"🍛 Chakula kinakua haraka kuliko vinywaji wiki hii / Food is growing faster than drinks this week ("+(fg>0?"+":"")+fg+"% vs "+(bg>0?"+":"")+bg+"%)."+(bg<0?" Vinywaji vinashuka — angalia stock na bei za baa. / Drinks are slipping — check bar stock and prices.":" Fikiria kuuza vinywaji pamoja na chakula. / Consider pairing drinks with meals.")});
+      const sh=Math.round(bevC/cw.total*100), shP=Math.round(bevP/pw.total*100);
+      if(Math.abs(sh-shP)>=10) insights.push({c:"info",msg:"📊 Sehemu ya vinywaji kwenye mauzo imebadilika: "+shP+"% → "+sh+"% (wiki iliyopita → hii). / Beverage share of sales moved from "+shP+"% to "+sh+"%."});
+      const alcC=cw.alc, alcP=pw.alc;
+      if(alcP>0&&alcC>0){ const ag=Math.round((alcC-alcP)/alcP*100); if(ag-fg>=25&&ag>=20) insights.push({c:"info",msg:"🍺 Pombe inakua kwa +"+ag+"% (chakula "+(fg>0?"+":"")+fg+"%). Hakikisha stock ya bia/pombe kali inatosha. / Alcohol is up +"+ag+"% — make sure beer/spirits stock keeps up."}); }
+    } else if(cw.total>0&&pw.total>0&&foodP===0&&bevP>0&&foodC>0) insights.push({c:"good",msg:"🍛 Chakula kimeanza kuuzwa wiki hii baada ya wiki iliyopita kuwa bila chakula. / Food sales picked up this week after none in the same days last week."});
+    else if(cw.total>0&&pw.total>0&&bevP===0&&bevC>0&&foodP>0) insights.push({c:"good",msg:"🥂 Vinywaji vimeanza kuuzwa wiki hii (wiki iliyopita hakukuwa na). / Drink sales started this week (none in the same days last week)."});
+  }
   if(!Object.keys(itemCosts).length)insights.push({c:"info",msg:"Set item cooking costs in Menu tab to see true profit margins."});
 
   const [akiliPreview,setAkiliPreview]=useState(null);
@@ -1582,6 +1757,23 @@ function AkiliTab() {
     if(itemStats.length>0){
       lines.push(`⭐ *Bidhaa Bora / Top Items:*`);
       itemStats.slice(0,3).forEach((it,i)=>lines.push(`${i+1}. ${it.name} — ${fmt(it.rev)}`));
+      lines.push(``);
+    }
+    if(catMix.total>0){
+      lines.push(`🍽️ *Chakula vs Vinywaji / Food vs Beverages:*`);
+      lines.push(`   Chakula/Food: ${fmt(catMix.m.food.rev)} (${Math.round(catMix.m.food.rev/catMix.total*100)}%)`);
+      lines.push(`   Vinywaji/Beverages: ${fmt(catMix.bev)} (${Math.round(catMix.bev/catMix.total*100)}%)`);
+      lines.push(`     🥤 Bila Pombe/Non-alcoholic: ${fmt(catMix.soft)}`);
+      lines.push(`     🍺 Bia/Beer: ${fmt(catMix.m.beer.rev)}`);
+      lines.push(`     🥃 Pombe Kali/Spirits: ${fmt(catMix.m.spirits.rev)}`);
+      lines.push(``);
+    }
+    if(wkCmp.cur.total>0||wkCmp.prevSame.total>0){
+      const dl=(a,b)=>{const d=deltaPct(a,b);return d===null?"mpya/new":(d>0?"+":"")+d+"%";};
+      lines.push(`📆 *Wiki Hii vs Iliyopita / This vs Last Week (siku ${wkCmp.days}):*`);
+      lines.push(`   🍛 Chakula/Food: ${fmt(wkCmp.cur.m.food.rev)} (${dl(wkCmp.cur.m.food.rev,wkCmp.prevSame.m.food.rev)})`);
+      lines.push(`   🥤 Bila Pombe/Non-alc: ${fmt(wkCmp.cur.soft)} (${dl(wkCmp.cur.soft,wkCmp.prevSame.soft)})`);
+      lines.push(`   🍺🥃 Pombe/Alcohol: ${fmt(wkCmp.cur.alc)} (${dl(wkCmp.cur.alc,wkCmp.prevSame.alc)})`);
       lines.push(``);
     }
     if(dayHourAnalysis.bestDay){
@@ -1621,6 +1813,9 @@ function AkiliTab() {
       H += rowsForStock>0 ? (50+rowsForStock*40) : 0; // stock forecast block
       H += dayHourAnalysis.bestDay ? (90+dayHourAnalysis.dayChart.length*26+30) : 0; // best day/hour block + weekday revenue bars + legend
       H += (hasSvc||hasCost) ? (60 + 190) : 0; // donuts row
+      H += catMix.total>0 ? 230 : 0; // food vs beverage block
+      const hasWk = wkCmp.cur.total>0||wkCmp.prevSame.total>0;
+      H += hasWk ? 190 : 0; // weekly comparison block
       H += marginAdvice ? (50 + (marginAdvice.cutNeeded>0?100:0) + marginAdviceRows) : 0; // margin advisor
       H += rowsForSlow>0 ? (60+rowsForSlow*32) : 0;
       H += rowsForInsights>0 ? (60+rowsForInsights*46) : 0;
@@ -1766,12 +1961,12 @@ function AkiliTab() {
       y += chartH + 40;
 
       // Top items
-      if(itemStats.length>0){
+      if(itemsView.length>0){
         ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
         ctx.fillText("Bidhaa Bora / Top Items", PAD, y);
         y += 16;
-        const maxItemRev = itemStats[0].rev || 1;
-        itemStats.slice(0,topItemsShown).forEach((it,i)=>{
+        const maxItemRev = itemsView[0].rev || 1;
+        itemsView.slice(0,topItemsShown).forEach((it,i)=>{
           const barY = y + i*46 + 14;
           ctx.fillStyle = "#0B1F45"; ctx.font="13px Arial"; ctx.textAlign="left";
           ctx.fillText((i+1)+". "+it.name, PAD, barY);
@@ -1871,6 +2066,43 @@ function AkiliTab() {
         if(hasSvc) drawDonut(PAD+130, donutY, svcData, "Aina ya Huduma / Service Mix");
         if(hasCost) drawDonut(PAD+130+320, donutY, costData, "Gharama kwa Aina / Cost Breakdown");
         y += 230;
+      }
+
+      // Chakula vs Vinywaji — food vs beverage (non-alcoholic / alcoholic)
+      if(catMix.total>0){
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("Chakula vs Vinywaji / Food vs Beverages", PAD, y);
+        y += 12;
+        const rowsX=[["food","#1B6B20"],["soft","#00695C"],["beer","#E6A817"],["spirits","#6A1B9A"]];
+        const lbl={food:"Chakula / Food",soft:"Visivyo na Pombe / Non-alcoholic",beer:"Bia / Beer",spirits:"Pombe Kali / Gin & Spirits"};
+        rowsX.forEach(([k,col],i)=>{
+          const v=catMix.m[k].rev, p=Math.round(v/catMix.total*100), by=y+i*34+14;
+          ctx.fillStyle="#0B1F45"; ctx.font="12px Arial"; ctx.textAlign="left"; ctx.fillText(lbl[k], PAD, by);
+          ctx.textAlign="right"; ctx.fillText(fmt(v)+" \u00b7 "+p+"%", W-PAD, by);
+          ctx.fillStyle="rgba(11,31,69,0.08)"; ctx.fillRect(PAD, by+5, W-PAD*2, 7);
+          ctx.fillStyle=col; ctx.fillRect(PAD, by+5, Math.max(2,(W-PAD*2)*v/catMix.total), 7);
+        });
+        y += 4*34+16;
+        ctx.fillStyle="rgba(11,31,69,0.75)"; ctx.font="12px Arial"; ctx.textAlign="left";
+        ctx.fillText("Vinywaji Jumla / Beverages: "+fmt(catMix.bev)+" ("+Math.round(catMix.bev/catMix.total*100)+"%)  \u00b7  Pombe / Alcohol: "+fmt(catMix.alc)+"  \u00b7  Bila Pombe / Non-alc: "+fmt(catMix.soft), PAD, y);
+        y += 22;
+        if(catMix.buyTotal>0){ ctx.fillText("Stock ya vinywaji iliyonunuliwa / Beverage stock bought: "+fmt(catMix.buyTotal), PAD, y); y += 22; }
+        y += 20;
+      }
+
+      // Wiki Hii vs Iliyopita
+      if(hasWk){
+        ctx.fillStyle = "#0B1F45"; ctx.font="bold 15px Arial"; ctx.textAlign="left";
+        ctx.fillText("Wiki Hii vs Iliyopita / This Week vs Last Week (siku "+wkCmp.days+")", PAD, y);
+        y += 10;
+        [["Chakula / Food",wkCmp.cur.m.food.rev,wkCmp.prevSame.m.food.rev],["Bila Pombe / Non-alcoholic",wkCmp.cur.soft,wkCmp.prevSame.soft],["Pombe / Alcohol",wkCmp.cur.alc,wkCmp.prevSame.alc],["Jumla / Total",wkCmp.cur.total,wkCmp.prevSame.total]].forEach(([lb,c,p],i)=>{
+          const by=y+i*30+18, d=deltaPct(c,p);
+          ctx.fillStyle="#0B1F45"; ctx.font=(i===3?"bold ":"")+"12px Arial"; ctx.textAlign="left"; ctx.fillText(lb, PAD, by);
+          ctx.fillStyle="rgba(11,31,69,0.65)"; ctx.textAlign="right"; ctx.fillText(fmt(c)+" vs "+fmt(p), W-PAD-90, by);
+          ctx.fillStyle = d===null||d>0 ? "#1B7A20" : d<0 ? "#C62828" : "#777"; ctx.font="bold 12px Arial";
+          ctx.fillText(d===null?"mpya":(d>0?"+":"")+d+"%", W-PAD, by);
+        });
+        y += 4*30+36;
       }
 
       // Margin Advisor — was a brand-new section; adding it here from day one so it never falls out of sync with the export
@@ -2251,6 +2483,65 @@ function AkiliTab() {
           </Card>}
         </div>
       )}
+      {catMix.total>0&&<Card style={{padding:"1rem"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <IconBadge emoji="🍽️" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Chakula vs Vinywaji / Food vs Beverages</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          {[["food","🍛","Chakula / Food",catMix.m.food.rev,catMix.m.food.qty,t.gr],["bev","🥂","Vinywaji / Beverages",catMix.bev,catMix.bevQty,t.bl]].map(([k,em,lb,v,q,col])=>(
+            <div key={k} style={{background:col+"14",border:"1px solid "+col+"44",borderRadius:12,padding:"10px",minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,color:t.dim2}}>{em} {lb}</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:900,color:col,margin:"2px 0",overflowWrap:"anywhere"}}>{presenterMode?Math.round(v/catMix.total*100)+"%":fmt(v)}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{Math.round(v/catMix.total*100)}% · {q} {q===1?"sale item":"items"}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:"0 0 8px"}}>Ndani ya Vinywaji / Within Beverages</p>
+        {catMix.bev===0?<p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0}}>Hakuna mauzo ya vinywaji bado / No beverage sales in this period</p>:
+        [["soft",t.gr],["beer",t.gold],["spirits",t.pu]].map(([k,col])=>{
+          const v=catMix.m[k].rev, buy=catMix.buy[k];
+          return (<div key={k} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,fontFamily:"sans-serif",fontSize:11,fontWeight:700,color:t.text,marginBottom:3}}>
+              <span style={{minWidth:0}}>{CLS_META[k].l}</span>
+              <span style={{flexShrink:0}}>{presenterMode?Math.round(v/catMix.bev*100)+"%":fmt(v)}</span>
+            </div>
+            <Bar value={v} max={catMix.bev} color={col} h={6}/>
+            <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,marginTop:3}}>
+              {Math.round(v/catMix.bev*100)}% ya vinywaji · {catMix.m[k].qty} pcs{!presenterMode&&buy>0?" · Stock bought "+fmt(buy):""}
+            </div>
+          </div>);
+        })}
+        {catMix.bev>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:4}}>
+          <div style={{background:t.gr+"14",borderRadius:10,padding:"8px 10px"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>Bila Pombe / Non-alc</div>
+            <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,color:t.gr}}>{presenterMode?Math.round(catMix.soft/catMix.bev*100)+"%":fmt(catMix.soft)}</div>
+          </div>
+          <div style={{background:t.pu+"14",borderRadius:10,padding:"8px 10px"}}>
+            <div style={{fontFamily:"sans-serif",fontSize:9,fontWeight:700,color:t.dim2,textTransform:"uppercase"}}>Pombe / Alcoholic</div>
+            <div style={{fontFamily:"sans-serif",fontSize:13,fontWeight:800,color:t.pu}}>{presenterMode?Math.round(catMix.alc/catMix.bev*100)+"%":fmt(catMix.alc)}</div>
+          </div>
+        </div>}
+        {!presenterMode&&catMix.buyTotal>0&&<p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"10px 0 0"}}>Vinywaji: mauzo {fmt(catMix.bev)} − stock iliyonunuliwa {fmt(catMix.buyTotal)} = <b style={{color:catMix.bev-catMix.buyTotal>=0?t.gr:t.rd}}>{fmt(catMix.bev-catMix.buyTotal)}</b></p>}
+      </Card>}
+      {(wkCmp.cur.total>0||wkCmp.prevSame.total>0)&&<Card style={{padding:"1rem"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <IconBadge emoji="📆" color={t.gold}/>
+          <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Wiki Hii vs Iliyopita / This Week vs Last Week</p>
+        </div>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>Siku {wkCmp.days} za kwanza za kila wiki (Jumatatu →) / First {wkCmp.days} day(s) of each week (from Monday), so it is a fair comparison.</p>
+        {[["🍛 Chakula / Food",wkCmp.cur.m.food.rev,wkCmp.prevSame.m.food.rev],["🥤 Bila Pombe / Non-alc",wkCmp.cur.soft,wkCmp.prevSame.soft],["🍺🥃 Pombe / Alcohol",wkCmp.cur.alc,wkCmp.prevSame.alc],["Jumla / Total",wkCmp.cur.total,wkCmp.prevSame.total]].map(([lb,c,p],i)=>{
+          const d=deltaPct(c,p); const col=d===null?t.gr:d>0?t.gr:d<0?t.rd:t.dim2;
+          return (<div key={lb} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:i===3?"2px solid "+t.border:"1px solid "+t.border+"66"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:11,fontWeight:i===3?800:700,color:t.text}}>{lb}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2}}>{presenterMode?"—":fmt(c)+" vs "+fmt(p)}</div>
+            </div>
+            <div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:800,color:col,flexShrink:0}}>{d===null?"▲ mpya/new":(d>0?"▲ +":d<0?"▼ ":"= ")+d+"%"}</div>
+          </div>);
+        })}
+        {!presenterMode&&wkCmp.prevFull.total>0&&<p style={{fontFamily:"sans-serif",fontSize:9,color:t.dim2,margin:"8px 0 0",lineHeight:1.5}}>Wiki iliyopita nzima / Last full week ({wkCmp.lastStart}→{wkCmp.lastEnd}): 🍛 {fmt(wkCmp.prevFull.m.food.rev)} · 🥤 {fmt(wkCmp.prevFull.soft)} · 🍺🥃 {fmt(wkCmp.prevFull.alc)}</p>}
+      </Card>}
       {marginAdvice && <Card glow style={{padding:"1.1rem",border:"1px solid "+t.gold+"33"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
@@ -2288,10 +2579,16 @@ function AkiliTab() {
             <IconBadge emoji="🏆" color={t.gold}/>
             <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Top Items / Bidhaa Bora</p>
           </div>
-          {itemStats.length>5 && <CountSelector value={topItemsN} onChange={setTopItemsN} total={itemStats.length}/>}
+          {itemsView.length>5 && <CountSelector value={topItemsN} onChange={setTopItemsN} total={itemsView.length}/>}
         </div>
-        {itemStats.slice(0,topItemsShown).map((item,i)=>{
-          const maxRev = itemStats[0].rev;
+        {catMix.bev>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+          {[["all","Zote / All"],["food","🍛 Chakula"],["soft","🥤 Bila Pombe"],["alc","🍺 Pombe"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTopFilter(k)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+(topFilter===k?t.gold:t.border||"#ccc"),background:topFilter===k?t.gold+"22":"transparent",color:topFilter===k?t.gold:t.dim2}}>{l}</button>
+          ))}
+        </div>}
+        {itemsView.length===0&&<p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:"4px 0 0"}}>Hakuna mauzo / No sales</p>}
+        {itemsView.slice(0,topItemsShown).map((item,i)=>{
+          const maxRev = itemsView[0].rev;
           const ratio = maxRev>0 ? item.rev/maxRev : 0;
           const tempEmoji = ratio>=0.66 ? "🔥" : ratio<=0.33 ? "❄️" : "🌤️";
           const tempColor = ratio>=0.66 ? t.rd : ratio<=0.33 ? t.bl : t.gold;
@@ -2301,7 +2598,7 @@ function AkiliTab() {
             <IconBadge emoji={tempEmoji} color={tempColor}/>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontFamily:"sans-serif",fontSize:"11px",fontWeight:700,color:t.text,marginBottom:3}}>{item.name}</div>
-              <Bar value={item.rev} max={itemStats[0].rev} color={i===0?t.gold:t.bl} h={5}/>
+              <Bar value={item.rev} max={itemsView[0].rev} color={i===0?t.gold:t.bl} h={5}/>
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
               <div style={{fontFamily:"sans-serif",fontSize:"10px",fontWeight:700,color:t.text}}>{fmt(item.rev)}</div>
@@ -2611,7 +2908,7 @@ function MaagizoTab() {
 /* ═══ TAB: BACKUP / EXPORT ═══ */
 function BackupTab() {
   const {t} = useT();
-  const {exportAll, importAll, allSales, allCosts} = useAdmin();
+  const {exportAll, importAll, allSales, allCosts, customItems} = useAdmin();
   const [status,setStatus]=useState("");
   const [importText,setImportText]=useState("");
   async function doExport(){
@@ -2642,9 +2939,11 @@ function BackupTab() {
     URL.revokeObjectURL(url);
   }
   function doExportSalesCSV(){
+    const cm={};(customItems||[]).forEach(c=>{cm[c.id]=c.sectionName||"";});
+    const typeLbl={food:"Chakula/Food",soft:"Bila Pombe/Non-alcoholic",beer:"Bia/Beer",spirits:"Pombe Kali/Spirits"};
     downloadCSV(
-      allSales,
-      ["sale_date","item_name","quantity","unit_price","total_price","service_type","created_at"],
+      allSales.map(r=>({...r,aina:typeLbl[classifyItem(r.item_id,r.section_id,r.item_name,cm)]})),
+      ["sale_date","item_name","aina","quantity","unit_price","total_price","service_type","created_at"],
       "jiko-mauzo-"+today()+".csv"
     );
     setStatus("✓ Mauzo CSV imepakuliwa / Sales CSV downloaded");
