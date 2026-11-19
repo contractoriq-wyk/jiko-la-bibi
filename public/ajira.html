@@ -81,7 +81,8 @@ body::before{
 
 <div class="wrap">
   <div class="tabs no-print">
-    <button class="on" data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
+    <button class="on" data-doc="omba" onclick="switchDoc('omba',this)">🙋 Omba Kazi<br><small>Apply (short intro)</small></button>
+    <button data-doc="muda_mfupi" onclick="switchDoc('muda_mfupi',this)">📄 Muda Mfupi<br><small>Seasonal</small></button>
     <button data-doc="kudumu" onclick="switchDoc('kudumu',this)">📜 Kudumu<br><small>Long-term</small></button>
     <button data-doc="ubia" onclick="switchDoc('ubia',this)">🤝 Ushirikiano<br><small>Partnership</small></button>
     <button data-doc="wadau" onclick="switchDoc('wadau',this)">📋 Wadau Waanzilishi<br><small>Founders</small></button>
@@ -222,14 +223,56 @@ const DOCS = {
   }
 };
 
-let currentDoc = "muda_mfupi";
+let currentDoc = "omba";
 let sigPads = {};
 
 function switchDoc(doc, btn){
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
   currentDoc = doc;
-  renderForm(doc);
+  if(doc==="omba") renderApply(); else renderForm(doc);
+}
+
+/* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
+const ROLES = ["Mpishi / Cook","Msaidizi wa Jikoni / Kitchen helper","Mhudumu / Waiter-Waitress","Bartender / Baa","Msafishaji / Cleaner","Dereva / Delivery","Nyingine / Other"];
+function esc(x){ return String(x||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function renderApply(){
+  document.getElementById("formArea").innerHTML = `
+    <div class="card">
+      <h2>🙋 OMBA KAZI / APPLY FOR A JOB</h2>
+      <p style="font-size:12px;line-height:1.6;color:rgba(11,31,69,0.65);margin-bottom:6px">Jaza utangulizi mfupi tu. Hii <b>si mkataba</b> — tutakutafuta kwa WhatsApp au simu kama tunahitaji kukuona kwa mahojiano.<br><span style="opacity:.8">Just a short intro. This is <b>not</b> a contract — we will contact you on WhatsApp or phone if we would like to interview you.</span></p>
+      <label>Jina Kamili / Full name *</label><input id="a_name" maxlength="120" placeholder="Jina lako / Your name" autocomplete="name">
+      <label>Simu / WhatsApp *</label><input id="a_phone" maxlength="30" inputmode="tel" placeholder="07xx xxx xxx" autocomplete="tel">
+      <label>Kazi Unayoomba / Job you want</label><select id="a_role">${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
+      <label>Unaishi Wapi? / Where do you live?</label><input id="a_area" maxlength="120" placeholder="Mtaa / Area (e.g. Goba, Mbezi)">
+      <label>Uzoefu Wako (mfupi) / Your experience (short)</label><textarea id="a_exp" maxlength="300" rows="3" placeholder="Mfano: Nimepika miaka 2 hotelini / e.g. 2 years cooking in a hotel"></textarea>
+      <label>Unaweza Kuanza Lini? / When can you start?</label><input id="a_start" maxlength="80" placeholder="Mfano: Wiki ijayo / Next week">
+      <label>Kwa Nini Unataka Kazi Hii? (hiari) / Why this job? (optional)</label><textarea id="a_msg" maxlength="300" rows="2"></textarea>
+      <input id="a_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+      <button class="btn btn-gold no-print" id="a_btn" onclick="submitApply()">📨 Tuma Ombi / Send Application</button>
+      <div class="status" id="a_status"></div>
+    </div>`;
+}
+async function submitApply(){
+  const g = id => (document.getElementById(id)||{}).value||"";
+  const st = document.getElementById("a_status"), btn = document.getElementById("a_btn");
+  if(g("a_hp")) return; // spam trap
+  const name = g("a_name").trim(), phone = g("a_phone").trim();
+  if(name.length<2){ st.className="status err"; st.textContent="× Andika jina lako / Enter your name"; return; }
+  if(phone.replace(/[^0-9]/g,"").length<9){ st.className="status err"; st.textContent="× Weka namba sahihi ya simu / Enter a valid phone number"; return; }
+  try{ const last=+localStorage.getItem("ajira_applied_at")||0; if(Date.now()-last<60000){ st.className="status err"; st.textContent="× Subiri dakika moja kisha ujaribu tena / Please wait a minute"; return; } }catch(e){}
+  btn.disabled = true; st.className="status ok"; st.textContent="Inatuma... / Sending...";
+  const rec = { name, phone, role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
+  try{
+    const res = await fetch(SB_URL + "/rest/v1/job_applicants", { method:"POST",
+      headers:{ "Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, Prefer:"return=minimal" }, body:JSON.stringify(rec) });
+    if(res.ok){
+      try{ localStorage.setItem("ajira_applied_at", String(Date.now())); }catch(e){}
+      document.getElementById("formArea").innerHTML = `<div class="card" style="text-align:center"><h2>✅ Ombi Lako Limepokelewa!</h2><p style="font-size:13px;line-height:1.7">Asante, <b>${esc(name)}</b>. Tutakutafuta kwa WhatsApp au simu ukichaguliwa kwa mahojiano.<br><span style="opacity:.75">Thank you! We will contact you on WhatsApp or phone if we would like to interview you.</span></p></div>`;
+    } else {
+      btn.disabled = false; st.className="status err"; st.textContent="× Imeshindwa kutuma. Jaribu tena. / Could not send. Please try again.";
+    }
+  }catch(e){ btn.disabled = false; st.className="status err"; st.textContent="× Mtandao umekataa / Network error"; }
 }
 
 function renderForm(docKey){
@@ -242,6 +285,9 @@ function renderForm(docKey){
   }).join("");
 
   document.getElementById("formArea").innerHTML = `
+    <div class="card no-print" style="background:rgba(184,134,11,0.08);border-color:rgba(184,134,11,0.4)">
+      <p style="font-size:12px;line-height:1.6"><b>⚠️ Fomu hizi ni kwa waliokwisha kuchaguliwa tu.</b> Unaomba kazi? Bonyeza <b>🙋 Omba Kazi</b> juu.<br><span style="opacity:.75">These contracts are only for people already hired. Applying for a job? Tap <b>🙋 Omba Kazi</b> above.</span></p>
+    </div>
     <div class="card">
       <h2>${d.title}</h2>
       <h3>Taarifa / Details</h3>
@@ -334,7 +380,7 @@ async function saveContract(){
 
 /* ── RECORDS ── */
 /* init */
-renderForm("muda_mfupi");
+renderApply();
 </script>
 </body>
 </html>
