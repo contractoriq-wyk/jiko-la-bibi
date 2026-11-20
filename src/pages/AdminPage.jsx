@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.7-1 · 20 Nov 2026, applicant-profile";
+const APP_VERSION = "V3.7-2 · 20 Nov 2026, applicant-fit";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3464,6 +3464,7 @@ function ApplicantsTab({onCount}) {
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState("");
   const [filter,setFilter]=useState("new");
+  const [fitOnly,setFitOnly]=useState(false);  // show only "good fit" applicants
   const [open,setOpen]=useState(null);       // {id,kind}
   const [when,setWhen]=useState("");
   const [place,setPlace]=useState("Goba Njia Nne");
@@ -3522,7 +3523,11 @@ function ApplicantsTab({onCount}) {
   }
 
   const counts={}; Object.keys(APP_STATUS).forEach(k=>{counts[k]=rows.filter(r=>r.status===k).length;});
-  const shown=rows.filter(r=>filter==="all"||r.status===filter);
+  // Good fit = knows Goba Njia Nne and can reach it daily (and is 18+ when age is given)
+  const fitRank=r=>{ const k=String(r.knows_location||""); const a=parseInt(r.age,10); if(a&&a<18) return 0; return k.startsWith("Ndiyo")?2:k.startsWith("Nafahamu")?1:0; };
+  const fitCount=rows.filter(r=>(filter==="all"||r.status===filter)&&fitRank(r)===2).length;
+  const shown=rows.filter(r=>(filter==="all"||r.status===filter)&&(!fitOnly||fitRank(r)===2))
+    .map((r,i)=>({r,i})).sort((a,b)=>(fitRank(b.r)-fitRank(a.r))||(a.i-b.i)).map(x=>x.r);   // best fits first, otherwise newest first as before
 
   return (
     <div style={{padding:"1rem"}}>
@@ -3558,6 +3563,7 @@ function ApplicantsTab({onCount}) {
         {[["new","🆕 Wapya"],["interview","✅ Mahojiano"],["not_now","⏳ Si Sasa"],["hired","🎉 Ameajiriwa"],["all","Wote"]].map(([k,l])=>(
           <button key={k} onClick={()=>setFilter(k)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 11px",borderRadius:99,cursor:"pointer",border:"1px solid "+(filter===k?t.gold:t.border),background:filter===k?t.gold+"22":"transparent",color:filter===k?t.gold:t.dim2}}>{l}{k!=="all"&&counts[k]?" ("+counts[k]+")":""}</button>
         ))}
+        <button onClick={()=>setFitOnly(v=>!v)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 11px",borderRadius:99,cursor:"pointer",border:"1px solid "+(fitOnly?t.gr:t.border),background:fitOnly?t.gr+"22":"transparent",color:fitOnly?t.gr:t.dim2}}>✅ Wanafaa / Good fit ({fitCount})</button>
       </div>
       {loading&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center"}}>Inapakia… / Loading…</p>}
       {err&&<Card style={{padding:"1rem",marginBottom:10}}><p style={{fontFamily:"sans-serif",fontSize:12,color:t.rd,margin:0,lineHeight:1.6}}>⚠️ Jedwali la waombaji bado halijaundwa. Endesha <b>migration_job_applicants.sql</b> kwenye Supabase SQL editor mara moja. / The applicants table is not set up yet — run <b>migration_job_applicants.sql</b> once in the Supabase SQL editor.<br/><span style={{color:t.dim2,fontSize:10}}>{err}</span></p></Card>}
