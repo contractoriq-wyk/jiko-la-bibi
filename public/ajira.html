@@ -304,6 +304,8 @@ function renderPolicy(){
 /* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
 const SOURCES = ["Tangazo la Facebook / Facebook ad","Ukurasa wa Facebook / Facebook page","Tovuti ya Jiko La Bibi / Our website","Mdomo kwa mdomo (rafiki/ndugu) / Word of mouth","WhatsApp / Instagram / TikTok","Bango au mtaani / Signboard or in person","Nyingine / Other"];
 const SRC_LINK = {fbad:0, fb:1, web:2, wom:3, social:4, sign:5};
+const GENDERS = ["Mwanamke / Female","Mwanaume / Male","Napendelea kutosema / Prefer not to say"];
+const KNOWS = ["Ndiyo, nafahamu Goba Njia Nne na naweza kufika kila siku / Yes, I know Goba Njia Nne and can get there daily","Nafahamu, lakini ni mbali kwangu / I know it, but it is far for me","Hapana, sifahamu eneo / No, I do not know the area"];
 const ROLES = ["Mpishi / Cook","Msaidizi wa Jikoni / Kitchen helper","Mhudumu / Waiter-Waitress","Bartender / Baa","Msafishaji / Cleaner","Dereva / Delivery","Nyingine / Other"];
 function esc(x){ return String(x||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 let hiringOpen = true; // false only when the owner switched applications off
@@ -347,8 +349,12 @@ function renderApply(){
       <label>Namba hii ina WhatsApp? / Does this number have WhatsApp? *</label>
       <select id="a_wa"><option value="yes">✅ Ndiyo / Yes</option><option value="no">📵 Hapana — nitumie SMS / No — send me an SMS</option><option value="other">🔁 Nina WhatsApp kwenye namba nyingine / My WhatsApp is a different number</option></select>
       <input id="a_wanum" inputmode="tel" maxlength="30" style="display:none" placeholder="Namba ya WhatsApp / WhatsApp number (07xx xxx xxx)">
+      <label>Umri / Age *</label><input id="a_age" type="number" inputmode="numeric" min="18" max="70" placeholder="Miaka / Years (e.g. 25)">
+      <label>Jinsia / Gender *</label><select id="a_gender"><option value="">— Chagua / Choose —</option>${GENDERS.map(x=>`<option>${x}</option>`).join("")}</select>
       <label>Kazi Unayoomba / Job you want</label><select id="a_role">${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
-      <label>Unaishi Wapi? / Where do you live?</label><input id="a_area" maxlength="120" placeholder="Mtaa / Area (e.g. Goba, Mbezi)">
+      <label>Unaishi Wapi Sasa? / Where do you live now? *</label><input id="a_area" maxlength="120" placeholder="Mtaa, eneo / Area (e.g. Makangira, Mbezi, Kimara)">
+      <div style="background:#FFF8E1;border:1px solid #E6C84C;border-radius:10px;padding:10px 12px;margin:6px 0 4px;font-size:12px;line-height:1.5">📍 <b>Mgahawa wetu uko Goba Njia Nne, Dar es Salaam.</b><br><span style="opacity:.8">Our restaurant is at Goba Njia Nne, Dar es Salaam.</span></div>
+      <label>Je, unafahamu eneo letu? / Do you know our location? *</label><select id="a_knows"><option value="">— Chagua / Choose —</option>${KNOWS.map(x=>`<option>${x}</option>`).join("")}</select>
       <label>Uzoefu Wako (mfupi) / Your experience (short)</label><textarea id="a_exp" maxlength="300" rows="3" placeholder="Mfano: Nimepika miaka 2 hotelini / e.g. 2 years cooking in a hotel"></textarea>
       <label>Ulitupata Wapi? / How did you find us?</label><select id="a_src"><option value="">— Chagua / Choose —</option>${SOURCES.map((x,i)=>`<option value="${esc(x)}"${i===srcPre?" selected":""}>${x}</option>`).join("")}</select>
       <input id="a_srcx" maxlength="60" style="display:none" placeholder="Eleza / Please tell us (hiari / optional)">
@@ -371,20 +377,30 @@ async function submitApply(){
   if(name.length<2){ st.className="status err"; st.textContent="× Andika jina lako / Enter your name"; return; }
   const phoneN = normPhone(phone);
   if(!phoneN){ st.className="status err"; st.textContent="× Namba si sahihi. Tumia tarakimu 10, mfano 0712345678 / Invalid number — use 10 digits, e.g. 0712345678"; return; }
+  const age = parseInt(g("a_age"),10);
+  if(!(age>0)){ st.className="status err"; st.textContent="× Weka umri wako / Enter your age"; return; }
+  if(age<18){ st.className="status err"; st.textContent="× Lazima uwe na miaka 18 au zaidi / You must be 18 or older"; return; }
+  if(age>70){ st.className="status err"; st.textContent="× Umri si sahihi / Age is not valid"; return; }
+  if(!g("a_gender")){ st.className="status err"; st.textContent="× Chagua jinsia / Choose gender"; return; }
+  if(g("a_area").trim().length<2){ st.className="status err"; st.textContent="× Andika unapoishi sasa / Enter where you live now"; return; }
+  if(!g("a_knows")){ st.className="status err"; st.textContent="× Jibu kama unafahamu Goba Njia Nne / Tell us if you know our location"; return; }
   let wa = g("a_wa") || "yes";
   if(wa==="other"){ const w2 = normPhone(g("a_wanum")); if(!w2){ st.className="status err"; st.textContent="× Namba ya WhatsApp si sahihi / WhatsApp number is not valid"; return; } wa = w2; }
   try{ const last=+localStorage.getItem("ajira_applied_at")||0; if(Date.now()-last<60000){ st.className="status err"; st.textContent="× Subiri dakika moja kisha ujaribu tena / Please wait a minute"; return; } }catch(e){}
   btn.disabled = true; st.className="status ok"; st.textContent="Inatuma... / Sending...";
   let source = g("a_src"); const sx = g("a_srcx").trim(); if(source && sx && source.indexOf("Other")>-1) source = (source+": "+sx).slice(0,80);
-  const rec = { name, phone:phoneN, whatsapp:wa, source, role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
+  const rec = { name, phone:phoneN, whatsapp:wa, source, age:String(age), gender:g("a_gender"), knows_location:g("a_knows"), role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
   try{
     const post = body => fetch(SB_URL + "/rest/v1/job_applicants", { method:"POST",
       headers:{ "Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, Prefer:"return=minimal" }, body:JSON.stringify(body) });
     let res = await post(rec);
-    for(let i=0; i<2 && !res.ok; i++){ // optional columns not created yet? never lose an applicant — resend without them
+    for(let i=0; i<3 && !res.ok; i++){ // optional columns not created yet? never lose an applicant — resend without them
       const t0 = await res.clone().text(); const r2 = Object.assign({}, rec); let cut = false;
       if(/whatsapp/i.test(t0) && "whatsapp" in rec){ delete r2.whatsapp; r2.message = ("[WhatsApp: "+rec.whatsapp+"] "+r2.message).slice(0,300); delete rec.whatsapp; cut = true; }
       if(/source/i.test(t0) && "source" in rec){ delete r2.source; delete rec.source; cut = true; }
+      if(/\b(age|gender|knows_location)\b/i.test(t0) && "age" in rec){ // keep the info: fold it into the message
+        r2.message = ("[Umri "+rec.age+" · "+rec.gender.split(" / ")[0]+" · Goba: "+rec.knows_location.split(",")[0].split(" / ")[0]+"] "+r2.message).slice(0,300);
+        delete r2.age; delete r2.gender; delete r2.knows_location; delete rec.age; delete rec.gender; delete rec.knows_location; cut = true; }
       if(!cut) break;
       Object.assign(rec, r2); res = await post(rec);
     }
