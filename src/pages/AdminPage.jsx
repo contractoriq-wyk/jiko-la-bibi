@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.6-3 · 19 Nov 2026, applicant-whatsapp";
+const APP_VERSION = "V3.7-1 · 20 Nov 2026, applicant-profile";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3571,7 +3571,12 @@ function ApplicantsTab({onCount}) {
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{r.name}</div>
               <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2}}>{r.role_wanted||"—"}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:1}}>📞 {r.phone||"—"}{r.area?" · 📍 "+r.area:""}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:1}}>📞 {r.phone||"—"}{r.area?" · 📍 Anaishi: "+r.area:""}</div>
+              {(r.age||r.gender||r.knows_location)&&(()=>{const k=r.knows_location||""; const kc=k.startsWith("Ndiyo")?t.gr:k.startsWith("Nafahamu")?t.gold:k?t.rd:t.dim; const kt=k.startsWith("Ndiyo")?"✅ Anajua Goba, anaweza kufika / Knows Goba, can reach daily":k.startsWith("Nafahamu")?"⚠️ Anajua Goba lakini ni mbali / Knows Goba but far":k?"❌ Hajui Goba Njia Nne / Doesn't know our location":"";
+                return <div style={{fontFamily:"sans-serif",fontSize:11,marginTop:4,lineHeight:1.5}}>
+                  <span style={{color:t.text,fontWeight:700}}>👤 {r.age?r.age+" yrs":"—"}{r.gender?" · "+r.gender.split(" / ")[0]:""}</span>
+                  {kt&&<div style={{color:kc,fontWeight:700,fontSize:10,marginTop:2}}>{kt}</div>}
+                </div>;})()}
               {noWa&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginTop:2,fontWeight:700}}>📵 Hana WhatsApp — tumia SMS / No WhatsApp — use SMS</div>}
               {r.whatsapp&&r.whatsapp!=="yes"&&r.whatsapp!=="no"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",marginTop:2,fontWeight:700}}>💬 WhatsApp ni namba nyingine: {r.whatsapp}</div>}
             </div>
