@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-5 · 21 Nov 2026, drinks showcase";
+const APP_VERSION = "V4.0-6 · 21 Nov 2026, Saturday week";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -681,14 +681,10 @@ function LeoTab({onGoTo,flags=[]}) {
     if(reportMode==="today") return {start:today(),end:today(),label:"Leo — "+today()};
     if(reportMode==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);const ys=fmtD(y);return {start:ys,end:ys,label:"Jana — "+ys};}
     if(reportMode==="week"){
-      // Wiki inaanza Jumatatu (Monday), inaisha Jumamosi (Saturday) — Jumapili (Sunday) haifanyi kazi
-      const day = now.getDay(); // 0=Sunday..6=Saturday
-      const mondayOffset = day===0 ? -6 : 1-day;
-      const monday = new Date(now); monday.setDate(now.getDate()+mondayOffset);
-      const saturday = new Date(monday); saturday.setDate(monday.getDate()+5);
-      const todayD = new Date(fmtD(now));
-      const end = todayD < saturday ? fmtD(todayD) : fmtD(saturday);
-      return {start:fmtD(monday),end,label:"Wiki Hii, Jumatatu-Jumamosi ("+fmtD(monday)+" hadi "+end+")"};
+      // Wiki inaanza Jumamosi (Saturday) na inaisha Ijumaa (Friday)
+      const startD = new Date(now); startD.setDate(now.getDate()-daysSinceWeekStart(now.getDay()));
+      const start = fmtD(startD), end = fmtD(now);
+      return {start,end,label:"Wiki Hii, Jumamosi-Ijumaa ("+start+" hadi "+end+")"};
     }
     if(reportMode==="month"){const s=new Date(now.getFullYear(),now.getMonth(),1);return {start:fmtD(s),end:today(),label:"Mwezi Huu ("+fmtD(s)+" hadi "+today()+")"};}
     return {start:reportDate,end:reportDate,label:reportDate};
@@ -1189,10 +1185,13 @@ function StorefrontTab(){
   );
 }
 
+// The business week starts on SATURDAY (JS getDay: 0=Sun … 6=Sat) and runs Saturday → Friday.
+const WEEK_START=6;
+const daysSinceWeekStart=(dow)=>(dow-WEEK_START+7)%7;
 function computeWeekCmp(allSales,customItems){
     const addD=(str,n)=>{const d=new Date(str+"T12:00:00");d.setDate(d.getDate()+n);return dateStrET(d);};
     const tdy=today(); const dow=new Date(tdy+"T12:00:00").getDay(); // 0=Sun
-    const sinceMon=dow===0?6:dow-1;
+    const sinceMon=daysSinceWeekStart(dow);   // days since this week's Saturday (name kept for the code below)
     const thisStart=addD(tdy,-sinceMon), lastStart=addD(thisStart,-7), lastSame=addD(lastStart,sinceMon), lastEnd=addD(lastStart,6);
     const inR=(a,b)=>allSales.filter(r=>r.sale_date>=a&&r.sale_date<=b);
     const cur=computeCatMix(inR(thisStart,tdy),[],customItems);
@@ -1453,7 +1452,7 @@ function MalengoTab() {
       setLoadedAll(true);
     }
   },[loadedAll]);
-  const ws=new Date();ws.setDate(ws.getDate()-ws.getDay());
+  const ws=new Date();ws.setDate(ws.getDate()-daysSinceWeekStart(ws.getDay()));   // week starts Saturday
   const ms=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   const wkG=allSales.filter(s=>s.sale_date>=dateStrET(ws)).reduce((s,r)=>s+r.total_price,0);
   const moG=allSales.filter(s=>s.sale_date>=dateStrET(ms)).reduce((s,r)=>s+r.total_price,0);
@@ -1496,7 +1495,7 @@ function MalengoTab() {
     const lastMonthName = lastMonthStart.toLocaleDateString("sw-TZ",{month:"long",year:"numeric",timeZone:"America/New_York"});
 
     const sDaily = Math.round(avgPerActiveDay*growth/500)*500; // round to nearest 500 TZS
-    const sWeekly = sDaily*6;   // Jumatatu–Jumamosi, biashara imefungwa Jumapili
+    const sWeekly = sDaily*6;   // siku 6 za kazi kwa wiki (Jumapili imefungwa)
     // Monthly goal: beat last month by the chosen growth % (falls back to daily*26 if no data last month yet)
     const sMonthly = lastMonthTotal>0
       ? Math.round(lastMonthTotal*growth/500)*500
@@ -1731,7 +1730,7 @@ function AkiliTab() {
   const [topFilter,setTopFilter]=useState("all");
   const itemCls=useMemo(()=>{const o={};s30.forEach(r=>{if(!(r.item_id in o))o[r.item_id]=classifyItem(r.item_id,r.section_id,r.item_name,customSecMap);});return o;},[s30,customSecMap]);
   const itemsView=itemStats.filter(i=>{const c=itemCls[i.id]||"food";return topFilter==="all"||topFilter===c;});
-  // Wiki Hii vs Wiki Iliyopita — like-for-like (same weekdays), Monday-start
+  // Wiki Hii vs Wiki Iliyopita — like-for-like (same weekdays), Saturday-start
   const wkCmp=useMemo(()=>computeWeekCmp(allSales,customItems),[allSales,customItems]);
   useEffect(()=>{ const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); fetchRange(dateStrET(d),today()); },[]);
   const svcMap=useMemo(()=>{const m={pickup:0,delivery:0,dinein:0};s30.forEach(s=>{m[s.service_type]=(m[s.service_type]||0)+s.total_price;});return m;},[s30]);
@@ -1856,8 +1855,8 @@ function AkiliTab() {
     }
     const bestDay = dayEntries[0] ? {name:dayNames[dayEntries[0][0]], rev:dayEntries[0][1]} : null;
     const bestHour = hourEntries[0] ? {hour:parseInt(hourEntries[0][0]), rev:hourEntries[0][1], isEstimate:hourIsEstimate} : null;
-    const dayChartFull = dayNames.map((name,i)=>({name,rev:byDay[i]||0}));
-    const dayChart = showFullWeek ? dayChartFull : dayChartFull.filter((d,i)=>i!==closedWeekday);
+    const dayChartFull = [6,0,1,2,3,4,5].map(i=>({name:dayNames[i],dow:i,rev:byDay[i]||0}));   // Saturday first
+    const dayChart = showFullWeek ? dayChartFull : dayChartFull.filter(d=>d.dow!==closedWeekday);
     return { bestDay, bestHour, dayChart };
   },[s30,showFullWeek,closedWeekday]);
 
@@ -1913,6 +1912,7 @@ function AkiliTab() {
     s30.forEach(s=>{ revByDate[s.sale_date] = (revByDate[s.sale_date]||0) + s.total_price; });
     const points = [];
     let cursor = new Date(start);
+    if(useWeekly) cursor.setDate(cursor.getDate()-daysSinceWeekStart(cursor.getDay()));   // weekly bars begin on a Saturday
     while(cursor<=end){
       const bucketSize = useWeekly ? 7 : 1;
       let rev = 0, firstDs = null, anyDay = false;
@@ -2746,7 +2746,7 @@ function AkiliTab() {
           <IconBadge emoji="📆" color={t.gold}/>
           <p style={{fontFamily:"sans-serif",fontSize:"9px",fontWeight:700,color:t.dim2,textTransform:"uppercase",letterSpacing:"1px",margin:0}}>Wiki Hii vs Iliyopita / This Week vs Last Week</p>
         </div>
-        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>Siku {wkCmp.days} za kwanza za kila wiki (Jumatatu →) / First {wkCmp.days} day(s) of each week (from Monday), so it is a fair comparison.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>Siku {wkCmp.days} za kwanza za kila wiki (Jumamosi →) / First {wkCmp.days} day(s) of each week (from Saturday), so it is a fair comparison.</p>
         {[["🍛 Chakula / Food",wkCmp.cur.m.food.rev,wkCmp.prevSame.m.food.rev],["🥤 Bila Pombe / Non-alc",wkCmp.cur.soft,wkCmp.prevSame.soft],["🍺🥃 Pombe / Alcohol",wkCmp.cur.alc,wkCmp.prevSame.alc],["Jumla / Total",wkCmp.cur.total,wkCmp.prevSame.total]].map(([lb,c,p],i)=>{
           const d=deltaPct(c,p); const col=d===null?t.gr:d>0?t.gr:d<0?t.rd:t.dim2;
           return (<div key={lb} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:i===3?"2px solid "+t.border:"1px solid "+t.border+"66"}}>
@@ -3668,6 +3668,9 @@ function ApplicantsTab({onCount}) {
   const [err,setErr]=useState("");
   const [filter,setFilter]=useState("new");
   const [fitOnly,setFitOnly]=useState(false);  // show only "good fit" applicants
+  const [eduMin,setEduMin]=useState(0);        // minimum education level (0 = any)
+  const [salMax,setSalMax]=useState(0);        // maximum desired monthly salary in TZS (0 = any)
+  const [roleF,setRoleF]=useState("");         // job wanted ("" = any)
   const [open,setOpen]=useState(null);       // {id,kind}
   const [when,setWhen]=useState("");
   const [place,setPlace]=useState("Goba Njia Nne");
@@ -3729,8 +3732,14 @@ function ApplicantsTab({onCount}) {
   // Good fit = knows Goba Njia Nne and can reach it daily (and is 18+ when age is given)
   const fitRank=r=>{ const k=String(r.knows_location||""); const a=parseInt(r.age,10); if(a&&a<18) return 0; return k.startsWith("Ndiyo")?2:k.startsWith("Nafahamu")?1:0; };
   const fitCount=rows.filter(r=>(filter==="all"||r.status===filter)&&fitRank(r)===2).length;
-  const shown=rows.filter(r=>(filter==="all"||r.status===filter)&&(!fitOnly||fitRank(r)===2))
-    .map((r,i)=>({r,i})).sort((a,b)=>(fitRank(b.r)-fitRank(a.r))||(a.i-b.i)).map(x=>x.r);   // best fits first, otherwise newest first as before
+  // Education level as a number so "Form 4 and above" works; salary as a plain number of TZS
+  const eduRank=r=>{ const e=String(r.education||"").toLowerCase(); if(!e) return -1; return e.startsWith("shahada")?5:e.startsWith("stashahada")?4:(e.startsWith("cheti")||e.startsWith("kidato cha sita"))?3:e.startsWith("kidato cha nne")?2:e.startsWith("elimu ya msingi")?1:0; };
+  const salNum=r=>{ const n=parseInt(String(r.salary_wanted||"").replace(/[^\d]/g,""),10); return n>0?n:null; };
+  const roleOf=r=>String(r.role_wanted||"");
+  const passes=r=>(filter==="all"||r.status===filter)&&(!fitOnly||fitRank(r)===2)
+    &&(!eduMin||eduRank(r)>=eduMin)&&(!salMax||(salNum(r)!==null&&salNum(r)<=salMax))&&(!roleF||roleOf(r).startsWith(roleF));
+  const shown=rows.filter(passes)
+    .map((r,i)=>({r,i})).sort((a,b)=>salMax?((salNum(a.r)-salNum(b.r))||(a.i-b.i)):((fitRank(b.r)-fitRank(a.r))||(a.i-b.i))).map(x=>x.r);   // cheapest first when a salary limit is set; otherwise best fits first, newest first as before
 
   return (
     <div style={{padding:"1rem"}}>
@@ -3769,6 +3778,28 @@ function ApplicantsTab({onCount}) {
         ))}
         <button onClick={()=>setFitOnly(v=>!v)} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 11px",borderRadius:99,cursor:"pointer",border:"1px solid "+(fitOnly?t.gr:t.border),background:fitOnly?t.gr+"22":"transparent",color:fitOnly?t.gr:t.dim2}}>✅ Wanafaa / Good fit ({fitCount})</button>
       </div>
+      <Card style={{padding:"10px 12px",marginBottom:12}}>
+        <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>🔎 CHUJA / FILTER</div>
+        {(()=>{ const sel={width:"100%",fontFamily:"sans-serif",fontSize:12,padding:"8px 6px",borderRadius:8,border:"1px solid "+t.border,background:t.bg4,color:t.text,boxSizing:"border-box"}; const lab={fontFamily:"sans-serif",fontSize:10,color:t.dim2,fontWeight:700,margin:"0 0 3px"};
+          return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div style={{gridColumn:"1 / -1"}}><div style={lab}>Kazi / Job</div>
+              <select value={roleF} onChange={e=>setRoleF(e.target.value)} style={sel}>
+                <option value="">Zote / Any</option><option value="Mpishi">Mpishi / Cook</option><option value="Mhudumu">Mhudumu / Waitress</option><option value="Usafi">Usafi wa Jumla / Housekeeping</option><option value="Mpokea">Mpokea Oda na Mpelekaji / Order taker &amp; delivery</option>
+              </select></div>
+            <div><div style={lab}>Elimu / Education</div>
+              <select value={eduMin} onChange={e=>setEduMin(+e.target.value)} style={sel}>
+                <option value={0}>Yoyote / Any</option><option value={2}>Kidato cha 4+ / Form 4+</option><option value={3}>Kidato cha 6 / Cheti+</option><option value={4}>Stashahada+ / Diploma+</option><option value={5}>Shahada / Degree</option>
+              </select></div>
+            <div><div style={lab}>Mshahara hadi / Max salary</div>
+              <select value={salMax} onChange={e=>setSalMax(+e.target.value)} style={sel}>
+                <option value={0}>Yoyote / Any</option><option value={150000}>TZS 150,000</option><option value={200000}>TZS 200,000</option><option value={250000}>TZS 250,000</option><option value={300000}>TZS 300,000</option><option value={400000}>TZS 400,000</option><option value={500000}>TZS 500,000</option>
+              </select></div>
+          </div>; })()}
+        {(eduMin>0||salMax>0||roleF)&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8,gap:8}}>
+          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:t.dim2}}>{shown.length} wanaofaa / match{(eduMin>0||salMax>0)?" · bila taarifa hawaonekani / those who left it blank are hidden":""}</span>
+          <button onClick={()=>{setEduMin(0);setSalMax(0);setRoleF("");}} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+t.border,background:"transparent",color:t.dim2}}>✕ Futa / Clear</button>
+        </div>}
+      </Card>
       {loading&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center"}}>Inapakia… / Loading…</p>}
       {err&&<Card style={{padding:"1rem",marginBottom:10}}><p style={{fontFamily:"sans-serif",fontSize:12,color:t.rd,margin:0,lineHeight:1.6}}>⚠️ Jedwali la waombaji bado halijaundwa. Endesha <b>migration_job_applicants.sql</b> kwenye Supabase SQL editor mara moja. / The applicants table is not set up yet — run <b>migration_job_applicants.sql</b> once in the Supabase SQL editor.<br/><span style={{color:t.dim2,fontSize:10}}>{err}</span></p></Card>}
       {!loading&&!err&&shown.length===0&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center",padding:"1.5rem 0"}}>Hakuna waombaji hapa bado. / No applicants here yet.</p>}
@@ -3787,6 +3818,7 @@ function ApplicantsTab({onCount}) {
                   <span style={{color:t.text,fontWeight:700}}>👤 {r.age?r.age+" yrs":"—"}{r.gender?" · "+r.gender.split(" / ")[0]:""}</span>
                   {kt&&<div style={{color:kc,fontWeight:700,fontSize:10,marginTop:2}}>{kt}</div>}
                 </div>;})()}
+              {(r.education||salNum(r))&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.text,fontWeight:700,marginTop:3,lineHeight:1.5}}>{r.education?"🎓 "+r.education:""}{r.education&&salNum(r)?" · ":""}{salNum(r)?"💰 TZS "+salNum(r).toLocaleString("en-US")+"/mwezi":""}</div>}
               {noWa&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginTop:2,fontWeight:700}}>📵 Hana WhatsApp — tumia SMS / No WhatsApp — use SMS</div>}
               {r.whatsapp&&r.whatsapp!=="yes"&&r.whatsapp!=="no"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",marginTop:2,fontWeight:700}}>💬 WhatsApp ni namba nyingine: {r.whatsapp}</div>}
             </div>
