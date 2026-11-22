@@ -85,6 +85,7 @@ body.locked .no-lock{display:none}
 <body>
 
 <div class="hdr no-print">
+  <img src="/shield.webp" alt="Jiko La Bibi JJJ" width="64" height="72" style="display:block;margin:0 auto 8px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4))">
   <h1>Ajira Digital 📋</h1>
   <p id="hdrSub">Unyamwezini Jiko La Bibi JJJ — Karibu! Jaza fomu ya ajira hapa / Welcome! Apply &amp; sign here</p>
 </div>
@@ -294,6 +295,7 @@ function renderPolicy(){
   const d = DOCS.sera;
   document.getElementById("formArea").innerHTML = `
     <div class="card">
+      <div style="text-align:center;margin-bottom:10px"><img src="/shield.webp" alt="Unyamwezini Jiko La Bibi JJJ" width="150" height="168" style="max-width:55%;height:auto;object-fit:contain"></div>
       <h2>📕 SERA ZA KAZI / OUR WORK POLICIES</h2>
       <p style="font-size:13px;line-height:1.6;margin-bottom:6px">Hivi ndivyo tunavyofanya kazi — ili ujue tunasimamia nini kabla ya kuomba.<br><span style="opacity:.75">This is how we work — so you know what we stand for before you apply.</span></p>
       <div class="terms" style="max-height:none;overflow:visible">${d.terms}</div>
@@ -306,7 +308,8 @@ const SOURCES = ["Tangazo la Facebook / Facebook ad","Ukurasa wa Facebook / Face
 const SRC_LINK = {fbad:0, fb:1, web:2, wom:3, social:4, sign:5};
 const GENDERS = ["Mwanamke / Female","Mwanaume / Male","Napendelea kutosema / Prefer not to say"];
 const KNOWS = ["Ndiyo, nafahamu Goba Njia Nne na naweza kufika kila siku / Yes, I know Goba Njia Nne and can get there daily","Nafahamu, lakini ni mbali kwangu / I know it, but it is far for me","Hapana, sifahamu eneo / No, I do not know the area"];
-const ROLES = ["Mpishi / Cook","Msaidizi wa Jikoni / Kitchen helper","Mhudumu / Waiter-Waitress","Bartender / Baa","Msafishaji / Cleaner","Dereva / Delivery","Nyingine / Other"];
+const ROLES = ["Mpishi / Cook","Mhudumu / Waitress","Usafi wa Jumla / General Housekeeping","Mpokea Oda na Mpelekaji / Order Taker & Delivery (collects orders and delivers)"];
+const EDU = ["Elimu ya Msingi (Darasa la 7) / Primary school","Kidato cha Nne / Form 4 (O-Level)","Kidato cha Sita / Form 6 (A-Level)","Cheti (VETA / Chuo) / Certificate","Stashahada / Diploma","Shahada / Degree","Sijasoma rasmi / No formal schooling"];
 function esc(x){ return String(x||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 let hiringOpen = true; // false only when the owner switched applications off
 async function checkHiring(){
@@ -351,7 +354,10 @@ function renderApply(){
       <input id="a_wanum" inputmode="tel" maxlength="30" style="display:none" placeholder="Namba ya WhatsApp / WhatsApp number (07xx xxx xxx)">
       <label>Umri / Age *</label><input id="a_age" type="number" inputmode="numeric" min="18" max="70" placeholder="Miaka / Years (e.g. 25)">
       <label>Jinsia / Gender *</label><select id="a_gender"><option value="">— Chagua / Choose —</option>${GENDERS.map(x=>`<option>${x}</option>`).join("")}</select>
-      <label>Kazi Unayoomba / Job you want</label><select id="a_role">${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
+      <label>Kazi Unayoomba / Job you want *</label><select id="a_role"><option value="">— Chagua kazi / Choose a job —</option>${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
+      <label>Elimu Yako / Your education (highest level completed) *</label><select id="a_edu"><option value="">— Chagua / Choose —</option>${EDU.map(x=>`<option>${x}</option>`).join("")}</select>
+      <label>Mshahara Unaotaka kwa Mwezi (TZS) / Desired monthly salary *</label><input id="a_sal" type="number" inputmode="numeric" min="0" step="1000" placeholder="Mfano / e.g. 250000">
+      <div style="font-size:11px;opacity:.7;margin:-4px 0 6px">Andika tarakimu tu, bila koma / Numbers only, no commas</div>
       <label>Unaishi Wapi Sasa? / Where do you live now? *</label><input id="a_area" maxlength="120" placeholder="Mtaa, eneo / Area (e.g. Makangira, Mbezi, Kimara)">
       <div style="background:#FFF8E1;border:1px solid #E6C84C;border-radius:10px;padding:10px 12px;margin:6px 0 4px;font-size:12px;line-height:1.5">📍 <b>Mgahawa wetu uko Goba Njia Nne, Dar es Salaam.</b><br><span style="opacity:.8">Our restaurant is at Goba Njia Nne, Dar es Salaam.</span></div>
       <label>Je, unafahamu eneo letu? / Do you know our location? *</label><select id="a_knows"><option value="">— Chagua / Choose —</option>${KNOWS.map(x=>`<option>${x}</option>`).join("")}</select>
@@ -382,6 +388,11 @@ async function submitApply(){
   if(age<18){ st.className="status err"; st.textContent="× Lazima uwe na miaka 18 au zaidi / You must be 18 or older"; return; }
   if(age>70){ st.className="status err"; st.textContent="× Umri si sahihi / Age is not valid"; return; }
   if(!g("a_gender")){ st.className="status err"; st.textContent="× Chagua jinsia / Choose gender"; return; }
+  if(!g("a_role")){ st.className="status err"; st.textContent="× Chagua kazi unayoomba / Choose the job you want"; return; }
+  if(!g("a_edu")){ st.className="status err"; st.textContent="× Chagua kiwango cha elimu / Choose your education level"; return; }
+  const sal = parseInt(String(g("a_sal")).replace(/[^\d]/g,""),10);
+  if(!(sal>0)){ st.className="status err"; st.textContent="× Andika mshahara unaotaka (TZS kwa mwezi) / Enter the monthly salary you want"; return; }
+  if(sal>10000000){ st.className="status err"; st.textContent="× Mshahara si sahihi / Salary does not look right"; return; }
   if(g("a_area").trim().length<2){ st.className="status err"; st.textContent="× Andika unapoishi sasa / Enter where you live now"; return; }
   if(!g("a_knows")){ st.className="status err"; st.textContent="× Jibu kama unafahamu Goba Njia Nne / Tell us if you know our location"; return; }
   let wa = g("a_wa") || "yes";
@@ -389,18 +400,21 @@ async function submitApply(){
   try{ const last=+localStorage.getItem("ajira_applied_at")||0; if(Date.now()-last<60000){ st.className="status err"; st.textContent="× Subiri dakika moja kisha ujaribu tena / Please wait a minute"; return; } }catch(e){}
   btn.disabled = true; st.className="status ok"; st.textContent="Inatuma... / Sending...";
   let source = g("a_src"); const sx = g("a_srcx").trim(); if(source && sx && source.indexOf("Other")>-1) source = (source+": "+sx).slice(0,80);
-  const rec = { name, phone:phoneN, whatsapp:wa, source, age:String(age), gender:g("a_gender"), knows_location:g("a_knows"), role_wanted:g("a_role"), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
+  const rec = { name, phone:phoneN, whatsapp:wa, source, age:String(age), gender:g("a_gender"), knows_location:g("a_knows"), role_wanted:g("a_role"), education:g("a_edu"), salary_wanted:String(sal), area:g("a_area").trim(), experience:g("a_exp").trim(), available_from:g("a_start").trim(), message:g("a_msg").trim(), status:"new" };
   try{
     const post = body => fetch(SB_URL + "/rest/v1/job_applicants", { method:"POST",
       headers:{ "Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, Prefer:"return=minimal" }, body:JSON.stringify(body) });
     let res = await post(rec);
-    for(let i=0; i<3 && !res.ok; i++){ // optional columns not created yet? never lose an applicant — resend without them
+    for(let i=0; i<6 && !res.ok; i++){ // optional columns not created yet? never lose an applicant — resend without them
       const t0 = await res.clone().text(); const r2 = Object.assign({}, rec); let cut = false;
       if(/whatsapp/i.test(t0) && "whatsapp" in rec){ delete r2.whatsapp; r2.message = ("[WhatsApp: "+rec.whatsapp+"] "+r2.message).slice(0,300); delete rec.whatsapp; cut = true; }
       if(/source/i.test(t0) && "source" in rec){ delete r2.source; delete rec.source; cut = true; }
       if(/\b(age|gender|knows_location)\b/i.test(t0) && "age" in rec){ // keep the info: fold it into the message
         r2.message = ("[Umri "+rec.age+" · "+rec.gender.split(" / ")[0]+" · Goba: "+rec.knows_location.split(",")[0].split(" / ")[0]+"] "+r2.message).slice(0,300);
         delete r2.age; delete r2.gender; delete r2.knows_location; delete rec.age; delete rec.gender; delete rec.knows_location; cut = true; }
+      if(/\b(education|salary_wanted)\b/i.test(t0) && "education" in rec){ // columns not added yet: fold into the message so nothing is lost
+        r2.message = ("[Elimu: "+rec.education.split(" / ")[0]+" · Mshahara: TZS "+rec.salary_wanted+"] "+r2.message).slice(0,300);
+        delete r2.education; delete r2.salary_wanted; delete rec.education; delete rec.salary_wanted; cut = true; }
       if(!cut) break;
       Object.assign(rec, r2); res = await post(rec);
     }
@@ -425,6 +439,7 @@ function renderForm(docKey){
   }).join("");
 
   document.getElementById("formArea").innerHTML = `
+    <div style="text-align:center;margin:4px 0 10px"><img src="/shield.webp" alt="Unyamwezini Jiko La Bibi JJJ" width="110" height="124" style="object-fit:contain"></div>
     <div class="card no-print" style="background:rgba(184,134,11,0.08);border-color:rgba(184,134,11,0.4)">
       <p style="font-size:12px;line-height:1.6"><b>⚠️ Fomu hizi ni kwa waliokwisha kuchaguliwa tu.</b> Unaomba kazi? Bonyeza <b>🙋 Omba Kazi</b> juu.<br><span style="opacity:.75">These contracts are only for people already hired. Applying for a job? Tap <b>🙋 Omba Kazi</b> above.</span></p>
     </div>
