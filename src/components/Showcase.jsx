@@ -122,27 +122,69 @@ export function OrderAgain() {
   );
 }
 
-/* ── Our Favorites (from Akili) ── */
+/* ── Our Favorites (from Akili): food grid + best soft drinks / beers / gin & spirits ── */
+const DRINK_KINDS = [
+  { kind:"soft",    sw:"Vinywaji Baridi Vipendwa", en:"Top Soft Drinks",   icon:"🥤", adult:false },
+  { kind:"beer",    sw:"Bia Zinazopendwa",         en:"Top Beers",         icon:"🍺", adult:true  },
+  { kind:"spirits", sw:"Gin na Pombe Kali",        en:"Top Gin & Spirits", icon:"🥃", adult:true  },
+];
+
+// Name / photo / emoji for a dish or drink — follows whatever the owner sets in Msimamizi (menu edits + custom items)
+function resolveItem(id, label, edits, customs) {
+  const m = byId[id], e = edits[id] || {}, c = customs[id];
+  if (e.hidden) return null;
+  if (!m && !c) return null;
+  return {
+    id,
+    name: { sw: e.sw || (m ? m.name.sw : c.sw) || label, en: e.en || (m ? m.name.en : (c.en || c.sw)) || label },
+    photo: e.ph || (c && c.ph) || FAV_PHOTO[id] || (m && m.photo) || null,
+    emoji: e.em || (c && c.em) || (m && m.emoji) || "🍽️",
+    menu: m || null,
+  };
+}
+
 export function Favorites({ onPick }) {
   const { lang } = useLang();
-  const [rows, setRows] = useState(null);   // null = loading / not available
+  const [data, setData] = useState(null);   // { rows, edits, customs } once Akili's list is available
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const { supabase } = await import("../lib/supabase");
         if (!supabase) return;
-        const { data, error } = await supabase.from("popular_dishes").select("menu_id,rank,pinned,hidden");
-        if (!alive || error || !Array.isArray(data)) return;
-        const list = data.filter(r => !r.hidden && byId[r.menu_id])
-          .sort((a, b) => (b.pinned - a.pinned) || (a.rank - b.rank)).slice(0, 6);
-        if (list.length) setRows(list.map((r, i) => ({ id:r.menu_id, rank:i + 1, pinned:!!r.pinned })));
-      } catch (e) { /* keep defaults */ }
+        let r = await supabase.from("popular_dishes").select("menu_id,label,rank,pinned,hidden,kind");
+        if (r.error) r = await supabase.from("popular_dishes").select("menu_id,label,rank,pinned,hidden");   // "kind" column not added yet
+        if (!alive || r.error || !Array.isArray(r.data) || !r.data.length) return;
+        const e = await supabase.from("menu_item_edits").select("item_id,hidden,sw,en,em,ph");
+        const c = await supabase.from("custom_menu_items").select("id,sw,en,em,ph,active").eq("active", true);
+        const edits = {}; (e.data || []).forEach(x => { edits[x.item_id] = x; });
+        const customs = {}; (c.data || []).forEach(x => { customs[x.id] = x; });
+        if (alive) setData({ rows: r.data, edits, customs });
+      } catch (err) { /* keep defaults */ }
     })();
     return () => { alive = false; };
   }, []);
-  const list = rows || DEFAULT_FAVS.filter(id => byId[id]).map((id, i) => ({ id, rank:i + 1, fromAkili:false }));
-  const fromAkili = !!rows;
+
+  // Food (grid)
+  let food;
+  if (data) {
+    food = data.rows.filter(x => !x.hidden && (x.kind || "food") === "food")
+      .sort((a, b) => (b.pinned - a.pinned) || (a.rank - b.rank))
+      .map(x => resolveItem(x.menu_id, x.label, data.edits, data.customs)).filter(Boolean).slice(0, 6)
+      .map((it, i) => ({ ...it, rank: i + 1 }));
+    if (!food.length) food = null;
+  }
+  const fromAkili = !!food;
+  if (!food) food = DEFAULT_FAVS.filter(id => byId[id]).map((id, i) => ({ ...resolveItem(id, "", {}, {}), rank: i + 1 }));
+
+  // Drinks (rails)
+  const rails = data ? DRINK_KINDS.map(k => ({
+    ...k,
+    items: data.rows.filter(x => !x.hidden && x.kind === k.kind)
+      .sort((a, b) => (b.pinned - a.pinned) || (a.rank - b.rank))
+      .map(x => resolveItem(x.menu_id, x.label, data.edits, data.customs)).filter(Boolean).slice(0, 4),
+  })).filter(k => k.items.length) : [];
+
   return (
     <div style={{ padding:"10px 14px 4px" }}>
       <h3 style={{ margin:"0 0 2px", fontFamily:"Georgia,serif", fontSize:18, color:NAVY }}>{lang === "sw" ? "Vipendwa vya Wateja" : "Crowd Favorites"}</h3>
@@ -150,25 +192,42 @@ export function Favorites({ onPick }) {
         {fromAkili ? (lang === "sw" ? "Vinavyonunuliwa zaidi wiki hizi" : "What our guests order most lately") : (lang === "sw" ? "Mapishi ya Bibi yanayopendwa" : "Bibi's most-loved plates")}
       </p>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        {list.map(f => {
-          const m = byId[f.id]; const img = FAV_PHOTO[m.id] || m.photo;
-          return (
-            <button key={f.id} onClick={() => onPick(m)} style={{ textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
-              <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:44, overflow:"hidden", position:"relative" }}>
-                {img ? <img src={img} alt={m.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : m.emoji}
-                {fromAkili && f.rank <= 3 && (
-                  <span style={{ position:"absolute", top:8, left:8, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:10.5, padding:"3px 8px", borderRadius:99, boxShadow:"0 1px 6px rgba(0,0,0,0.25)" }}>
-                    {f.rank === 1 ? "🔥 #1" : "#" + f.rank}
-                  </span>
-                )}
-              </div>
-              <div style={{ padding:"9px 10px 11px" }}>
-                <div style={{ fontFamily:"sans-serif", fontSize:12.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{m.name[lang]}</div>
-              </div>
-            </button>
-          );
-        })}
+        {food.map(f => (
+          <button key={f.id} onClick={() => f.menu && onPick(f.menu)} style={{ textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
+            <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:44, overflow:"hidden", position:"relative" }}>
+              {f.photo ? <img src={f.photo} alt={f.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : f.emoji}
+              {fromAkili && f.rank <= 3 && (
+                <span style={{ position:"absolute", top:8, left:8, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:10.5, padding:"3px 8px", borderRadius:99, boxShadow:"0 1px 6px rgba(0,0,0,0.25)" }}>
+                  {f.rank === 1 ? "🔥 #1" : "#" + f.rank}
+                </span>
+              )}
+            </div>
+            <div style={{ padding:"9px 10px 11px" }}>
+              <div style={{ fontFamily:"sans-serif", fontSize:12.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{f.name[lang]}</div>
+            </div>
+          </button>
+        ))}
       </div>
+
+      {rails.map(k => (
+        <div key={k.kind} style={{ marginTop:18 }}>
+          <h3 style={{ margin:"0 0 8px", fontFamily:"Georgia,serif", fontSize:16, color:NAVY, display:"flex", alignItems:"center", gap:8 }}>
+            <span>{k.icon}</span><span>{lang === "sw" ? k.sw : k.en}</span>
+            {k.adult && <span style={{ fontFamily:"sans-serif", fontSize:9.5, fontWeight:800, color:"#8B1A1A", border:"1px solid #8B1A1A", borderRadius:5, padding:"1px 5px" }}>18+</span>}
+          </h3>
+          <div style={{ display:"flex", gap:10, overflowX:"auto", margin:"0 -14px", padding:"2px 14px 8px", scrollSnapType:"x proximity" }}>
+            {k.items.map((it, i) => (
+              <div key={it.id} style={{ flex:"0 0 118px", scrollSnapAlign:"start", background:"#fff", borderRadius:12, overflow:"hidden", border:"1px solid rgba(212,175,55,0.22)", boxShadow:"0 2px 8px rgba(11,31,69,0.07)" }}>
+                <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:38, overflow:"hidden", position:"relative" }}>
+                  {it.photo ? <img src={it.photo} alt={it.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : it.emoji}
+                  {i === 0 && <span style={{ position:"absolute", top:6, left:6, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:9.5, padding:"2px 7px", borderRadius:99 }}>🔥 #1</span>}
+                </div>
+                <div style={{ padding:"7px 8px 9px", fontFamily:"sans-serif", fontSize:11.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{it.name[lang]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
