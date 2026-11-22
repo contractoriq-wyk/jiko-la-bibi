@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-3 · 21 Nov 2026, drinks showcase";
+const APP_VERSION = "V4.0-5 · 21 Nov 2026, drinks showcase";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1056,6 +1056,7 @@ function StorefrontTab(){
   const [offers,setOffers]=useState(null);
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
+  const [done,setDone]=useState(null);       // {n,at} after a successful refresh
   const [editing,setEditing]=useState(null); // offer object (id may be "new")
   const [addId,setAddId]=useState("");
   const byId=useMemo(()=>Object.fromEntries(menu.map(m=>[m.id,m])),[]);
@@ -1082,7 +1083,15 @@ function StorefrontTab(){
   }
   useEffect(()=>{ load(); },[]);
 
-  async function refreshFavs(){ setBusy(true); const r=await syncFavorites(allSales,customItems); if(!r.ok) setErr(r.why); else if(r.noKind) setErr('kind'); await load(); setBusy(false); }
+  async function refreshFavs(){
+    setBusy(true); setDone(null);
+    const t0=Date.now();
+    const r=await syncFavorites(allSales,customItems); if(!r.ok) setErr(r.why); else if(r.noKind) setErr('kind');
+    await load();
+    const wait=700-(Date.now()-t0); if(wait>0) await new Promise(res=>setTimeout(res,wait));   // so the tap always feels like it did something
+    setBusy(false);
+    if(r.ok){ const at=new Date().toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"}); setDone({n:r.n,at}); setTimeout(()=>setDone(null),8000); }
+  }
   async function patchFav(id,patch){
     setFavs(l=>(l||[]).map(x=>x.menu_id===id?{...x,...patch}:x));
     try{ const supabase=await sb(); const {error}=await supabase.from("popular_dishes").update({...patch,updated_at:new Date().toISOString()}).eq("menu_id",id); if(error){ setErr(error.message); load(); } }catch(e){ setErr(String(e.message||e)); }
@@ -1142,7 +1151,10 @@ function StorefrontTab(){
           </select>
           <button onClick={addFav} disabled={!addId} style={{...pill(!!addId,t.gr),opacity:addId?1:0.5}}>OK</button>
         </div>
-        <button onClick={refreshFavs} disabled={busy} style={{...pill(false,t.gold),marginTop:10,opacity:busy?0.5:1}}>🔄 Sasisha sasa / Refresh now</button>
+        <button onClick={refreshFavs} disabled={busy} style={{...pill(!!done,done?t.gr:t.gold),marginTop:10,opacity:busy?0.7:1,transition:"all .2s"}}>
+          {busy?"⏳ Inasasisha… / Updating…":done?"✅ Imesasishwa "+done.at+" · "+done.n+" vitu / Updated":"🔄 Sasisha sasa / Refresh now"}
+        </button>
+        {done&&<p style={{fontFamily:"sans-serif",fontSize:10.5,color:t.gr,margin:"6px 0 0"}}>Tovuti sasa inaonyesha orodha mpya — fungua upya ukurasa wa tovuti kuiona. / The website now shows the new list — reload the site to see it.</p>}
       </Card>
 
       <Card style={{padding:"12px 14px"}}>
@@ -4113,7 +4125,7 @@ function ChuoTab() {
 
 /* ═══ MAIN ═══ */
 export default function AdminPage({onExit}) {
-  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut,signIn,allSales:rootSales,customItems:rootCustom,fetchRange:rootFetch} = useAdmin();
+  const {synced,lastSyncedAt,session,authReady,authEnabled,signOut,signIn,allSales:rootSales,customItems:rootCustom,fetchRange:rootFetch,saveNote} = useAdmin();
   // Glowing Chakula-vs-Vinywaji alerts: load the last ~16 days once signed in, then compute flags
   const uid=session?.user?.id||"";
   useEffect(()=>{ if(!uid) return; const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); rootFetch(dateStrET(d),today()); },[uid]);
@@ -4193,6 +4205,7 @@ export default function AdminPage({onExit}) {
             <button onClick={()=>{ if(authEnabled) signOut(); else setAuthed(false); }} title="Toka / Sign out" style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:11}}>Exit</button>
           </div>
         </div>
+        {saveNote&&<div role="status" style={{position:"fixed",top:58,left:12,right:12,maxWidth:520,margin:"0 auto",zIndex:300,padding:"10px 14px",borderRadius:12,background:saveNote.ok?"#0F766E":"#B42318",color:"#fff",fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,lineHeight:1.4,boxShadow:"0 6px 22px rgba(0,0,0,0.35)",textAlign:"center"}}>{saveNote.msg}</div>}
         <div style={{background:t.tabBar,borderBottom:"1px solid "+t.border,display:"flex",overflowX:"auto",scrollbarWidth:"none",position:"sticky",top:48,zIndex:39}}>
           {PRIMARY_TABS.map(tb=><button key={tb.key} onClick={()=>setTab(tb.key)} style={{position:"relative",flex:"0 0 auto",padding:"8px 10px",border:"none",background:"none",cursor:"pointer",borderBottom:tab===tb.key?"2px solid "+t.gold:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:52,transition:"all 0.2s"}}>
             {tb.key==="akili"&&mixFlags.length>0&&tab!=="akili"&&<span className="jiko-pulse" aria-label="alert" style={{position:"absolute",top:4,right:8,width:10,height:10,borderRadius:"50%",background:mixFlags.some(f=>f.c==="warn")?"#ffb300":"#2ecc71",boxShadow:"0 0 8px 2px "+(mixFlags.some(f=>f.c==="warn")?"#ffb300":"#2ecc71")}}/>}
