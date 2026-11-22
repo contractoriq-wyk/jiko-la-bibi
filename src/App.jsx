@@ -95,14 +95,6 @@ function HomePage({ onPick, goMenu }) {
         </div>
       </div>
       <ServiceBar />
-      <div style={{ padding:"2rem 0 0" }}>
-        <div style={{ textAlign:"center", marginBottom:"1.2rem", padding:"0 1rem" }}>
-          <div style={{ fontSize:"10px", letterSpacing:"0.4em", color:GOLD, textTransform:"uppercase", fontFamily:"sans-serif", marginBottom:"6px", opacity:0.8 }}>Unyamwezini Jiko La Bibi JJJ</div>
-          <h2 className="shimmer-gold l99-section-heading" style={{ fontSize:"clamp(20px,5vw,28px)", fontWeight:900, margin:0 }}>Menyu Yetu</h2>
-          <div style={{ width:"60px", height:"2px", background:"linear-gradient(to right,transparent,#D4AF37,transparent)", margin:"10px auto 0" }} />
-        </div>
-        <MenuEmbed />
-      </div>
       <BottomBanner />
     </div>
   );
