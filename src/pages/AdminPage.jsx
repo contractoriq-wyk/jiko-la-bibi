@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V3.7-2 · 20 Nov 2026, applicant-fit";
+const APP_VERSION = "V4.0-1 · 21 Nov 2026, storefront";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -531,7 +531,7 @@ function LoginGate({onPin}) {
   const field={width:"100%",padding:"13px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.08)",color:"#fff",fontSize:16,outline:"none",boxSizing:"border-box",fontFamily:"sans-serif"};
   return (
     <div style={{minHeight:"100vh",background:t.pinBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
-      <img src="/logo.png" alt="" width={88} height={88} style={{borderRadius:"50%",border:"3px solid "+t.gold,objectFit:"cover",marginBottom:"1rem",boxShadow:"0 0 28px "+t.gold+"44"}} onError={e=>{e.target.style.display="none";}}/>
+      <img src="/shield.webp" alt="" width={104} height={117} style={{objectFit:"contain",marginBottom:"1rem",filter:"drop-shadow(0 0 18px "+t.gold+"55)"}} onError={e=>{e.target.src="/logo.png";e.target.style.borderRadius="50%";e.target.width=88;e.target.height=88;}}/>
       <h1 style={{fontFamily:"Georgia,serif",fontSize:"22px",fontWeight:900,color:"#FFFFFF",margin:"0 0 4px"}}>Jiko La Bibi JJJ</h1>
       <p style={{color:"rgba(255,255,255,0.5)",fontSize:"11px",fontFamily:"sans-serif",margin:"0 0 1.6rem",letterSpacing:"0.15em"}}>MSIMAMIZI · INGIA / SIGN IN</p>
       <form onSubmit={go} style={{width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:12}}>
@@ -567,7 +567,7 @@ function PinGate({onAuth,check,onEmail}) {
   }
   return (
     <div style={{minHeight:"100vh",background:t.pinBg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
-      <img src="/logo.png" alt="" width={88} height={88} style={{borderRadius:"50%",border:"3px solid "+t.gold,objectFit:"cover",marginBottom:"1rem",boxShadow:"0 0 28px "+t.gold+"44"}} onError={e=>e.target.style.display="none"}/>
+      <img src="/shield.webp" alt="" width={104} height={117} style={{objectFit:"contain",marginBottom:"1rem",filter:"drop-shadow(0 0 18px "+t.gold+"55)"}} onError={e=>{e.target.src="/logo.png";e.target.style.borderRadius="50%";e.target.width=88;e.target.height=88;}}/>
       <h1 style={{fontFamily:"Georgia,serif",fontSize:"22px",fontWeight:900,color:"#FFFFFF",margin:"0 0 4px"}}>Jiko La Bibi JJJ</h1>
       <p style={{color:"rgba(255,255,255,0.5)",fontSize:"11px",fontFamily:"sans-serif",margin:"0 0 1.8rem",letterSpacing:"0.15em"}}>MSIMAMIZI · COMMAND CENTER</p>
       <div style={{display:"flex",gap:14,marginBottom:"1.4rem"}}>
@@ -1001,6 +1001,138 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
 }
 
 /* ═══ TAB 3: RIPOTI ═══ */
+
+/* ═══ STOREFRONT: publish Akili's top dishes to the public site (names + rank only, never money) ═══ */
+const FAV_SECTIONS = ["mchele","standard","pilau","specials","jioni"];
+async function syncFavorites(sales){
+  try{
+    const {supabase}=await import("../lib/supabase"); if(!supabase) return {ok:false,why:"no-supabase"};
+    const meals={}; menu.forEach(m=>{ if(FAV_SECTIONS.includes(m.section)) meals[m.id]=m; });
+    const tot={};
+    (sales||[]).forEach(r=>{ if(meals[r.item_id]) tot[r.item_id]=(tot[r.item_id]||0)+(r.quantity||0); });
+    const top=Object.entries(tot).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    if(top.length<2) return {ok:true,n:0};              // not enough sales yet — the site keeps its default favorites
+    const now=new Date().toISOString();
+    const rows=top.map(([id,q],i)=>({menu_id:id,label:meals[id].name.sw,rank:i+1,units:q,updated_at:now}));
+    const {error}=await supabase.from("popular_dishes").upsert(rows,{onConflict:"menu_id"});   // keeps pinned / hidden untouched
+    if(error) return {ok:false,why:error.message||"error"};
+    await supabase.from("popular_dishes").delete().eq("pinned",false).eq("hidden",false).not("menu_id","in","("+top.map(([id])=>id).join(",")+")");
+    return {ok:true,n:top.length};
+  }catch(e){ return {ok:false,why:String(e.message||e)}; }
+}
+
+function StorefrontTab(){
+  const {t}=useT();
+  const {allSales}=useAdmin();
+  const [favs,setFavs]=useState(null);       // null = loading
+  const [offers,setOffers]=useState(null);
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [editing,setEditing]=useState(null); // offer object (id may be "new")
+  const [addId,setAddId]=useState("");
+  const byId=useMemo(()=>Object.fromEntries(menu.map(m=>[m.id,m])),[]);
+
+  async function sb(){ const {supabase}=await import("../lib/supabase"); return supabase; }
+  async function load(){
+    setErr("");
+    try{
+      const supabase=await sb();
+      const f=await supabase.from("popular_dishes").select("*");
+      const o=await supabase.from("site_offers").select("*").order("sort",{ascending:true});
+      if(f.error||o.error){ setErr((f.error||o.error).message||"error"); setFavs([]); setOffers([]); return; }
+      setFavs((f.data||[]).sort((a,b)=>(b.pinned-a.pinned)||(a.rank-b.rank)));
+      setOffers(o.data||[]);
+    }catch(e){ setErr(String(e.message||e)); setFavs([]); setOffers([]); }
+  }
+  useEffect(()=>{ load(); },[]);
+
+  async function refreshFavs(){ setBusy(true); const r=await syncFavorites(allSales); if(!r.ok) setErr(r.why); await load(); setBusy(false); }
+  async function patchFav(id,patch){
+    setFavs(l=>(l||[]).map(x=>x.menu_id===id?{...x,...patch}:x));
+    try{ const supabase=await sb(); const {error}=await supabase.from("popular_dishes").update({...patch,updated_at:new Date().toISOString()}).eq("menu_id",id); if(error){ setErr(error.message); load(); } }catch(e){ setErr(String(e.message||e)); }
+  }
+  async function addFav(){
+    if(!addId||!byId[addId]) return;
+    try{ const supabase=await sb(); const {error}=await supabase.from("popular_dishes").upsert({menu_id:addId,label:byId[addId].name.sw,rank:50,units:0,pinned:true,hidden:false,updated_at:new Date().toISOString()},{onConflict:"menu_id"}); if(error) setErr(error.message); }catch(e){ setErr(String(e.message||e)); }
+    setAddId(""); load();
+  }
+  async function saveOffer(){
+    const o=editing; if(!o||!o.title.trim()) return;
+    const rec={title:o.title.trim().slice(0,120),body:(o.body||"").slice(0,400),price_text:(o.price_text||"").slice(0,40),badge:(o.badge||"").slice(0,24),active:!!o.active,sort:parseInt(o.sort,10)||0};
+    try{ const supabase=await sb();
+      const r=o.id==="new"?await supabase.from("site_offers").insert(rec):await supabase.from("site_offers").update(rec).eq("id",o.id);
+      if(r.error) setErr(r.error.message);
+    }catch(e){ setErr(String(e.message||e)); }
+    setEditing(null); load();
+  }
+  async function toggleOffer(o){ setOffers(l=>l.map(x=>x.id===o.id?{...x,active:!x.active}:x)); try{ const supabase=await sb(); await supabase.from("site_offers").update({active:!o.active}).eq("id",o.id); }catch(e){} }
+  async function delOffer(o){ if(!window.confirm("Futa ofa hii? / Delete this offer?")) return; try{ const supabase=await sb(); await supabase.from("site_offers").delete().eq("id",o.id); }catch(e){} load(); }
+
+  const lab={fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold};
+  const inp={width:"100%",boxSizing:"border-box",padding:"9px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.bg2||"transparent",color:t.text,fontFamily:"sans-serif",fontSize:13,marginBottom:8};
+  const pill=(on,c)=>({fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"6px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+(on?c:t.border),background:on?c+"22":"transparent",color:on?c:t.dim2});
+
+  return (
+    <div style={{padding:"1rem"}}>
+      <ShieldBanner sw="Tovuti Yetu" en="Website storefront"/>
+      {err&&<Card style={{padding:"10px 12px",marginBottom:10,borderLeft:"3px solid "+t.rd}}><p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0,lineHeight:1.6}}>⚙️ Endesha <b>migration_storefront.sql</b> kwenye Supabase mara moja. / Run <b>migration_storefront.sql</b> once in Supabase.<br/><span style={{fontSize:10,color:t.rd}}>{err}</span></p></Card>}
+
+      <Card style={{padding:"12px 14px",marginBottom:12}}>
+        <div style={lab}>🔥 VIPENDWA VYA WATEJA / WEBSITE FAVORITES</div>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,margin:"6px 0 10px",lineHeight:1.5}}>Akili huchagua vyakula 6 vinavyouzwa zaidi na kuvichapisha kwenye tovuti kila unapofungua Msimamizi (majina tu, hakuna pesa). Bandika 📌 kuviweka juu, au ficha 👁 usivyovitaka. / Akili picks the 6 best-selling dishes and publishes them (names only, never money). Pin to keep on top, hide to remove.</p>
+        {favs===null&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>…</p>}
+        {favs&&favs.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>Bado hakuna — bonyeza "Sasisha sasa". / None yet — tap "Refresh now".</p>}
+        {(favs||[]).map(f=>{ const m=byId[f.menu_id]; return (
+          <div key={f.menu_id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:"1px solid "+t.border,opacity:f.hidden?0.5:1}}>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{f.pinned?"📌 ":""}{m?m.name.sw:f.label}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim}}>{f.units>0?"#"+f.rank+" · "+f.units+" zimeuzwa / sold":"Imebandikwa / Pinned"}{f.hidden?" · IMEFICHWA / HIDDEN":""}</div>
+            </div>
+            <button onClick={()=>patchFav(f.menu_id,{pinned:!f.pinned})} style={pill(f.pinned,t.gold)}>📌</button>
+            <button onClick={()=>patchFav(f.menu_id,{hidden:!f.hidden})} style={pill(f.hidden,t.rd)}>{f.hidden?"Onyesha":"Ficha"}</button>
+          </div>); })}
+        <div style={{display:"flex",gap:6,marginTop:10}}>
+          <select value={addId} onChange={e=>setAddId(e.target.value)} style={{...inp,marginBottom:0,flex:1}}>
+            <option value="">➕ Ongeza kipendwa / Add a favorite…</option>
+            {menu.filter(m=>FAV_SECTIONS.includes(m.section)&&!(favs||[]).some(f=>f.menu_id===m.id)).map(m=><option key={m.id} value={m.id}>{m.name.sw}</option>)}
+          </select>
+          <button onClick={addFav} disabled={!addId} style={{...pill(!!addId,t.gr),opacity:addId?1:0.5}}>OK</button>
+        </div>
+        <button onClick={refreshFavs} disabled={busy} style={{...pill(false,t.gold),marginTop:10,opacity:busy?0.5:1}}>🔄 Sasisha sasa / Refresh now</button>
+      </Card>
+
+      <Card style={{padding:"12px 14px"}}>
+        <div style={lab}>🎁 OFA ZA SASA / CURRENT OFFERS (tab ya Zawadi)</div>
+        {offers===null&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>…</p>}
+        {offers&&offers.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim,margin:"8px 0"}}>Hakuna ofa bado. / No offers yet.</p>}
+        {(offers||[]).map(o=>(
+          <div key={o.id} style={{padding:"10px 0",borderTop:"1px solid "+t.border,opacity:o.active?1:0.55}}>
+            <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{o.badge&&<span style={{fontFamily:"sans-serif",fontSize:9,background:"#0F766E",color:"#fff",padding:"2px 6px",borderRadius:5,marginRight:6}}>{o.badge}</span>}{o.title}</div>
+            {o.body&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,marginTop:2,whiteSpace:"pre-line"}}>{o.body}</div>}
+            {o.price_text&&<div style={{fontFamily:"sans-serif",fontSize:12,fontWeight:700,color:t.gold,marginTop:2}}>{o.price_text}</div>}
+            <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+              <button onClick={()=>toggleOffer(o)} style={pill(o.active,t.gr)}>{o.active?"🟢 Inaonekana / Visible":"⚪ Imefichwa / Hidden"}</button>
+              <button onClick={()=>setEditing({...o})} style={pill(false,t.bl)}>✏️ Hariri</button>
+              <button onClick={()=>delOffer(o)} style={pill(false,t.rd)}>🗑</button>
+            </div>
+          </div>))}
+        {!editing&&<button onClick={()=>setEditing({id:"new",title:"",body:"",price_text:"",badge:"",active:true,sort:(offers||[]).length+1})} style={{...pill(true,t.gold),marginTop:10}}>➕ Ongeza Ofa / Add Offer</button>}
+        {editing&&(
+          <div style={{marginTop:10,padding:10,border:"1px solid "+t.border,borderRadius:10}}>
+            <input style={inp} maxLength={120} placeholder="Kichwa / Title (e.g. Pilau Ijumaa / Pilau Friday)" value={editing.title} onChange={e=>setEditing({...editing,title:e.target.value})}/>
+            <textarea style={{...inp,minHeight:64}} maxLength={400} placeholder="Maelezo / Details (Kiswahili / English)" value={editing.body} onChange={e=>setEditing({...editing,body:e.target.value})}/>
+            <input style={inp} maxLength={40} placeholder="Bei / Price (e.g. TSh 5,000)" value={editing.price_text} onChange={e=>setEditing({...editing,price_text:e.target.value})}/>
+            <input style={inp} maxLength={24} placeholder="Alama / Badge (hiari, e.g. KWA MUDA MFUPI)" value={editing.badge} onChange={e=>setEditing({...editing,badge:e.target.value})}/>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={saveOffer} disabled={!editing.title.trim()} style={{...pill(true,t.gr),opacity:editing.title.trim()?1:0.5}}>💾 Hifadhi / Save</button>
+              <button onClick={()=>setEditing(null)} style={pill(false,t.dim2)}>Ghairi</button>
+            </div>
+          </div>)}
+      </Card>
+    </div>
+  );
+}
+
 function computeWeekCmp(allSales,customItems){
     const addD=(str,n)=>{const d=new Date(str+"T12:00:00");d.setDate(d.getDate()+n);return dateStrET(d);};
     const tdy=today(); const dow=new Date(tdy+"T12:00:00").getDay(); // 0=Sun
@@ -3260,6 +3392,20 @@ function StaffMemberCard({s, isEditing, form, setForm, onStartEdit, onCancelEdit
   );
 }
 
+// Jiko La Bibi JJJ shield — marks every management screen
+function ShieldBanner({sw,en}){
+  const {t}=useT();
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"8px 12px",background:t.bg2||"transparent",border:"1px solid "+t.border,borderRadius:12}}>
+      <img src="/shield-sm.webp" alt="" width={36} height={40} style={{objectFit:"contain",flexShrink:0}} onError={e=>{e.target.style.display="none";}}/>
+      <div style={{minWidth:0}}>
+        <div style={{fontFamily:"Georgia,serif",fontSize:14,fontWeight:700,color:t.gold,lineHeight:1.2}}>{sw}</div>
+        <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim2,letterSpacing:"0.5px"}}>{en} · Jiko La Bibi JJJ</div>
+      </div>
+    </div>
+  );
+}
+
 function WafanyakaziTab() {
   const {t, presenterMode} = useT();
   const {staff, addStaff, updateStaff, deleteStaff, payStaff, reactivateStaff, warnings, addWarning, deleteWarning, allCosts} = useAdmin();
@@ -3325,6 +3471,7 @@ function WafanyakaziTab() {
 
   return (
     <div style={{padding:"1rem"}}>
+      <ShieldBanner sw="Usimamizi wa Waajiriwa" en="Staff management"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
         <Chip label="Mshahara Wote / Total Payroll" value={presenterMode?"100%":fmt(totalPayroll)} color={t.gold} icon="💼"/>
         <Chip label="Lipwa Mwezi Huu / Paid This Month" value={presenterMode?(totalPayroll?Math.round(paidThisMonth/totalPayroll*100):0)+"%":fmt(paidThisMonth)} color={t.gr} icon="✅"/>
@@ -3531,6 +3678,7 @@ function ApplicantsTab({onCount}) {
 
   return (
     <div style={{padding:"1rem"}}>
+      <ShieldBanner sw="Usimamizi wa Waombaji" en="Applicant management"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
         <Chip label="Wapya / New" value={counts.new} color={t.gold} icon="🆕"/>
         <Chip label="Mahojiano" value={counts.interview} color={t.gr} icon="✅"/>
@@ -3701,6 +3849,7 @@ function AjiraTab() {
 
   return (
     <div style={{padding:"1rem"}}>
+      <ShieldBanner sw="Mikataba ya Ajira" en="Employment contracts"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
         <Chip label="Mikataba Yote" value={counts.total} color={t.gold} icon="📋"/>
         <Chip label="Ya Kudumu" value={counts.kudumu} color={t.gr} icon="📜"/>
@@ -3926,6 +4075,9 @@ export default function AdminPage({onExit}) {
   useEffect(()=>{ if(!uid) return; const d=new Date(today()+"T12:00:00"); d.setDate(d.getDate()-16); rootFetch(dateStrET(d),today()); },[uid]);
   const mixFlags=useMemo(()=>[...spiritsTodayFlag(rootSales||[],rootCustom||[]),...buildMixFlags(computeWeekCmp(rootSales||[],rootCustom||[]))],[rootSales,rootCustom]);
   const [newApps,setNewApps]=useState(0);
+  // Publish Akili's top dishes to the public site (once per sign-in, after the recent sales have loaded)
+  const favSynced=useRef(false);
+  useEffect(()=>{ if(!uid||favSynced.current||!rootSales||rootSales.length<1) return; favSynced.current=true; syncFavorites(rootSales); },[uid,rootSales]);
   const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
@@ -3949,6 +4101,7 @@ export default function AdminPage({onExit}) {
     {key:"wafanyakazi", icon:"ti-users", label:"Waajiriwa", sub:"Staff"},
     {key:"waombaji", icon:"ti-user-search", label:"Waombaji", sub:"Applicants"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
+    {key:"tovuti", icon:"ti-world", label:"Tovuti", sub:"Website"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
     {key:"chuo", icon:"ti-school", label:"Chuo", sub:"Training"},
   ];
@@ -3975,7 +4128,7 @@ export default function AdminPage({onExit}) {
         <div style={{background:t.header,borderBottom:"1px solid "+t.border,padding:"0 12px",height:48,boxSizing:"border-box",gap:8,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,backdropFilter:"blur(12px)"}}>
           <button onClick={onExit} style={{background:"none",border:"none",color:t.dim2,cursor:"pointer",fontFamily:"sans-serif",fontSize:13,display:"flex",alignItems:"center",gap:5,flexShrink:0,padding:"4px 2px"}}><i className="ti ti-arrow-left"/> Back</button>
           <div style={{display:"flex",flexDirection:"column",alignItems:"stretch",flex:1,minWidth:0,textAlign:"center",whiteSpace:"nowrap",overflow:"hidden"}}>
-            <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold}}>Msimamizi 🔐</span>
+            <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,color:t.gold,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6}}><img src="/shield-sm.webp" alt="" width={18} height={20} style={{objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>Msimamizi 🔐</span>
             <span style={{fontFamily:"sans-serif",fontSize:8,color:t.dim2,letterSpacing:"0.3px",overflow:"hidden",textOverflow:"ellipsis"}}>{APP_VERSION}</span>
             <span style={{fontFamily:"sans-serif",fontSize:8,letterSpacing:"0.3px",display:"block",marginTop:1,color:synced?t.gr:t.gold,overflow:"hidden",textOverflow:"ellipsis"}}>
               <span style={{width:5,height:5,borderRadius:"50%",background:synced?t.gr:t.gold,display:"inline-block",marginRight:4,verticalAlign:"middle"}}/>
@@ -4037,6 +4190,7 @@ export default function AdminPage({onExit}) {
         {tab==="maagizo"&&<MaagizoTab/>}
         {tab==="wafanyakazi" &&<WafanyakaziTab/>}
         {tab==="waombaji" &&<ApplicantsTab onCount={setNewApps}/>}
+        {tab==="tovuti" &&<StorefrontTab/>}
         {tab==="ajira" &&<AjiraTab/>}
         {tab==="backup" &&<BackupTab/>}
         {tab==="chuo" &&<ChuoTab/>}
