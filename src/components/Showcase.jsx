@@ -129,6 +129,16 @@ const DRINK_KINDS = [
   { kind:"spirits", sw:"Gin na Pombe Kali",        en:"Top Gin & Spirits", icon:"🥃", adult:true  },
 ];
 
+// Dishes that are the same plate listed twice (e.g. the two Chapati lines) share one default photo.
+// If the owner sets a photo on one of them in Msimamizi, its twins follow — unless they have a photo of their own.
+function twinPhoto(m, edits) {
+  if (!m || !m.photo) return null;
+  for (const o of menu) {
+    if (o.id !== m.id && o.photo === m.photo && edits[o.id] && edits[o.id].ph) return edits[o.id].ph;
+  }
+  return null;
+}
+
 // Name / photo / emoji for a dish or drink — follows whatever the owner sets in Msimamizi (menu edits + custom items)
 function resolveItem(id, label, edits, customs) {
   const m = byId[id], e = edits[id] || {}, c = customs[id];
@@ -137,7 +147,7 @@ function resolveItem(id, label, edits, customs) {
   return {
     id,
     name: { sw: e.sw || (m ? m.name.sw : c.sw) || label, en: e.en || (m ? m.name.en : (c.en || c.sw)) || label },
-    photo: e.ph || (c && c.ph) || FAV_PHOTO[id] || (m && m.photo) || null,
+    photo: e.ph || (c && c.ph) || twinPhoto(m, edits) || FAV_PHOTO[id] || (m && m.photo) || null,
     emoji: e.em || (c && c.em) || (m && m.emoji) || "🍽️",
     menu: m || null,
   };
@@ -154,12 +164,12 @@ export function Favorites({ onPick }) {
         if (!supabase) return;
         let r = await supabase.from("popular_dishes").select("menu_id,label,rank,pinned,hidden,kind");
         if (r.error) r = await supabase.from("popular_dishes").select("menu_id,label,rank,pinned,hidden");   // "kind" column not added yet
-        if (!alive || r.error || !Array.isArray(r.data) || !r.data.length) return;
+        const rows = (!r.error && Array.isArray(r.data)) ? r.data : [];
         const e = await supabase.from("menu_item_edits").select("item_id,hidden,sw,en,em,ph");
         const c = await supabase.from("custom_menu_items").select("id,sw,en,em,ph,active").eq("active", true);
         const edits = {}; (e.data || []).forEach(x => { edits[x.item_id] = x; });
         const customs = {}; (c.data || []).forEach(x => { customs[x.id] = x; });
-        if (alive) setData({ rows: r.data, edits, customs });
+        if (alive) setData({ rows, edits, customs });
       } catch (err) { /* keep defaults */ }
     })();
     return () => { alive = false; };
@@ -175,7 +185,7 @@ export function Favorites({ onPick }) {
     if (!food.length) food = null;
   }
   const fromAkili = !!food;
-  if (!food) food = DEFAULT_FAVS.filter(id => byId[id]).map((id, i) => ({ ...resolveItem(id, "", {}, {}), rank: i + 1 }));
+  if (!food) food = DEFAULT_FAVS.filter(id => byId[id]).map(id => resolveItem(id, "", data ? data.edits : {}, data ? data.customs : {})).filter(Boolean).map((it, i) => ({ ...it, rank: i + 1 }));
 
   // Drinks (rails)
   const rails = data ? DRINK_KINDS.map(k => ({
@@ -191,7 +201,7 @@ export function Favorites({ onPick }) {
       <p style={{ margin:"0 0 10px", fontFamily:"sans-serif", fontSize:11.5, color:"rgba(11,31,69,0.6)" }}>
         {fromAkili ? (lang === "sw" ? "Vinavyonunuliwa zaidi wiki hizi" : "What our guests order most lately") : (lang === "sw" ? "Mapishi ya Bibi yanayopendwa" : "Bibi's most-loved plates")}
       </p>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(140px, 164px))", justifyContent:"start", gap:10 }}>
         {food.map(f => (
           <button key={f.id} onClick={() => f.menu && onPick(f.menu)} style={{ textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
             <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:44, overflow:"hidden", position:"relative" }}>
