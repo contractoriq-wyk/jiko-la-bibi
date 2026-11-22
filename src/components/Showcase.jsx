@@ -163,8 +163,7 @@ export function Favorites({ onPick }) {
                 )}
               </div>
               <div style={{ padding:"9px 10px 11px" }}>
-                <div style={{ fontFamily:"sans-serif", fontSize:12.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:32, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{m.name[lang]}</div>
-                <div style={{ fontFamily:"sans-serif", fontSize:11.5, fontWeight:700, color:"#8B6209", marginTop:4 }}>{fromPrice(m, lang)}</div>
+                <div style={{ fontFamily:"sans-serif", fontSize:12.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{m.name[lang]}</div>
               </div>
             </button>
           );
