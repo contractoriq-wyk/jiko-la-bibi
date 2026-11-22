@@ -81,31 +81,44 @@ body.locked .no-lock{display:none}
 
 
 
-/* ── Scroll-style policy page ── */
+/* ── Scroll-style policy page (light-blue corporate) ── */
 .scroll-wrap{margin:4px 0 8px}
-.scroll-rod{position:relative;z-index:3;height:24px;margin:0 6px;border-radius:12px;background:linear-gradient(#4a2f0f,#a8741f 22%,#f1d584 48%,#b8832a 72%,#3f280b);box-shadow:0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.4)}
-.scroll-rod::before,.scroll-rod::after{content:"";position:absolute;top:-5px;width:16px;height:34px;border-radius:8px;background:linear-gradient(90deg,#6b4a0f,#e8c547 45%,#8a5d12);box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.scroll-rod{position:relative;z-index:3;height:24px;margin:0 6px;border-radius:12px;background:linear-gradient(#08142e,#1f3f7a 22%,#8db3e6 48%,#2a4d8c 72%,#06112a);box-shadow:0 4px 8px rgba(8,20,46,.4),inset 0 1px 0 rgba(255,255,255,.45)}
+.scroll-rod::before,.scroll-rod::after{content:"";position:absolute;top:-5px;width:16px;height:34px;border-radius:8px;background:linear-gradient(90deg,#8a6a12,#e8c547 45%,#9a7414);box-shadow:0 2px 5px rgba(8,20,46,.45)}
 .scroll-rod::before{left:-8px}.scroll-rod::after{right:-8px}
-.scroll-paper{position:relative;z-index:1;margin:-6px 16px;padding:30px 16px 26px;overflow:hidden;color:#3a2610;font-family:Georgia,"Times New Roman",serif;
- background:radial-gradient(ellipse at 15% 8%,rgba(255,255,255,.45),transparent 45%),radial-gradient(ellipse at 90% 95%,rgba(139,98,9,.18),transparent 50%),linear-gradient(#f6e9c6,#ecdaa6 55%,#f3e3b8);
- box-shadow:inset 0 16px 16px -16px rgba(60,35,5,.55),inset 0 -16px 16px -16px rgba(60,35,5,.55),inset 14px 0 18px -16px rgba(60,35,5,.25),inset -14px 0 18px -16px rgba(60,35,5,.25),0 2px 10px rgba(0,0,0,.15)}
-.scroll-paper::before{content:"";position:absolute;inset:9px;border:3px double rgba(139,98,9,.55);pointer-events:none;z-index:2}
+.scroll-paper{position:relative;z-index:1;margin:-6px 16px;padding:30px 16px 26px;overflow:hidden;color:#0B1F45;font-family:Georgia,"Times New Roman",serif;
+ background:radial-gradient(ellipse at 15% 8%,rgba(255,255,255,.65),transparent 45%),radial-gradient(ellipse at 90% 95%,rgba(44,79,143,.16),transparent 50%),linear-gradient(#eaf3fd,#d6e6f8 55%,#e7f1fc);
+ box-shadow:inset 0 16px 16px -16px rgba(11,31,69,.5),inset 0 -16px 16px -16px rgba(11,31,69,.5),inset 14px 0 18px -16px rgba(11,31,69,.22),inset -14px 0 18px -16px rgba(11,31,69,.22),0 2px 10px rgba(11,31,69,.18)}
+.scroll-paper::before{content:"";position:absolute;inset:9px;border:3px double rgba(11,31,69,.5);pointer-events:none;z-index:2}
 .scroll-paper .wm{position:absolute;left:50%;top:50%;width:62%;max-width:300px;transform:translate(-50%,-50%);opacity:.08;pointer-events:none;z-index:0}
 .scroll-paper>*:not(.wm){position:relative;z-index:1}
-.scroll-paper h2{margin:6px 0 2px;text-align:center;font-family:Georgia,serif;font-size:19px;letter-spacing:1.5px;color:#6b4a0f;text-transform:uppercase}
-.scroll-orn{text-align:center;color:#8b6209;letter-spacing:8px;font-size:13px;margin:4px 0 10px}
-.scroll-paper .intro{text-align:center;font-size:13px;line-height:1.6;margin:0 0 14px;color:#4a3216}
+.scroll-paper h2{margin:6px 0 2px;text-align:center;font-family:Georgia,serif;font-size:19px;letter-spacing:1.5px;color:#0B1F45;text-transform:uppercase}
+.scroll-orn{text-align:center;color:#b8860b;letter-spacing:8px;font-size:13px;margin:4px 0 10px}
+.scroll-paper .intro{text-align:center;font-size:13px;line-height:1.6;margin:0 0 14px;color:#1d3557}
 .scroll-paper ol{list-style:none;counter-reset:sc;padding:0;margin:0}
 .scroll-paper li{counter-increment:sc;position:relative;padding:0 6px 0 40px;margin:0 0 15px;font-size:13.5px;line-height:1.65;overflow-wrap:anywhere}
-.scroll-paper li::before{content:counter(sc);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:900 13px sans-serif;color:#3a2610;background:radial-gradient(circle at 35% 30%,#f7e08a,#c9962b 70%,#8a5d12);box-shadow:0 1px 3px rgba(0,0,0,.35)}
-.scroll-paper li b{color:#5a3a0a}
-.scroll-paper li small{display:block;margin-top:3px;font-style:italic;font-size:12px;color:#5b4524;opacity:.9}
+.scroll-paper li::before{content:counter(sc);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:900 13px sans-serif;color:#fff;background:radial-gradient(circle at 35% 30%,#3a67b5,#0B1F45 75%);border:2px solid #D4AF37;box-sizing:border-box;box-shadow:0 1px 3px rgba(8,20,46,.4)}
+.scroll-paper li b{color:#0B1F45}
+.scroll-paper li small{display:block;margin-top:3px;font-style:italic;font-size:12px;color:#3d5a80}
 .scroll-seal{display:flex;flex-direction:column;align-items:center;margin:20px 0 4px;text-align:center}
-.scroll-seal img{width:104px;height:auto;transform:rotate(-4deg);filter:drop-shadow(0 3px 6px rgba(60,35,5,.45))}
-.scroll-seal .cap{margin-top:6px;font:800 11px sans-serif;letter-spacing:2px;color:#6b4a0f;text-transform:uppercase}
-.scroll-seal .cap2{font:italic 11.5px Georgia,serif;color:#5b4524;margin-top:2px}
-.scroll-line{width:62%;border-top:1.5px solid rgba(90,58,10,.6);margin:18px auto 3px}
-@media print{.scroll-paper{box-shadow:none}}
+.scroll-seal img{width:104px;height:auto;transform:rotate(-4deg);filter:drop-shadow(0 3px 6px rgba(8,20,46,.45))}
+.scroll-seal .cap{margin-top:6px;font:800 11px sans-serif;letter-spacing:2px;color:#0B1F45;text-transform:uppercase}
+.scroll-seal .cap2{font:italic 11.5px Georgia,serif;color:#3d5a80;margin-top:2px}
+.scroll-line{width:62%;border-top:1.5px solid rgba(11,31,69,.55);margin:18px auto 3px}
+.scroll-actions{display:flex;gap:10px;margin:16px 0 4px}
+.scroll-actions .btn{flex:1;margin:0;padding:12px 8px;font-size:13px;background:#dbe9f8;color:#0B1F45;border:1px solid #9dbfe6}
+.btn-blue{background:linear-gradient(135deg,#2f6db5,#0B1F45) !important;color:#fff !important}
+.share-box{display:none;margin-top:10px;padding:12px;border:1px solid rgba(11,31,69,.2);border-radius:12px;background:#fff;font-size:12px}
+.share-box input{width:100%;box-sizing:border-box;margin:6px 0 8px;font-size:12px}
+.print-only{display:none}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body::before{display:none !important}
+  .scroll-paper{box-shadow:none;overflow:visible;margin:-6px 4px}
+  .scroll-paper li,.scroll-seal{break-inside:avoid}
+  .scroll-actions,.share-box{display:none !important}
+  .print-only{display:block;text-align:center;font:11px sans-serif;color:#3d5a80;margin-top:10px}
+}
 </style>
 </head>
 <body>
@@ -267,6 +280,7 @@ const DOCS = {
       <li><b>Likizo:</b> Ruhusa ya dharura kwa huruma. Likizo ndefu ipangwe wiki 2 kabla.<br><small>Leave: emergency leave is granted with compassion. Plan long leave 2 weeks ahead.</small></li>
       <li><b>Hatua za Kinidhamu:</b> 1) Onyo la mdomo 2) Onyo la maandishi 3) Kusimamishwa bila malipo 4) Kufukuzwa. Makosa makubwa (wizi, pombe kazini, kubagua wateja kwa makusudi, kushawishi wateja kisiasa au kidini, unyanyasaji) yataruka hatua.<br><small>Discipline: 1) verbal warning 2) written warning 3) unpaid suspension 4) dismissal. Serious offences (theft, alcohol on duty, deliberate favoritism/discrimination, pushing politics or religion on customers, harassment) may skip steps.</small></li>
       <li><b>Muundo wa Uongozi:</b> Biashara ina vitengo vitano — Jikoni, Ugavi, Mauzo, Fedha, na Masoko. Kila mfanyakazi atajua kitengo chake na msimamizi wake, na atatoa taarifa kwa msimamizi wa kitengo chake. Heshima itolewe kwa wasimamizi wote.<br><small>Structure: five units — Kitchen, Supply, Sales, Finance and Marketing. Everyone knows their unit and supervisor and reports to them. Respect all supervisors.</small></li>
+      <li><b>Ushirikiano na Ubunifu:</b> Tunashirikiana kufikia malengo yetu ya pamoja. Wafanyakazi wanahimizwa kutumia ubunifu kutatua matatizo, na kumshauri msimamizi baada tu ya kujaribu njia zote nyingine. (Masuala ya usalama, wizi, unyanyasaji au dharura yatolewe taarifa mara moja.)<br><small>Teamwork and creativity: we collaborate to achieve our common goals. Team members are encouraged to use creative problem-solving and should consult a supervisor only after exhausting all other efforts. (Safety, theft, harassment or emergencies must be reported immediately.)</small></li>
     </ol>
     <p style="margin-top:8px"><b>Kwa kutia sahihi, ninathibitisha nimesoma, nimeelewa, na ninakubali kufuata Sera zote za Kazi.</b></p>`
   }
@@ -320,6 +334,17 @@ function switchDoc(doc, btn){
   if(doc==="omba") renderApply(); else if(doc==="sera" && document.body.classList.contains("locked")) renderPolicy(); else renderForm(doc);
 }
 
+function policyUrl(){ return location.origin + location.pathname + "?src=wom#sera"; }
+async function sharePolicy(){
+  const data = { title:"Sera za Kazi — Unyamwezini Jiko La Bibi JJJ", text:"Sera za Kazi / Our Work Policies — Unyamwezini Jiko La Bibi JJJ", url:policyUrl() };
+  try{ if(navigator.share){ await navigator.share(data); return; } }catch(e){ if(e && e.name==="AbortError") return; }
+  const b = document.getElementById("shareBox"); if(b){ b.style.display = "block"; b.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+}
+async function copyPolicyUrl(btn){
+  const i = document.getElementById("shareUrl"); let ok = false;
+  try{ await navigator.clipboard.writeText(i.value); ok = true; }catch(e){ try{ i.select(); ok = document.execCommand("copy"); }catch(e2){} }
+  btn.textContent = ok ? "✅ Imenakiliwa / Copied" : "Bonyeza kiungo kisha nakili / Tap the link and copy";
+}
 function renderPolicy(){
   const d = DOCS.sera;
   document.getElementById("formArea").innerHTML = `
@@ -342,8 +367,19 @@ function renderPolicy(){
         </div>
       </div>
       <div class="scroll-rod"></div>
+      <div class="print-only">Unyamwezini Jiko La Bibi JJJ · jikolabibijjj.com/ajira.html</div>
     </div>
-    <button class="btn btn-gold no-print" style="margin-top:16px" onclick="switchDoc('omba',document.querySelector('.tabs button[data-doc=omba]'))">🙋 Omba Kazi / Apply</button>`;
+    <div class="scroll-actions no-print">
+      <button class="btn btn-grey" onclick="window.print()">🖨️ Chapisha / Print (PDF)</button>
+      <button class="btn btn-grey" onclick="sharePolicy()">📤 Shiriki / Share</button>
+    </div>
+    <div class="share-box no-print" id="shareBox">
+      <b>Shiriki kiungo hiki / Share this link</b>
+      <input id="shareUrl" readonly value="${policyUrl()}" onclick="this.select()">
+      <a class="btn btn-blue" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Sera za Kazi — Unyamwezini Jiko La Bibi JJJ\n'+policyUrl())}">💬 WhatsApp</a>
+      <button class="btn btn-grey" style="margin:0;background:#dbe9f8;color:#0B1F45" onclick="copyPolicyUrl(this)">📋 Nakili kiungo / Copy link</button>
+    </div>
+    <button class="btn btn-blue no-print" style="margin-top:16px" onclick="switchDoc('omba',document.querySelector('.tabs button[data-doc=omba]'))">🙋 Omba Kazi / Apply</button>`;
 }
 
 /* ── OMBA KAZI — short introduction for people who are NOT hired yet ── */
@@ -581,6 +617,7 @@ async function saveContract(){
 renderApply();
 initLock();
 checkHiring();
+if(location.hash==="#sera"){ const sb=document.querySelector(".tabs button[data-doc=sera]"); if(sb) switchDoc("sera",sb); }
 </script>
 </body>
 </html>
