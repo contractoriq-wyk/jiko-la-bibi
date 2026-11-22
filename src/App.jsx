@@ -6,6 +6,9 @@ import Hero        from "./components/Hero";
 import ServiceBar  from "./components/ServiceBar";
 import BottomNav   from "./components/BottomNav";
 import Footer       from "./components/Footer";
+import MenuDrawer   from "./components/MenuDrawer";
+import RewardsPage  from "./components/RewardsPage";
+import { OpenStrip, ServiceButtons, OrderAgain, Favorites } from "./components/Showcase";
 import ItemModal    from "./components/ItemModal";
 import CartDrawer   from "./components/CartDrawer";
 import CheckoutModal from "./components/CheckoutModal";
@@ -74,10 +77,14 @@ function MenuEmbed() {
   );
 }
 
-function HomePage() {
+function HomePage({ onPick, goMenu }) {
   return (
     <div className="page-enter">
-      <Hero />
+      <OpenStrip />
+      <Hero compact />
+      <ServiceButtons goMenu={goMenu} />
+      <OrderAgain />
+      <Favorites onPick={onPick} />
       <div style={{ background:"linear-gradient(90deg,#b8900a,#D4AF37,#f7e8a0,#D4AF37,#b8900a)", overflow:"hidden", padding:"10px 0", boxShadow:"0 2px 12px rgba(212,175,55,0.3)" }}>
         <div className="mq-run">
           {[1,2].map(n => (
@@ -301,6 +308,7 @@ export default function App() {
   const [configItem, setConfigItem] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   function navigate(p) { setPage(p); window.scrollTo(0,0); }
 
@@ -338,10 +346,11 @@ export default function App() {
       <style>{GLOBAL_CSS}</style>
 
       {/* Staff screen (Msimamizi) has its own header — hide the customer header, cart and bottom bar there */}
-      {page!=="admin" && <Header onCartClick={() => setCartOpen(true)} />}
+      {page!=="admin" && <Header onCartClick={() => setCartOpen(true)} onMenuClick={() => setDrawerOpen(true)} />}
 
-      {page==="home"   && <HomePage />}
+      {page==="home"   && <HomePage onPick={setConfigItem} goMenu={() => navigate("menu")} />}
       {page==="menu"   && <MenuPage />}
+      {page==="rewards" && <RewardsPage goMenu={() => navigate("menu")} />}
       {page==="about"  && <AboutPage />}
       {page==="policy" && <PolicyPage />}
       {page==="admin"  && <AdminPage onExit={() => navigate("home")} />}
@@ -351,6 +360,7 @@ export default function App() {
       {page!=="admin" && <InstallPrompt/>}
       {page!=="admin" && <BottomNav page={page} setPage={navigate} onCartClick={() => setCartOpen(true)} cartCount={count} />}
 
+      <MenuDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} go={p => { setDrawerOpen(false); navigate(p); }} />
       {configItem   && <ItemModal item={configItem} onClose={() => setConfigItem(null)} />}
       {cartOpen     && <CartDrawer onClose={() => setCartOpen(false)} onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }} />}
       {checkoutOpen && <CheckoutModal onClose={() => setCheckoutOpen(false)} />}
