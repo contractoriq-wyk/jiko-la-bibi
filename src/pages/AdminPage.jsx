@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-2 · 21 Nov 2026, storefront";
+const APP_VERSION = "V4.0-3 · 21 Nov 2026, drinks showcase";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1004,26 +1004,54 @@ function ComparisonRow({range, cStart, cEnd, currentGross}) {
 
 /* ═══ STOREFRONT: publish Akili's top dishes to the public site (names + rank only, never money) ═══ */
 const FAV_SECTIONS = ["mchele","standard","pilau","specials","jioni"];
-async function syncFavorites(sales){
+const FAV_KINDS=[{kind:"soft",n:4,l:"🥤 Vinywaji Baridi / Soft drinks"},{kind:"beer",n:4,l:"🍺 Bia / Beer"},{kind:"spirits",n:4,l:"🥃 Gin na Pombe Kali / Gin & Spirits"}];
+async function syncFavorites(sales,customItems){
   try{
     const {supabase}=await import("../lib/supabase"); if(!supabase) return {ok:false,why:"no-supabase"};
+    const cust={}, cm={}; (customItems||[]).forEach(c=>{ cust[c.id]=c; cm[c.id]=c.sectionName||""; });
     const meals={}; menu.forEach(m=>{ if(FAV_SECTIONS.includes(m.section)) meals[m.id]=m; });
+    const now=new Date().toISOString();
+    const lists=[];   // {kind, top:[[id,qty,label]]}
+    // food: top 6 meals
     const tot={};
     (sales||[]).forEach(r=>{ if(meals[r.item_id]) tot[r.item_id]=(tot[r.item_id]||0)+(r.quantity||0); });
-    const top=Object.entries(tot).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    if(top.length<2) return {ok:true,n:0};              // not enough sales yet — the site keeps its default favorites
-    const now=new Date().toISOString();
-    const rows=top.map(([id,q],i)=>({menu_id:id,label:meals[id].name.sw,rank:i+1,units:q,updated_at:now}));
-    const {error}=await supabase.from("popular_dishes").upsert(rows,{onConflict:"menu_id"});   // keeps pinned / hidden untouched
-    if(error) return {ok:false,why:error.message||"error"};
-    await supabase.from("popular_dishes").delete().eq("pinned",false).eq("hidden",false).not("menu_id","in","("+top.map(([id])=>id).join(",")+")");
-    return {ok:true,n:top.length};
+    const topFood=Object.entries(tot).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([id,q])=>[id,q,meals[id].name.sw]);
+    if(topFood.length>=2) lists.push({kind:"food",top:topFood});   // not enough sales yet -> site keeps default favorites
+    // drinks: top 4 per class (menu.js drinks + custom items), classified the same way as Ripoti
+    const menuById=Object.fromEntries(menu.map(m=>[m.id,m]));
+    const dt={ soft:{}, beer:{}, spirits:{} };
+    (sales||[]).forEach(r=>{
+      if(!r.item_id||meals[r.item_id]) return;
+      if(!menuById[r.item_id]&&!cust[r.item_id]) return;                       // only items the site can show
+      const k=classifyItem(r.item_id,r.section_id,r.item_name,cm);
+      if(dt[k]) dt[k][r.item_id]=(dt[k][r.item_id]||0)+(r.quantity||0);
+    });
+    FAV_KINDS.forEach(({kind,n})=>{
+      const top=Object.entries(dt[kind]).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]).slice(0,n)
+        .map(([id,q])=>[id,q,(menuById[id]?menuById[id].name.sw:(cust[id]&&cust[id].sw))||id]);
+      if(top.length) lists.push({kind,top});
+    });
+    let wrote=0, kindOk=true;
+    for(const L of lists){
+      const rows=L.top.map(([id,q,label],i)=>({menu_id:id,label,rank:i+1,units:q,kind:L.kind,updated_at:now}));
+      let {error}=await supabase.from("popular_dishes").upsert(rows,{onConflict:"menu_id"});   // keeps pinned / hidden untouched
+      if(error&&/kind/i.test(error.message||"")){                                            // drinks column not added yet
+        kindOk=false; if(L.kind!=="food") continue;
+        ({error}=await supabase.from("popular_dishes").upsert(rows.map(({kind,...r})=>r),{onConflict:"menu_id"}));
+      }
+      if(error) return {ok:false,why:error.message||"error"};
+      wrote+=rows.length;
+      let q=supabase.from("popular_dishes").delete().eq("pinned",false).eq("hidden",false).not("menu_id","in","("+L.top.map(([id])=>id).join(",")+")");
+      if(kindOk) q=q.eq("kind",L.kind);
+      await q;
+    }
+    return {ok:true,n:wrote,noKind:!kindOk};
   }catch(e){ return {ok:false,why:String(e.message||e)}; }
 }
 
 function StorefrontTab(){
   const {t}=useT();
-  const {allSales}=useAdmin();
+  const {allSales,customItems}=useAdmin();
   const [favs,setFavs]=useState(null);       // null = loading
   const [offers,setOffers]=useState(null);
   const [err,setErr]=useState("");
@@ -1031,6 +1059,14 @@ function StorefrontTab(){
   const [editing,setEditing]=useState(null); // offer object (id may be "new")
   const [addId,setAddId]=useState("");
   const byId=useMemo(()=>Object.fromEntries(menu.map(m=>[m.id,m])),[]);
+  const cmap=useMemo(()=>{const m={};(customItems||[]).forEach(c=>{m[c.id]=c.sectionName||"";});return m;},[customItems]);
+  // everything the owner can feature: meals + drinks from the menu and from Msimamizi's custom items
+  const addInfo=useMemo(()=>{
+    const o={};
+    menu.forEach(m=>{ const k=FAV_SECTIONS.includes(m.section)?"food":classifyItem(m.id,m.section,m.name.sw,{}); if(k!=="food"||FAV_SECTIONS.includes(m.section)) o[m.id]={kind:k,label:m.name.sw}; });
+    (customItems||[]).forEach(c=>{ const k=classifyItem(c.id,c.section||"",c.sw,cmap); if(k!=="food") o[c.id]={kind:k,label:c.sw||c.id}; });
+    return o;
+  },[customItems,cmap]);
 
   async function sb(){ const {supabase}=await import("../lib/supabase"); return supabase; }
   async function load(){
@@ -1046,14 +1082,17 @@ function StorefrontTab(){
   }
   useEffect(()=>{ load(); },[]);
 
-  async function refreshFavs(){ setBusy(true); const r=await syncFavorites(allSales); if(!r.ok) setErr(r.why); await load(); setBusy(false); }
+  async function refreshFavs(){ setBusy(true); const r=await syncFavorites(allSales,customItems); if(!r.ok) setErr(r.why); else if(r.noKind) setErr('kind'); await load(); setBusy(false); }
   async function patchFav(id,patch){
     setFavs(l=>(l||[]).map(x=>x.menu_id===id?{...x,...patch}:x));
     try{ const supabase=await sb(); const {error}=await supabase.from("popular_dishes").update({...patch,updated_at:new Date().toISOString()}).eq("menu_id",id); if(error){ setErr(error.message); load(); } }catch(e){ setErr(String(e.message||e)); }
   }
   async function addFav(){
-    if(!addId||!byId[addId]) return;
-    try{ const supabase=await sb(); const {error}=await supabase.from("popular_dishes").upsert({menu_id:addId,label:byId[addId].name.sw,rank:50,units:0,pinned:true,hidden:false,updated_at:new Date().toISOString()},{onConflict:"menu_id"}); if(error) setErr(error.message); }catch(e){ setErr(String(e.message||e)); }
+    if(!addId||!addInfo[addId]) return;
+    try{ const supabase=await sb(); const rec={menu_id:addId,label:addInfo[addId].label,rank:50,units:0,pinned:true,hidden:false,kind:addInfo[addId].kind,updated_at:new Date().toISOString()};
+      let {error}=await supabase.from("popular_dishes").upsert(rec,{onConflict:"menu_id"});
+      if(error&&/kind/i.test(error.message||"")){ if(rec.kind==="food"){ const {kind,...r2}=rec; ({error}=await supabase.from("popular_dishes").upsert(r2,{onConflict:"menu_id"})); } else { setErr("kind"); return; } }
+      if(error) setErr(error.message); }catch(e){ setErr(String(e.message||e)); }
     setAddId(""); load();
   }
   async function saveOffer(){
@@ -1075,26 +1114,31 @@ function StorefrontTab(){
   return (
     <div style={{padding:"1rem"}}>
       <ShieldBanner sw="Tovuti Yetu" en="Website storefront"/>
-      {err&&<Card style={{padding:"10px 12px",marginBottom:10,borderLeft:"3px solid "+t.rd}}><p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0,lineHeight:1.6}}>⚙️ Endesha <b>migration_storefront.sql</b> kwenye Supabase mara moja. / Run <b>migration_storefront.sql</b> once in Supabase.<br/><span style={{fontSize:10,color:t.rd}}>{err}</span></p></Card>}
+      {err&&<Card style={{padding:"10px 12px",marginBottom:10,borderLeft:"3px solid "+t.rd}}><p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0,lineHeight:1.6}}>{err==="kind"?<>⚙️ Endesha <b>migration_storefront_drinks.sql</b> kwenye Supabase mara moja ili vinywaji vionekane. / Run <b>migration_storefront_drinks.sql</b> once in Supabase to publish drinks.</>:<>⚙️ Endesha <b>migration_storefront.sql</b> kwenye Supabase mara moja. / Run <b>migration_storefront.sql</b> once in Supabase.<br/><span style={{fontSize:10,color:t.rd}}>{err}</span></>}</p></Card>}
 
       <Card style={{padding:"12px 14px",marginBottom:12}}>
         <div style={lab}>🔥 VIPENDWA VYA WATEJA / WEBSITE FAVORITES</div>
-        <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,margin:"6px 0 10px",lineHeight:1.5}}>Akili huchagua vyakula 6 vinavyouzwa zaidi na kuvichapisha kwenye tovuti kila unapofungua Msimamizi (majina tu, hakuna pesa). Bandika 📌 kuviweka juu, au ficha 👁 usivyovitaka. / Akili picks the 6 best-selling dishes and publishes them (names only, never money). Pin to keep on top, hide to remove.</p>
+        <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,margin:"6px 0 10px",lineHeight:1.5}}>Akili huchagua vyakula 6 na vinywaji (baridi, bia, gin) vinavyouzwa zaidi na kuvichapisha kwenye tovuti kila unapofungua Msimamizi (majina tu, hakuna pesa). Bandika 📌 kuviweka juu, au ficha 👁 usivyovitaka. / Akili picks the 6 best-selling dishes plus top soft drinks, beers and gin/spirits and publishes them (names only, never money). Pin to keep on top, hide to remove.</p>
         {favs===null&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>…</p>}
         {favs&&favs.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>Bado hakuna — bonyeza "Sasisha sasa". / None yet — tap "Refresh now".</p>}
-        {(favs||[]).map(f=>{ const m=byId[f.menu_id]; return (
+        {[{kind:"food",l:"🍛 Chakula / Food"},...FAV_KINDS].map(G=>{
+          const rows=(favs||[]).filter(f=>(f.kind||"food")===G.kind); if(!rows.length) return null;
+          return (<div key={G.kind} style={{marginTop:8}}>
+            <div style={{fontFamily:"sans-serif",fontSize:10.5,fontWeight:800,color:t.gold,margin:"6px 0 2px"}}>{G.l}</div>
+            {rows.map(f=>{ const m=byId[f.menu_id]; const nm=m?m.name.sw:((customItems||[]).find(c=>c.id===f.menu_id)||{}).sw||f.label; return (
           <div key={f.menu_id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderTop:"1px solid "+t.border,opacity:f.hidden?0.5:1}}>
             <div style={{minWidth:0,flex:1}}>
-              <div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{f.pinned?"📌 ":""}{m?m.name.sw:f.label}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{f.pinned?"📌 ":""}{nm}</div>
               <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim}}>{f.units>0?"#"+f.rank+" · "+f.units+" zimeuzwa / sold":"Imebandikwa / Pinned"}{f.hidden?" · IMEFICHWA / HIDDEN":""}</div>
             </div>
             <button onClick={()=>patchFav(f.menu_id,{pinned:!f.pinned})} style={pill(f.pinned,t.gold)}>📌</button>
             <button onClick={()=>patchFav(f.menu_id,{hidden:!f.hidden})} style={pill(f.hidden,t.rd)}>{f.hidden?"Onyesha":"Ficha"}</button>
           </div>); })}
+          </div>); })}
         <div style={{display:"flex",gap:6,marginTop:10}}>
           <select value={addId} onChange={e=>setAddId(e.target.value)} style={{...inp,marginBottom:0,flex:1}}>
             <option value="">➕ Ongeza kipendwa / Add a favorite…</option>
-            {menu.filter(m=>FAV_SECTIONS.includes(m.section)&&!(favs||[]).some(f=>f.menu_id===m.id)).map(m=><option key={m.id} value={m.id}>{m.name.sw}</option>)}
+            {Object.entries(addInfo).filter(([id])=>!(favs||[]).some(f=>f.menu_id===id)).map(([id,v])=><option key={id} value={id}>{({food:"🍛",soft:"🥤",beer:"🍺",spirits:"🥃"})[v.kind]} {v.label}</option>)}
           </select>
           <button onClick={addFav} disabled={!addId} style={{...pill(!!addId,t.gr),opacity:addId?1:0.5}}>OK</button>
         </div>
@@ -4077,7 +4121,7 @@ export default function AdminPage({onExit}) {
   const [newApps,setNewApps]=useState(0);
   // Publish Akili's top dishes to the public site (once per sign-in, after the recent sales have loaded)
   const favSynced=useRef(false);
-  useEffect(()=>{ if(!uid||favSynced.current||!rootSales||rootSales.length<1) return; favSynced.current=true; syncFavorites(rootSales); },[uid,rootSales]);
+  useEffect(()=>{ if(!uid||favSynced.current||!rootSales||rootSales.length<1) return; favSynced.current=true; syncFavorites(rootSales,rootCustom); },[uid,rootSales]);
   const [emailMode,setEmailMode]=useState(false);
   const [authed,setAuthed]=useState(false);
   const [tab,setTab]=useState("leo");
