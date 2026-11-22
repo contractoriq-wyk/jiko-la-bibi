@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const Ctx = createContext(null);
@@ -28,6 +28,9 @@ export function AdminProvider({ children }) {
   const [customItems,setCustomItems]=useState(()=>load("jiko-custom-items",[]));
   // Edits to the built-in menu (rename / remove / restore). Supabase-backed only — no localStorage.
   const [menuEdits,setMenuEdits]=useState({});
+  const [saveNote,setSaveNote]=useState(null);   // {ok:bool,msg} — shown as a banner so a failed menu save is never silent
+  const noteTimer=useRef(null);
+  function note(ok,msg){ setSaveNote({ok,msg,id:Date.now()}); clearTimeout(noteTimer.current); noteTimer.current=setTimeout(()=>setSaveNote(null),ok?3000:12000); }
   // Menu layout (section order + section photos, item order). Supabase-backed only.
   const [menuSections,setMenuSections]=useState({});
   const [menuOrder,setMenuOrder]=useState({});
@@ -408,7 +411,7 @@ export function AdminProvider({ children }) {
     setCustomItems(next);
     save("jiko-custom-items",next);
     if(supabase){
-      try { await supabase.from("custom_menu_items").insert(rec); } catch(e){ console.warn("Custom item cloud save failed:", e); }
+      try { const {error}=await supabase.from("custom_menu_items").insert(rec); if(error) throw error; note(true,"✓ Imehifadhiwa kwenye tovuti / Saved to the website"); } catch(e){ console.warn("Custom item cloud save failed:", e); note(false,"✗ Haikuhifadhiwa kwenye tovuti — ingia tena kisha jaribu / NOT saved to the website — sign in again and retry"); }
     }
   }
   async function deleteCustomItem(id){
@@ -432,7 +435,17 @@ export function AdminProvider({ children }) {
       if(updates.em)sbUpdate.em=updates.em;
       if(updates.sectionName)sbUpdate.section_name=updates.sectionName;
       sbUpdate.updated_at = new Date().toISOString();
-      try { await supabase.from("custom_menu_items").update(sbUpdate).eq("id",id); } catch(e){ console.warn("Custom item cloud update failed:", e); }
+      try {
+        let {data,error}=await supabase.from("custom_menu_items").update(sbUpdate).eq("id",id).select("id");
+        if(error) throw error;
+        if(!data||!data.length){   // row missing in the cloud (or blocked) — write the whole item so the website gets it
+          const it=next.find(c=>c.id===id)||{};
+          const full={id,sw:it.sw,en:it.en||"",pr:it.pr,ph:it.ph||null,em:it.em||"🍽️",section_name:it.sectionName||"Bidhaa Mpya / Specials",active:true,updated_at:new Date().toISOString()};
+          const r=await supabase.from("custom_menu_items").upsert(full,{onConflict:"id"}).select("id");
+          if(r.error) throw r.error; if(!r.data||!r.data.length) throw new Error("not-saved");
+        }
+        note(true,"✓ Imehifadhiwa kwenye tovuti / Saved to the website");
+      } catch(e){ console.warn("Custom item cloud update failed:", e); note(false,"✗ Haikuhifadhiwa kwenye tovuti — ingia tena kisha jaribu / NOT saved to the website — sign in again and retry"); }
     }
   }
 
@@ -442,8 +455,8 @@ export function AdminProvider({ children }) {
     const merged={...cur,...patch};
     setMenuEdits(prev=>({...prev,[id]:merged}));
     if(supabase){
-      try{ await supabase.from("menu_item_edits").upsert({item_id:id,hidden:!!merged.hidden,sw:merged.sw||null,en:merged.en||null,em:merged.em||null,ph:merged.ph||null,updated_at:new Date().toISOString()},{onConflict:"item_id"}); }
-      catch(e){ console.warn("Menu edit save failed:", e); }
+      try{ const {error}=await supabase.from("menu_item_edits").upsert({item_id:id,hidden:!!merged.hidden,sw:merged.sw||null,en:merged.en||null,em:merged.em||null,ph:merged.ph||null,updated_at:new Date().toISOString()},{onConflict:"item_id"}).select("item_id"); if(error) throw error; note(true,"✓ Imehifadhiwa kwenye tovuti / Saved to the website"); }
+      catch(e){ console.warn("Menu edit save failed:", e); note(false,"✗ Haikuhifadhiwa kwenye tovuti — ingia tena kisha jaribu / NOT saved to the website — sign in again and retry"); }
     }
   }
   async function resetMenuItem(id){
@@ -465,8 +478,8 @@ export function AdminProvider({ children }) {
   async function setSectionPhoto(key,url){
     setMenuSections(prev=>({...prev,[key]:{sort_order:null,...(prev[key]||{}),photo:url||""}}));
     if(supabase){
-      try{ await supabase.from("menu_sections").upsert({key,photo:url||null,updated_at:new Date().toISOString()},{onConflict:"key"}); }
-      catch(e){ console.warn("Section photo save failed:", e); }
+      try{ const {error}=await supabase.from("menu_sections").upsert({key,photo:url||null,updated_at:new Date().toISOString()},{onConflict:"key"}).select("key"); if(error) throw error; note(true,"✓ Imehifadhiwa kwenye tovuti / Saved to the website"); }
+      catch(e){ console.warn("Section photo save failed:", e); note(false,"✗ Haikuhifadhiwa kwenye tovuti — ingia tena kisha jaribu / NOT saved to the website — sign in again and retry"); }
     }
   }
   async function setItemOrder(ids){
@@ -539,7 +552,7 @@ export function AdminProvider({ children }) {
       overridePrice,toggleStock,setCost,addOrder,updateOrderStatus,deleteOrder,
       customItems,addCustomItem,deleteCustomItem,updateCustomItem,
       session,authReady,signIn,signOut,authEnabled:!!supabase,
-      menuEdits,editMenuItem,resetMenuItem,
+      menuEdits,editMenuItem,resetMenuItem,saveNote,
       menuSections,menuOrder,setSectionOrder,setSectionPhoto,setItemOrder,
       staff,addStaff,updateStaff,deleteStaff,payStaff,reactivateStaff,
       warnings,addWarning,deleteWarning,
