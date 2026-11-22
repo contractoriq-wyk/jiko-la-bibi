@@ -154,6 +154,7 @@ function PolicyPage() {
     { icon:"ti-refresh", title:"4. Sera ya Kurejesha", body:"Kurejesha pesa kunafanyika ikiwa agizo halikutimizwa kwa sababu yetu\nKanselo baada ya dakika 15 linaweza kulipishwa asilimia 30\nMalalamiko yashughulikiwe haraka kupitia WhatsApp" },
     { icon:"ti-shield-check", title:"5. Kanuni ya Chakula", body:"Chakula chetu kinapikwa kwa viungo vya asili, bila kemikali za ziada\nHatuna dhamana kamili ya kukosa alerji - tafadhali tuambie mapema\nBei zinaweza kubadilika bila taarifa ya awali" },
     { icon:"ti-lock", title:"6. Sera ya Faragha", body:"Habari zako za kibinafsi (jina, simu) zinakingwa na sisi\nTunatumia maelezo yako kwa mawasiliano ya agizo lako pekee\nHatutashiriki taarifa zako bila ruhusa yako wazi" },
+    { icon:"ti-users", title:"7. Amani na Heshima Mgahawani", body:"Mgahawa wetu ni wa watu wote, wa kila imani na kila mtazamo\nWafanyakazi na wateja hawaruhusiwi kuanzisha mijadala, mabishano, kampeni au kushawishi wengine kuhusu siasa au dini ndani ya mgahawa\nImani na msimamo binafsi wa kila mtu unaheshimiwa - kinachozuiwa ni mijadala na kushawishi\nTunahudumia kila mteja kwa usawa, heshima na utu\nMteja anayeendelea kusumbua wengine anaweza kuombwa kwa heshima aache au aondoke" },
   ];
   return (
     <div className="page-enter">
