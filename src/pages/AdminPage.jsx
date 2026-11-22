@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-6 · 21 Nov 2026, Saturday week";
+const APP_VERSION = "V4.0-7 · 21 Nov 2026, stamp card";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -1043,6 +1043,115 @@ async function syncFavorites(sales,customItems){
     }
     return {ok:true,n:wrote,noKind:!kindOk};
   }catch(e){ return {ok:false,why:String(e.message||e)}; }
+}
+
+// ═══ MIHURI / STAMP CARD — staff add a stamp per order; customers see their own card on the website ═══
+function StampsTab(){
+  const {t}=useT();
+  const [goal,setGoal]=useState(10);
+  const [reward,setReward]=useState("Kinywaji Bure / Free drink");
+  const [goalIn,setGoalIn]=useState("10");
+  const [phone,setPhone]=useState("");
+  const [name,setName]=useState("");
+  const [cur,setCur]=useState(null);          // {phone,stamps,redeemed} of the customer being served
+  const [list,setList]=useState(null);        // recent cards (null = loading)
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [note,setNote]=useState(null);        // {ok,msg}
+  const noteT=useRef(null);
+  const flash=(ok,msg)=>{ setNote({ok,msg}); clearTimeout(noteT.current); noteT.current=setTimeout(()=>setNote(null),ok?4000:9000); };
+  const inp={width:"100%",boxSizing:"border-box",padding:"10px 10px",borderRadius:8,border:"1px solid "+t.border,background:t.inputBg||"transparent",color:t.inputColor||t.text,fontFamily:"sans-serif",fontSize:14,marginBottom:8};
+  const pill=(on,c)=>({fontFamily:"sans-serif",fontSize:11,fontWeight:700,padding:"8px 12px",borderRadius:99,cursor:"pointer",border:"1px solid "+(on?c:t.border),background:on?c+"22":"transparent",color:on?c:t.dim2});
+  async function sb(){ const {supabase}=await import("../lib/supabase"); return supabase; }
+  async function load(){
+    setErr("");
+    try{
+      const supabase=await sb();
+      const f=await supabase.from("site_flags").select("*").eq("id","main").limit(1);
+      const fl=f.data&&f.data[0]; if(fl){ if(fl.stamp_goal>0){ setGoal(fl.stamp_goal); setGoalIn(String(fl.stamp_goal)); } if(fl.stamp_reward) setReward(fl.stamp_reward); }
+      const c=await supabase.from("stamp_cards").select("*").order("updated_at",{ascending:false}).limit(40);
+      if(c.error){ setErr(c.error.message||"error"); setList([]); return; }
+      setList(c.data||[]);
+    }catch(e){ setErr(String(e.message||e)); setList([]); }
+  }
+  useEffect(()=>{ load(); },[]);
+
+  const np=waPhone(phone);
+  async function act(fn,args,okMsg){
+    setBusy(true);
+    try{
+      const supabase=await sb();
+      const {data,error}=await supabase.rpc(fn,args);
+      if(error) throw error;
+      setCur({phone:args.p_phone,stamps:data.stamps,redeemed:data.redeemed});
+      flash(true,okMsg); await load();
+    }catch(e){ const m=String(e.message||e); flash(false,/stamp_|function|schema cache|does not exist/i.test(m)?"✗ Endesha migration_stamp_card.sql kwenye Supabase kwanza / Run migration_stamp_card.sql in Supabase first":"✗ "+m); }
+    setBusy(false);
+  }
+  const addStamp=d=>{ if(!np){ flash(false,"✗ Namba si sahihi — tarakimu 10, mfano 0712345678 / Invalid number"); return; } act("stamp_add",{p_phone:np,p_name:name.trim(),p_delta:d,p_note:d>0?"muhuri / stamp":"marekebisho / correction"},d>0?"⭐ Muhuri umewekwa / Stamp added":"↩️ Muhuri umeondolewa / Stamp removed"); };
+  const redeem=()=>act("stamp_redeem",{p_phone:cur.phone},"🎁 Zawadi imetolewa / Reward given");
+  async function saveSettings(){
+    const g=parseInt(goalIn,10); if(!(g>=3&&g<=20)){ flash(false,"✗ Mihuri iwe kati ya 3 na 20 / Goal must be 3 to 20"); return; }
+    setBusy(true);
+    try{ const supabase=await sb(); const {error}=await supabase.from("site_flags").update({stamp_goal:g,stamp_reward:reward.trim()||"Kinywaji Bure / Free drink"}).eq("id","main"); if(error) throw error; setGoal(g); flash(true,"✓ Imehifadhiwa / Saved"); }
+    catch(e){ flash(false,"✗ Endesha migration_stamp_card.sql kwanza / Run migration_stamp_card.sql first"); }
+    setBusy(false);
+  }
+  function pick(c){ setPhone("0"+c.phone.slice(3)); setName(c.name||""); setCur({phone:c.phone,stamps:c.stamps,redeemed:c.redeemed}); window.scrollTo&&window.scrollTo({top:0,behavior:"smooth"}); }
+  const ready=cur&&cur.stamps>=goal;
+
+  return (
+    <div style={{padding:"0 0 24px"}}>
+      {note&&<div role="status" style={{position:"fixed",top:58,left:12,right:12,maxWidth:520,margin:"0 auto",zIndex:300,padding:"10px 14px",borderRadius:12,background:note.ok?"#0F766E":"#B42318",color:"#fff",fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,lineHeight:1.4,boxShadow:"0 6px 22px rgba(0,0,0,0.35)",textAlign:"center"}}>{note.msg}</div>}
+      <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:"0 0 10px",lineHeight:1.5}}>Mteja anapoagiza, andika namba yake kisha bonyeza <b>+1 Muhuri</b>. Mteja anaona kadi yake kwenye tovuti (Zawadi) kwa kuingiza namba yake. / When a guest orders, type their number and tap <b>+1 Stamp</b>. They see their card on the website (Rewards) with their number.</p>
+      {err&&<Card style={{padding:"10px 12px",marginBottom:10,borderLeft:"3px solid "+t.rd}}><p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,margin:0,lineHeight:1.6}}>⚙️ Endesha <b>migration_stamp_card.sql</b> kwenye Supabase mara moja. / Run <b>migration_stamp_card.sql</b> once in Supabase.<br/><span style={{fontSize:10,color:t.rd}}>{err}</span></p></Card>}
+
+      <Card style={{padding:"12px 14px",marginBottom:12}}>
+        <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>⭐ WEKA MUHURI / ADD A STAMP</div>
+        <input value={phone} onChange={e=>setPhone(e.target.value)} inputMode="tel" placeholder="Namba ya mteja / Customer phone (07xx xxx xxx)" style={inp}/>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Jina (hiari) / Name (optional)" style={inp}/>
+        <div style={{display:"flex",gap:8}}>
+          <button disabled={busy||!np} onClick={()=>addStamp(1)} style={{flex:1,background:np?t.gold:t.border,color:np?"#06132E":t.dim2,border:"none",borderRadius:10,padding:"12px 8px",fontFamily:"sans-serif",fontWeight:800,fontSize:14,cursor:np?"pointer":"default",opacity:busy?0.6:1}}>⭐ +1 Muhuri / Stamp</button>
+          <button disabled={busy||!np} onClick={()=>addStamp(-1)} style={{...pill(false,t.rd),opacity:np?1:0.4}}>↩️ −1</button>
+        </div>
+        {phone&&!np&&<div style={{fontFamily:"sans-serif",fontSize:10.5,color:t.rd,marginTop:6}}>Tarakimu 10, mfano 0712345678 / 10 digits, e.g. 0712345678</div>}
+        {cur&&(
+          <div style={{marginTop:12,paddingTop:10,borderTop:"1px solid "+t.border}}>
+            <div style={{fontFamily:"sans-serif",fontSize:12,color:t.text,fontWeight:700,marginBottom:6}}>📱 0{cur.phone.slice(3)} — {cur.stamps} / {goal} {cur.redeemed>0?" · 🎁 zawadi "+cur.redeemed+" zimetolewa":""}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {Array.from({length:goal}).map((_,i)=>(<span key={i} style={{width:22,height:22,borderRadius:"50%",display:"inline-grid",placeItems:"center",fontSize:11,fontWeight:900,fontFamily:"sans-serif",background:i<Math.min(cur.stamps,goal)?t.gold:"transparent",color:i<Math.min(cur.stamps,goal)?"#06132E":t.dim2,border:"1.5px "+(i<Math.min(cur.stamps,goal)?"solid "+t.gold:"dashed "+t.border)}}>{i<Math.min(cur.stamps,goal)?"★":i+1}</span>))}
+            </div>
+            {ready&&<button disabled={busy} onClick={redeem} style={{marginTop:10,width:"100%",background:t.gr,color:"#fff",border:"none",borderRadius:10,padding:"12px 8px",fontFamily:"sans-serif",fontWeight:800,fontSize:14,cursor:"pointer"}}>🎁 Toa Zawadi / Give reward: {reward}</button>}
+            {!ready&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,marginTop:6}}>Bado {goal-cur.stamps} upate zawadi / {goal-cur.stamps} more to the reward</div>}
+          </div>
+        )}
+      </Card>
+
+      <Card style={{padding:"12px 14px",marginBottom:12}}>
+        <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>🕘 WATEJA WA KARIBUNI / RECENT GUESTS</div>
+        {list===null&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,margin:0}}>Inapakia… / Loading…</p>}
+        {list&&list.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,margin:0}}>Bado hakuna kadi. Weka muhuri wa kwanza hapo juu. / No cards yet — add the first stamp above.</p>}
+        {(list||[]).map(c=>(
+          <button key={c.phone} onClick={()=>pick(c)} style={{display:"flex",width:"100%",alignItems:"center",gap:8,padding:"9px 0",background:"none",border:"none",borderTop:"1px solid "+t.border,cursor:"pointer",textAlign:"left"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"sans-serif",fontSize:12.5,fontWeight:700,color:t.text,overflowWrap:"anywhere"}}>{c.name?c.name+" · ":""}0{c.phone.slice(3)}</div>
+              <div style={{fontFamily:"sans-serif",fontSize:10,color:t.dim}}>Zawadi zilizotolewa / Rewards given: {c.redeemed}</div>
+            </div>
+            <span style={{fontFamily:"sans-serif",fontSize:12,fontWeight:800,color:c.stamps>=goal?t.gr:t.gold,whiteSpace:"nowrap"}}>{c.stamps>=goal?"🎁 ":""}{c.stamps}/{goal}</span>
+          </button>
+        ))}
+      </Card>
+
+      <Card style={{padding:"12px 14px"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>⚙️ MIPANGO / SETTINGS</div>
+        <label style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,fontWeight:700}}>Mihuri inayohitajika / Stamps needed (3–20)</label>
+        <input value={goalIn} onChange={e=>setGoalIn(e.target.value.replace(/[^0-9]/g,""))} inputMode="numeric" style={{...inp,marginTop:4}}/>
+        <label style={{fontFamily:"sans-serif",fontSize:11,color:t.dim2,fontWeight:700}}>Zawadi / Reward</label>
+        <input value={reward} onChange={e=>setReward(e.target.value)} maxLength={60} style={{...inp,marginTop:4}}/>
+        <button disabled={busy} onClick={saveSettings} style={{...pill(true,t.gold),opacity:busy?0.6:1}}>💾 Hifadhi / Save</button>
+      </Card>
+    </div>
+  );
 }
 
 function StorefrontTab(){
@@ -4189,6 +4298,7 @@ export default function AdminPage({onExit}) {
     {key:"wafanyakazi", icon:"ti-users", label:"Waajiriwa", sub:"Staff"},
     {key:"waombaji", icon:"ti-user-search", label:"Waombaji", sub:"Applicants"},
     {key:"ajira", icon:"ti-signature", label:"Ajira", sub:"Contracts"},
+    {key:"mihuri", icon:"ti-star", label:"Mihuri", sub:"Stamps"},
     {key:"tovuti", icon:"ti-world", label:"Tovuti", sub:"Website"},
     {key:"backup", icon:"ti-cloud-download",  label:"Hifadhi", sub:"Backup"},
     {key:"chuo", icon:"ti-school", label:"Chuo", sub:"Training"},
@@ -4279,6 +4389,7 @@ export default function AdminPage({onExit}) {
         {tab==="maagizo"&&<MaagizoTab/>}
         {tab==="wafanyakazi" &&<WafanyakaziTab/>}
         {tab==="waombaji" &&<ApplicantsTab onCount={setNewApps}/>}
+        {tab==="mihuri" &&<StampsTab/>}
         {tab==="tovuti" &&<StorefrontTab/>}
         {tab==="ajira" &&<AjiraTab/>}
         {tab==="backup" &&<BackupTab/>}
