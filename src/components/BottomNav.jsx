@@ -2,11 +2,9 @@ const GOLD  = "#D4AF37";
 const NAVY2 = "#06132E";
 
 const NAV = [
-  { key:"home",   icon:"ti-home",         sw:"Nyumbani" },
-  { key:"menu",   icon:"ti-flame",        sw:"Menyu"    },
-  { key:"about",  icon:"ti-users",        sw:"Kuhusu"   },
-  { key:"policy", icon:"ti-shield-check", sw:"Sera"     },
-  { key:"admin",  icon:"ti-lock",         sw:"Msimamizi"},
+  { key:"home",    icon:"ti-home",  sw:"Nyumbani" },
+  { key:"menu",    icon:"ti-flame", sw:"Menyu"    },
+  { key:"rewards", icon:"ti-gift",  sw:"Zawadi"   },
 ];
 
 export default function BottomNav({ page, setPage, onCartClick, cartCount }) {
@@ -49,8 +47,8 @@ export default function BottomNav({ page, setPage, onCartClick, cartCount }) {
         background:"none", border:"none", cursor:"pointer",
         color:"rgba(253,245,228,0.42)", position:"relative",
       }}>
-        <i className="ti ti-shopping-cart" style={{ fontSize:"20px" }} aria-hidden="true" />
-        <span style={{ fontSize:"9px", fontFamily:"sans-serif" }}>Oda</span>
+        <i className="ti ti-shopping-bag" style={{ fontSize:"20px" }} aria-hidden="true" />
+        <span style={{ fontSize:"9px", fontFamily:"sans-serif" }}>Oda / Bag</span>
         {cartCount > 0 && (
           <span style={{
             position:"absolute", top:"8px", left:"54%",

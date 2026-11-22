@@ -4,6 +4,7 @@ import { useCart } from "../cart/CartContext";
 import { business } from "../data/businessConfig";
 import { formatMoney, whatsappOrderLink } from "../utils/order";
 import { CloseIcon, WhatsAppIcon } from "./Icons";
+import { saveLastOrder, SERVICE_KEY } from "./Showcase";
 
 const SERVICES = [
   { key: "pickup",   icon: "🥡" },
@@ -49,7 +50,9 @@ export default function CheckoutModal({ onClose }) {
   const { cart, total, clearCart } = useCart();
 
   const [form, setForm] = useState({
-    name: "", phone: "", service: "pickup",
+    name: "", phone: "",
+    // remembers Order Pickup / Order Delivery chosen on the home screen
+    service: (() => { try { const v = localStorage.getItem(SERVICE_KEY); return (v === "delivery" && business.services.delivery) || (v === "pickup" && business.services.pickup) ? v : "pickup"; } catch (e) { return "pickup"; } })(),
     address: "", dineTime: "", guests: "", notes: "",
   });
   const [error, setError] = useState("");
@@ -69,6 +72,7 @@ export default function CheckoutModal({ onClose }) {
     backgroundSaveOrder(cart, total, form);
     // 3) Show confirmation
     setSent(true);
+    saveLastOrder(cart);   // powers "Order Again" on the home screen
     clearCart();
   }
 

@@ -3,7 +3,7 @@ import { useLang } from "../lang/LanguageContext";
 import { useCart } from "../cart/CartContext";
 import { CartIcon } from "./Icons";
 
-export default function Header({ onCartClick }) {
+export default function Header({ onCartClick, onMenuClick }) {
   const { lang, toggle } = useLang();
   const { count } = useCart();
 
@@ -13,6 +13,13 @@ export default function Header({ onCartClick }) {
       <div style={{background:"rgba(6,19,46,0.97)",backdropFilter:"blur(8px)"}}>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
 
+          {onMenuClick && (
+            <button onClick={onMenuClick} aria-label="Menu"
+              style={{background:"transparent",border:"1px solid rgba(212,175,55,0.5)",color:"#D4AF37",borderRadius:10,width:38,height:38,
+                display:"grid",placeItems:"center",cursor:"pointer",flexShrink:0,fontSize:20,lineHeight:1}}>
+              ☰
+            </button>
+          )}
           <a href="#top" className="flex items-center gap-3 min-w-0">
             <img
               src="/logo.png"

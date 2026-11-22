@@ -1,7 +1,7 @@
 import { business } from "../data/businessConfig";
 import { useLang } from "../lang/LanguageContext";
 
-export default function Hero() {
+export default function Hero({ compact = false }) {
   const { lang, t } = useLang();
 
   function handleWA() {
@@ -31,8 +31,8 @@ export default function Hero() {
       {/* Gold edge */}
       <div style={{ height:"2px", background:"linear-gradient(to right,transparent,#6b4e0a,#D4AF37,#f7e8a0,#D4AF37,#6b4e0a,transparent)" }} />
 
-      {/* Buttons */}
-      <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", justifyContent:"center", padding:"16px 14px 18px" }}>
+      {/* Buttons (hidden on the new home screen, which has its own Order Pickup / Delivery buttons) */}
+      {!compact && <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", justifyContent:"center", padding:"16px 14px 18px" }}>
         <a href="#menu" style={{
           background:"#D4AF37", color:"#06132E",
           borderRadius:"99px", padding:"12px 30px",
@@ -52,7 +52,7 @@ export default function Hero() {
           <i className="ti ti-brand-whatsapp" style={{ fontSize:"18px" }} />
           WhatsApp Business
         </button>
-      </div>
+      </div>}
 
       {/* Kanga stripe */}
       <div style={{
