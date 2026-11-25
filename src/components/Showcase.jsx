@@ -47,10 +47,10 @@ export function OpenStrip() {
   const { lang } = useLang();
   const open = useOpenNow();
   return (
-    <div style={{ background:NAVY, color:"#FDF5E4", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, fontFamily:"sans-serif", fontSize:12, borderBottom:"1px solid rgba(212,175,55,0.25)" }}>
+    <div style={{ background:NAVY, color:"#FDF5E4", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"4px 10px", fontFamily:"sans-serif", fontSize:12, borderBottom:"1px solid rgba(212,175,55,0.25)" }}>
       <span style={{ minWidth:0 }}>📍 <b>Goba Njia Nne</b>, Dar es Salaam</span>
       <span style={{ flexShrink:0, fontWeight:700, color: open === null ? "rgba(253,245,228,0.6)" : open ? "#6EE7A0" : "#FFB4A8" }}>
-        {open === null ? "12:00 – 23:00" : open ? (lang === "sw" ? "● Tumefunguliwa" : "● Open now") : (lang === "sw" ? "● Tumefungwa · 12:00" : "● Closed · opens 12:00")}
+        {open === null ? "12:00 – 23:00" : open ? (lang === "sw" ? "● Tumefunguliwa" : "● Open now") : (lang === "sw" ? "● Tumefunga, hadi Saa 6 mchana" : "● We are closed until 12 Noon")}
       </span>
     </div>
   );
