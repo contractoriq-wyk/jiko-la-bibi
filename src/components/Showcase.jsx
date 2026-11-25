@@ -1,6 +1,6 @@
 // Home-screen showcase (Popeyes-style): open/closed strip, Order Pickup / Delivery,
 // "Order Again", and "Our Favorites" fed by Akili (Msimamizi) through the popular_dishes table.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang } from "../lang/LanguageContext";
 import { useCart } from "../cart/CartContext";
 import { menu } from "../data/menu";
@@ -154,6 +154,41 @@ function resolveItem(id, label, edits, customs) {
   };
 }
 
+// Endless sliding showcase (like the gold ribbon): the set is repeated to fill the width, then looped seamlessly.
+// Pauses while a finger / mouse is on it so a dish can be tapped; phones set to "reduce motion" get a normal swipe rail.
+function Marquee({ count, cardW, gap = 10, speed = 32, reverse = false, render }) {
+  const [paused, setPaused] = useState(false);
+  const timer = useRef(null);
+  const hold = () => { clearTimeout(timer.current); setPaused(true); };
+  const release = (ms) => { clearTimeout(timer.current); timer.current = setTimeout(() => setPaused(false), ms); };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const reps = Math.max(1, Math.ceil(560 / (count * (cardW + gap))));
+  const half = [];
+  for (let r = 0; r < reps; r++) for (let i = 0; i < count; i++) half.push(i);
+  const dur = Math.max(12, Math.round((half.length * (cardW + gap)) / speed));
+  const track = (hiddenCopy) => half.map((i, k) => (
+    <div key={(hiddenCopy ? "b" : "a") + k} className={(hiddenCopy || k >= count) ? "jlb-dup" : undefined} aria-hidden={hiddenCopy || (k >= count) ? true : undefined}
+      style={{ flex:"0 0 " + cardW + "px", marginRight:gap }}>{render(i, hiddenCopy || k >= count)}</div>
+  ));
+  return (
+    <div className="jlb-rail" style={{ overflow:"hidden", margin:"0 -14px", padding:"2px 0 8px",
+      WebkitMaskImage:"linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)",
+      maskImage:"linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)" }}
+      onMouseEnter={hold} onMouseLeave={() => release(200)}
+      onTouchStart={hold} onTouchEnd={() => release(1800)} onTouchCancel={() => release(1800)}
+      onFocus={hold} onBlur={() => release(200)}>
+      <style>{`
+        @keyframes jlbRail{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+        .jlb-rail .jlb-track{display:flex;width:max-content;padding-left:14px;animation:jlbRail linear infinite}
+        @media (prefers-reduced-motion: reduce){.jlb-rail{overflow-x:auto!important}.jlb-rail .jlb-track{animation:none!important}.jlb-rail .jlb-dup{display:none}}
+      `}</style>
+      <div className="jlb-track" style={{ animationDuration:dur + "s", animationDirection:reverse ? "reverse" : "normal", animationPlayState:paused ? "paused" : "running" }}>
+        {track(false)}{track(true)}
+      </div>
+    </div>
+  );
+}
+
 export function Favorites({ onPick }) {
   const { lang } = useLang();
   const [data, setData] = useState(null);   // { rows, edits, customs } once Akili's list is available
@@ -192,14 +227,15 @@ export function Favorites({ onPick }) {
   if (food.length < 6) {
     const have = new Set(food.map(f => f.id));
     const pool = [...DEFAULT_FAVS, ...menu.filter(m => FAV_MEAL_SECTIONS.includes(m.section)).map(m => m.id)];
+    const cands = [];
     for (const id of pool) {
-      if (food.length >= 6) break;
       if (have.has(id) || !byId[id]) continue;
       if (data && data.rows.some(x => x.menu_id === id && x.hidden)) continue;   // owner hid it in Tovuti
       const it = resolveItem(id, "", extra.edits, extra.customs);
-      if (!it) continue;
-      have.add(id); food.push({ ...it, pad: true });
+      if (it && !cands.some(c => c.id === id)) cands.push(it);
     }
+    cands.sort((a, b) => (b.photo ? 1 : 0) - (a.photo ? 1 : 0));                 // pictures first, emoji-only plates last
+    for (const it of cands) { if (food.length >= 6) break; food.push({ ...it, pad: true }); }
   }
   food = food.map((it, i) => ({ ...it, rank: i + 1 }));
 
@@ -217,11 +253,10 @@ export function Favorites({ onPick }) {
       <p style={{ margin:"0 0 10px", fontFamily:"sans-serif", fontSize:11.5, color:"rgba(11,31,69,0.6)" }}>
         {fromAkili ? (lang === "sw" ? "Vinavyonunuliwa zaidi wiki hizi" : "What our guests order most lately") : (lang === "sw" ? "Mapishi ya Bibi yanayopendwa" : "Bibi's most-loved plates")}
       </p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(140px, 164px))", justifyContent:"start", gap:10 }}>
-        {food.map(f => (
-          <button key={f.id} onClick={() => f.menu && onPick(f.menu)} style={{ textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
+      <Marquee count={food.length} cardW={156} speed={30} render={(i, dup) => { const f = food[i]; return (
+          <button onClick={() => f.menu && onPick(f.menu)} tabIndex={dup ? -1 : 0} style={{ width:"100%", textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
             <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:44, overflow:"hidden", position:"relative" }}>
-              {f.photo ? <img src={f.photo} alt={f.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : f.emoji}
+              {f.photo ? <img src={f.photo} alt={dup ? "" : f.name[lang]} loading="lazy" draggable={false} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : f.emoji}
               {fromAkili && !f.pad && f.rank <= 3 && (
                 <span style={{ position:"absolute", top:8, left:8, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:10.5, padding:"3px 8px", borderRadius:99, boxShadow:"0 1px 6px rgba(0,0,0,0.25)" }}>
                   {f.rank === 1 ? "🔥 #1" : "#" + f.rank}
@@ -231,27 +266,22 @@ export function Favorites({ onPick }) {
             <div style={{ padding:"9px 10px 11px" }}>
               <div style={{ fontFamily:"sans-serif", fontSize:12.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{f.name[lang]}</div>
             </div>
-          </button>
-        ))}
-      </div>
+          </button>); }} />
 
-      {rails.map(k => (
+      {rails.map((k, ri) => (
         <div key={k.kind} style={{ marginTop:18 }}>
           <h3 style={{ margin:"0 0 8px", fontFamily:"Georgia,serif", fontSize:16, color:NAVY, display:"flex", alignItems:"center", gap:8 }}>
             <span>{k.icon}</span><span>{lang === "sw" ? k.sw : k.en}</span>
             {k.adult && <span style={{ fontFamily:"sans-serif", fontSize:9.5, fontWeight:800, color:"#8B1A1A", border:"1px solid #8B1A1A", borderRadius:5, padding:"1px 5px" }}>18+</span>}
           </h3>
-          <div style={{ display:"flex", gap:10, overflowX:"auto", margin:"0 -14px", padding:"2px 14px 8px", scrollSnapType:"x proximity" }}>
-            {k.items.map((it, i) => (
-              <div key={it.id} style={{ flex:"0 0 118px", scrollSnapAlign:"start", background:"#fff", borderRadius:12, overflow:"hidden", border:"1px solid rgba(212,175,55,0.22)", boxShadow:"0 2px 8px rgba(11,31,69,0.07)" }}>
+          <Marquee count={k.items.length} cardW={118} speed={26} reverse={ri % 2 === 1} render={(i) => { const it = k.items[i]; return (
+              <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", border:"1px solid rgba(212,175,55,0.22)", boxShadow:"0 2px 8px rgba(11,31,69,0.07)" }}>
                 <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:38, overflow:"hidden", position:"relative" }}>
-                  {it.photo ? <img src={it.photo} alt={it.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : it.emoji}
+                  {it.photo ? <img src={it.photo} alt={it.name[lang]} loading="lazy" draggable={false} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : it.emoji}
                   {i === 0 && <span style={{ position:"absolute", top:6, left:6, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:9.5, padding:"2px 7px", borderRadius:99 }}>🔥 #1</span>}
                 </div>
                 <div style={{ padding:"7px 8px 9px", fontFamily:"sans-serif", fontSize:11.5, fontWeight:700, color:NAVY, lineHeight:1.3, minHeight:34, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{it.name[lang]}</div>
-              </div>
-            ))}
-          </div>
+              </div>); }} />
         </div>
       ))}
     </div>
