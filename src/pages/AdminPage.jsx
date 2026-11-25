@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-15 · 24 Nov 2026, banner start fix";
+const APP_VERSION = "V4.0-16 · 24 Nov 2026, audit + Ajira filters";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -54,23 +54,49 @@ const SEC_SPECIALS = "Bidhaa Mpya / Specials";
 // Photo picker: choose a picture from the phone, shrink it, upload to Supabase Storage (bucket "menu-photos"), return its public URL
 function PhotoPicker({value,onChange,t}){
   const [busy,setBusy]=useState(false);const [msg,setMsg]=useState("");const inp=useRef(null);
+  // Decode any phone picture (JPEG/PNG/WebP, and HEIC where the phone can show it), upright, on a white background
+  async function decode(file){
+    try{ return await createImageBitmap(file,{imageOrientation:"from-image"}); }catch(e1){}
+    try{ return await createImageBitmap(file); }catch(e2){}
+    const url=URL.createObjectURL(file);
+    try{
+      return await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("decode")); im.src=url; });
+    } finally { setTimeout(()=>URL.revokeObjectURL(url),30000); }
+  }
+  const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);
   async function pick(e){
     const file=e.target.files&&e.target.files[0]; e.target.value=""; if(!file)return;
     setBusy(true);setMsg("");
     try{
-      const bmp=await createImageBitmap(file);
-      const max=900,k=Math.min(1,max/Math.max(bmp.width,bmp.height));
-      const cv=document.createElement("canvas");cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
-      cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+      if(file.size>25*1024*1024) throw new Error("big");
+      let bmp; try{ bmp=await decode(file); }catch(x){ throw new Error("decode"); }
+      const w0=bmp.width||bmp.naturalWidth, h0=bmp.height||bmp.naturalHeight;
+      const max=900,k=Math.min(1,max/Math.max(w0,h0));
+      const cv=document.createElement("canvas");cv.width=Math.max(1,Math.round(w0*k));cv.height=Math.max(1,Math.round(h0*k));
+      const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,cv.width,cv.height);   // transparent PNGs must not turn black
+      cx.drawImage(bmp,0,0,cv.width,cv.height); if(bmp.close) bmp.close();
       const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.82));
+      if(!blob) throw new Error("encode");
       const {supabase}=await import("../lib/supabase");
       if(!supabase)throw new Error("no-supabase");
       const path="item-"+Date.now()+"-"+Math.random().toString(36).slice(2,7)+".jpg";
-      const {error}=await supabase.storage.from("menu-photos").upload(path,blob,{contentType:"image/jpeg",upsert:false});
-      if(error)throw error;
+      let up=await withTimeout(supabase.storage.from("menu-photos").upload(path,blob,{contentType:"image/jpeg",upsert:false}),45000).catch(x=>({error:x}));
+      if(up.error&&String(up.error.message||up.error)==="timeout"){ up=await withTimeout(supabase.storage.from("menu-photos").upload(path,blob,{contentType:"image/jpeg",upsert:true}),45000).catch(x=>({error:x})); }   // one retry on a slow network
+      if(up.error)throw up.error;
       const {data}=supabase.storage.from("menu-photos").getPublicUrl(path);
-      onChange(data.publicUrl);setMsg("✓ Picha imepakiwa / Uploaded");
-    }catch(err){ console.warn("Photo upload failed:",err); setMsg("✗ Imeshindikana / Failed — hakikisha SQL ya picha imeendeshwa (migration_photo_storage.sql)"); }
+      onChange(data.publicUrl);setMsg("✓ Picha imepakiwa — bonyeza Hifadhi / Save kuiweka. / Uploaded — now tap Save to keep it.");
+    }catch(err){
+      console.warn("Photo upload failed:",err);
+      const m=String((err&&(err.message||err.error||err))||"").toLowerCase();
+      const why = /big/.test(m) ? "Picha ni kubwa mno (zaidi ya 25MB) / Picture is too large (over 25MB)"
+        : /decode/.test(m) ? "Simu haiwezi kusoma picha hii (labda HEIC). Piga picha tena au chagua JPG/PNG. / This phone cannot read that picture (maybe HEIC) — retake it or pick a JPG/PNG"
+        : /encode/.test(m) ? "Picha haikuweza kubanwa, jaribu tena / Could not shrink the picture, try again"
+        : /timeout|network|failed to fetch|load failed/.test(m) ? "Mtandao ni dhaifu — jaribu tena / Weak network — try again"
+        : /bucket|not found/.test(m) ? "Hifadhi ya picha haipo — endesha migration_photo_storage.sql / Photo storage is missing — run migration_photo_storage.sql"
+        : /row-level|policy|unauthor|jwt|permission|403|401/.test(m) ? "Hujaingia kama msimamizi, au muda umeisha — toka na uingie tena / Not signed in as admin or the session expired — sign out and in again"
+        : "Hitilafu / Error: "+(err&&err.message?err.message:"unknown");
+      setMsg("✗ Imeshindikana / Failed — "+why);
+    }
     setBusy(false);
   }
   return <div style={{marginBottom:8}}>
@@ -1007,17 +1033,23 @@ async function syncFavorites(sales,customItems){
     const cust={}, cm={}; (customItems||[]).forEach(c=>{ cust[c.id]=c; cm[c.id]=c.sectionName||""; });
     const meals={}; menu.forEach(m=>{ if(FAV_SECTIONS.includes(m.section)) meals[m.id]=m; });
     const now=new Date().toISOString();
+    // dishes the owner hid (in Tovuti or in Menyu) must never take one of the top slots — the next best sold one moves up
+    const hid=new Set();
+    try{
+      const a=await supabase.from("popular_dishes").select("menu_id").eq("hidden",true); (a.data||[]).forEach(x=>hid.add(x.menu_id));
+      const b=await supabase.from("menu_item_edits").select("item_id").eq("hidden",true); (b.data||[]).forEach(x=>hid.add(x.item_id));
+    }catch(e){}
     const lists=[];   // {kind, top:[[id,qty,label]]}
     // food: top 6 meals
     const tot={};
-    (sales||[]).forEach(r=>{ if(meals[r.item_id]) tot[r.item_id]=(tot[r.item_id]||0)+(r.quantity||0); });
+    (sales||[]).forEach(r=>{ if(meals[r.item_id]&&!hid.has(r.item_id)) tot[r.item_id]=(tot[r.item_id]||0)+(r.quantity||0); });
     const topFood=Object.entries(tot).filter(([,q])=>q>0).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([id,q])=>[id,q,meals[id].name.sw]);
     if(topFood.length>=2) lists.push({kind:"food",top:topFood});   // not enough sales yet -> site keeps default favorites
     // drinks: top 4 per class (menu.js drinks + custom items), classified the same way as Ripoti
     const menuById=Object.fromEntries(menu.map(m=>[m.id,m]));
     const dt={ soft:{}, beer:{}, spirits:{} };
     (sales||[]).forEach(r=>{
-      if(!r.item_id||meals[r.item_id]) return;
+      if(!r.item_id||meals[r.item_id]||hid.has(r.item_id)) return;
       if(!menuById[r.item_id]&&!cust[r.item_id]) return;                       // only items the site can show
       const k=classifyItem(r.item_id,r.section_id,r.item_name,cm);
       if(dt[k]) dt[k][r.item_id]=(dt[k][r.item_id]||0)+(r.quantity||0);
@@ -1234,7 +1266,7 @@ function StorefrontTab(){
         <div style={lab}>🔥 VIPENDWA VYA WATEJA / WEBSITE FAVORITES</div>
         <p style={{fontFamily:"sans-serif",fontSize:11,color:t.dim,margin:"6px 0 10px",lineHeight:1.5}}>Akili huchagua vyakula 6 na vinywaji (baridi, bia, gin) vinavyouzwa zaidi na kuvichapisha kwenye tovuti kila unapofungua Msimamizi (majina tu, hakuna pesa). Bandika 📌 kuviweka juu, au ficha 👁 usivyovitaka. / Akili picks the 6 best-selling dishes plus top soft drinks, beers and gin/spirits and publishes them (names only, never money). Pin to keep on top, hide to remove.</p>
         {favs===null&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>…</p>}
-        {favs&&favs.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>Bado hakuna — bonyeza "Sasisha sasa". / None yet — tap "Refresh now".</p>}
+        {favs&&favs.length===0&&!err&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim}}>Bado hakuna — bonyeza "Sahihisha sasa". / None yet — tap "Refresh now".</p>}
         {[{kind:"food",l:"🍛 Chakula / Food"},...FAV_KINDS].map(G=>{
           const rows=(favs||[]).filter(f=>(f.kind||"food")===G.kind); if(!rows.length) return null;
           return (<div key={G.kind} style={{marginTop:8}}>
@@ -1257,7 +1289,7 @@ function StorefrontTab(){
           <button onClick={addFav} disabled={!addId} style={{...pill(!!addId,t.gr),opacity:addId?1:0.5}}>OK</button>
         </div>
         <button onClick={refreshFavs} disabled={busy} style={{...pill(!!done,done?t.gr:t.gold),marginTop:10,opacity:busy?0.7:1,transition:"all .2s"}}>
-          {busy?"⏳ Inasasisha… / Updating…":done?"✅ Imesasishwa "+done.at+" · "+done.n+" vitu / Updated":"🔄 Sasisha sasa / Refresh now"}
+          {busy?"⏳ Inasahihisha… / Updating…":done?"✅ Imesahihishwa "+done.at+" · "+done.n+" vitu / Updated":"🔄 Sahihisha sasa / Refresh now"}
         </button>
         {done&&<p style={{fontFamily:"sans-serif",fontSize:10.5,color:t.gr,margin:"6px 0 0"}}>Tovuti sasa inaonyesha orodha mpya — fungua upya ukurasa wa tovuti kuiona. / The website now shows the new list — reload the site to see it.</p>}
       </Card>
@@ -3780,6 +3812,9 @@ function ApplicantsTab({onCount}) {
   const [eduMin,setEduMin]=useState(0);        // minimum education level (0 = any)
   const [salMax,setSalMax]=useState(0);        // maximum desired monthly salary in TZS (0 = any)
   const [roleF,setRoleF]=useState("");         // job wanted ("" = any)
+  const [studyF,setStudyF]=useState("");       // field of study ("" = any)
+  const [probF,setProbF]=useState("");         // 60-day probation answer ("" = any)
+  const [salMin,setSalMin]=useState(0);        // minimum desired salary (0 = any)
   const [open,setOpen]=useState(null);       // {id,kind}
   const [when,setWhen]=useState("");
   const [place,setPlace]=useState("Goba Njia Nne");
@@ -3843,12 +3878,13 @@ function ApplicantsTab({onCount}) {
   const fitCount=rows.filter(r=>(filter==="all"||r.status===filter)&&fitRank(r)===2).length;
   // Education level as a number so "Form 4 and above" works; salary as a plain number of TZS
   const eduRank=r=>{ const e=String(r.education||"").toLowerCase(); if(!e) return -1; return e.startsWith("shahada")?5:e.startsWith("stashahada")?4:(e.startsWith("cheti")||e.startsWith("kidato cha sita"))?3:e.startsWith("kidato cha nne")?2:e.startsWith("elimu ya msingi")?1:0; };
+  const probKey=r=>{ const v=String(r.probation_ok||""); return v.startsWith("Ndiyo")?"yes":v.startsWith("Hapana")?"no":v.startsWith("Naomba")?"talk":""; };
   const salNum=r=>{ const n=parseInt(String(r.salary_wanted||"").replace(/[^\d]/g,""),10); return n>0?n:null; };
   const roleOf=r=>String(r.role_wanted||"");
   const passes=r=>(filter==="all"||r.status===filter)&&(!fitOnly||fitRank(r)===2)
-    &&(!eduMin||eduRank(r)>=eduMin)&&(!salMax||(salNum(r)!==null&&salNum(r)<=salMax))&&(!roleF||roleOf(r).startsWith(roleF));
+    &&(!eduMin||eduRank(r)>=eduMin)&&(!salMax||(salNum(r)!==null&&salNum(r)<=salMax))&&(!roleF||roleOf(r).startsWith(roleF))&&(!salMin||(salNum(r)!==null&&salNum(r)>=salMin))&&(!studyF||String(r.study_field||"").startsWith(studyF))&&(!probF||probKey(r)===probF);
   const shown=rows.filter(passes)
-    .map((r,i)=>({r,i})).sort((a,b)=>salMax?((salNum(a.r)-salNum(b.r))||(a.i-b.i)):((fitRank(b.r)-fitRank(a.r))||(a.i-b.i))).map(x=>x.r);   // cheapest first when a salary limit is set; otherwise best fits first, newest first as before
+    .map((r,i)=>({r,i})).sort((a,b)=>(salMax||salMin)?((salNum(a.r)-salNum(b.r))||(a.i-b.i)):((fitRank(b.r)-fitRank(a.r))||(a.i-b.i))).map(x=>x.r);   // cheapest first when a salary limit is set; otherwise best fits first, newest first as before
 
   return (
     <div style={{padding:"1rem"}}>
@@ -3890,7 +3926,7 @@ function ApplicantsTab({onCount}) {
       <Card style={{padding:"10px 12px",marginBottom:12}}>
         <div style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:t.gold,marginBottom:8}}>🔎 CHUJA / FILTER</div>
         {(()=>{ const sel={width:"100%",fontFamily:"sans-serif",fontSize:12,padding:"8px 6px",borderRadius:8,border:"1px solid "+t.border,background:t.bg4,color:t.text,boxSizing:"border-box"}; const lab={fontFamily:"sans-serif",fontSize:10,color:t.dim2,fontWeight:700,margin:"0 0 3px"};
-          return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"end"}}>
             <div style={{gridColumn:"1 / -1"}}><div style={lab}>Kazi / Job</div>
               <select value={roleF} onChange={e=>setRoleF(e.target.value)} style={sel}>
                 <option value="">Zote / Any</option><option value="Mpishi">Mpishi / Cook</option><option value="Mhudumu">Mhudumu / Waitress</option><option value="Usafi">Usafi wa Jumla / Housekeeping</option><option value="Mpokea">Mpokea Oda na Mpelekaji / Order taker &amp; delivery</option>
@@ -3899,14 +3935,26 @@ function ApplicantsTab({onCount}) {
               <select value={eduMin} onChange={e=>setEduMin(+e.target.value)} style={sel}>
                 <option value={0}>Yoyote / Any</option><option value={2}>Kidato cha 4+ / Form 4+</option><option value={3}>Kidato cha 6 / Cheti+</option><option value={4}>Stashahada+ / Diploma+</option><option value={5}>Shahada / Degree</option>
               </select></div>
-            <div><div style={lab}>Mshahara hadi / Max salary</div>
+            <div><div style={lab}>Chini / Min salary</div>
+              <select value={salMin} onChange={e=>setSalMin(+e.target.value)} style={sel}>
+                <option value={0}>Yoyote / Any</option><option value={100000}>TZS 100,000+</option><option value={200000}>TZS 200,000+</option><option value={300000}>TZS 300,000+</option><option value={500000}>TZS 500,000+</option>
+              </select></div>
+            <div><div style={lab}>Juu / Max salary</div>
               <select value={salMax} onChange={e=>setSalMax(+e.target.value)} style={sel}>
-                <option value={0}>Yoyote / Any</option><option value={150000}>TZS 150,000</option><option value={200000}>TZS 200,000</option><option value={250000}>TZS 250,000</option><option value={300000}>TZS 300,000</option><option value={400000}>TZS 400,000</option><option value={500000}>TZS 500,000</option>
+                <option value={0}>Yoyote / Any</option><option value={150000}>TZS 150,000</option><option value={200000}>TZS 200,000</option><option value={250000}>TZS 250,000</option><option value={300000}>TZS 300,000</option><option value={400000}>TZS 400,000</option><option value={500000}>TZS 500,000</option><option value={800000}>TZS 800,000</option><option value={1000000}>TZS 1,000,000</option>
+              </select></div>
+            <div style={{gridColumn:"1 / -1"}}><div style={lab}>Taaluma / Field of study</div>
+              <select value={studyF} onChange={e=>setStudyF(e.target.value)} style={sel}>
+                <option value="">Zote / Any</option><option value="Upishi">Upishi na Hoteli / Culinary &amp; Hotel</option><option value="Utalii">Utalii na Ukarimu / Tourism &amp; Hospitality</option><option value="Biashara">Biashara na Uhasibu / Business &amp; Accounting</option><option value="Mauzo">Mauzo na Huduma kwa Wateja / Sales &amp; Customer Service</option><option value="Afya">Afya na Usafi / Health &amp; Hygiene</option><option value="Ufundi">Ufundi (VETA) / Technical trade</option><option value="Ualimu">Ualimu / Teaching</option><option value="TEHAMA">TEHAMA / IT</option><option value="Nyingine">Nyingine / Other</option><option value="Hakuna">Hakuna maalum / None</option>
+              </select></div>
+            <div style={{gridColumn:"1 / -1"}}><div style={lab}>Majaribio siku 60 / 60-day probation</div>
+              <select value={probF} onChange={e=>setProbF(e.target.value)} style={sel}>
+                <option value="">Zote / Any</option><option value="yes">✅ Wamekubali / Accepted</option><option value="talk">💬 Wanataka kujadili / Want to discuss</option><option value="no">❌ Hawakubali / Declined</option>
               </select></div>
           </div>; })()}
-        {(eduMin>0||salMax>0||roleF)&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8,gap:8}}>
-          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:t.dim2}}>{shown.length} wanaofaa / match{(eduMin>0||salMax>0)?" · bila taarifa hawaonekani / those who left it blank are hidden":""}</span>
-          <button onClick={()=>{setEduMin(0);setSalMax(0);setRoleF("");}} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+t.border,background:"transparent",color:t.dim2}}>✕ Futa / Clear</button>
+        {(eduMin>0||salMax>0||salMin>0||roleF||studyF||probF)&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8,gap:8}}>
+          <span style={{fontFamily:"sans-serif",fontSize:10.5,color:t.dim2}}>{shown.length} wanaofaa / match{(eduMin>0||salMax>0||salMin>0||studyF||probF)?" · bila taarifa hawaonekani / those who left it blank are hidden":""}</span>
+          <button onClick={()=>{setEduMin(0);setSalMax(0);setSalMin(0);setRoleF("");setStudyF("");setProbF("");}} style={{fontFamily:"sans-serif",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:99,cursor:"pointer",border:"1px solid "+t.border,background:"transparent",color:t.dim2}}>✕ Futa / Clear</button>
         </div>}
       </Card>
       {loading&&<p style={{fontFamily:"sans-serif",fontSize:12,color:t.dim2,textAlign:"center"}}>Inapakia… / Loading…</p>}
@@ -3928,6 +3976,7 @@ function ApplicantsTab({onCount}) {
                   {kt&&<div style={{color:kc,fontWeight:700,fontSize:10,marginTop:2}}>{kt}</div>}
                 </div>;})()}
               {(r.education||salNum(r))&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.text,fontWeight:700,marginTop:3,lineHeight:1.5}}>{r.education?"🎓 "+r.education:""}{r.education&&salNum(r)?" · ":""}{salNum(r)?"💰 TZS "+salNum(r).toLocaleString("en-US")+"/mwezi":""}</div>}
+              {(r.study_field||r.probation_ok)&&<div style={{fontFamily:"sans-serif",fontSize:11,color:t.text,fontWeight:700,marginTop:3,lineHeight:1.5}}>{r.study_field?"📚 "+r.study_field:""}{r.study_field&&r.probation_ok?" · ":""}{r.probation_ok&&(()=>{const k=probKey(r); return <span style={{color:k==="yes"?t.gr:k==="no"?t.rd:t.gold}}>{k==="yes"?"✅ Majaribio siku 60: anakubali / accepts 60-day probation":k==="no"?"❌ Hakubali majaribio ya siku 60 / declines 60-day probation":"💬 Anataka kujadili majaribio ya siku 60 / wants to discuss probation"}</span>;})()}</div>}
               {noWa&&<div style={{fontFamily:"sans-serif",fontSize:10,color:t.rd,marginTop:2,fontWeight:700}}>📵 Hana WhatsApp — tumia SMS / No WhatsApp — use SMS</div>}
               {r.whatsapp&&r.whatsapp!=="yes"&&r.whatsapp!=="no"&&<div style={{fontFamily:"sans-serif",fontSize:10,color:"#128C7E",marginTop:2,fontWeight:700}}>💬 WhatsApp ni namba nyingine: {r.whatsapp}</div>}
             </div>
