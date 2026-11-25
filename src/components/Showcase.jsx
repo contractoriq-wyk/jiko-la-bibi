@@ -154,37 +154,87 @@ function resolveItem(id, label, edits, customs) {
   };
 }
 
-// Endless sliding showcase (like the gold ribbon): the set is repeated to fill the width, then looped seamlessly.
-// Pauses while a finger / mouse is on it so a dish can be tapped; phones set to "reduce motion" get a normal swipe rail.
-function Marquee({ count, cardW, gap = 10, speed = 32, reverse = false, render }) {
-  const [paused, setPaused] = useState(false);
-  const timer = useRef(null);
-  const hold = () => { clearTimeout(timer.current); setPaused(true); };
-  const release = (ms) => { clearTimeout(timer.current); timer.current = setTimeout(() => setPaused(false), ms); };
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const reps = Math.max(1, Math.ceil(560 / (count * (cardW + gap))));
-  const half = [];
-  for (let r = 0; r < reps; r++) for (let i = 0; i < count; i++) half.push(i);
-  const dur = Math.max(12, Math.round((half.length * (cardW + gap)) / speed));
-  const track = (hiddenCopy) => half.map((i, k) => (
-    <div key={(hiddenCopy ? "b" : "a") + k} className={(hiddenCopy || k >= count) ? "jlb-dup" : undefined} aria-hidden={hiddenCopy || (k >= count) ? true : undefined}
-      style={{ flex:"0 0 " + cardW + "px", marginRight:gap }}>{render(i, hiddenCopy || k >= count)}</div>
-  ));
+// Showcase rail: drifts by itself like the gold ribbon, but it is a real swipe row —
+// the moment a finger / mouse / arrow touches it the drifting stops, you swipe freely and tap any dish right away,
+// and it drifts again only after ~3 seconds of being left alone. Three copies in a row make the loop seamless both ways.
+function Marquee({ count, cardW, gap = 10, speed = 28, reverse = false, render }) {
+  const box = useRef(null);
+  const st = useRef({ pos:0, last:0, quiet:0, vis:true, half:1 });
+  const [still, setStill] = useState(false);   // "reduce motion": plain swipe row, one copy
+  const reps = Math.max(1, Math.ceil(900 / (count * (cardW + gap))));
+  const unit = [];
+  for (let r = 0; r < reps; r++) for (let i = 0; i < count; i++) unit.push(i);
+  const copies = still ? 1 : 3;
+
+  useEffect(() => {
+    const mq = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    const apply = () => setStill(!!(mq && mq.matches));
+    apply();
+    if (mq && mq.addEventListener) mq.addEventListener("change", apply);
+    return () => { if (mq && mq.removeEventListener) mq.removeEventListener("change", apply); };
+  }, []);
+
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const S = st.current;
+    const half = () => unit.length * (cardW + gap);
+    S.half = half();
+    if (still) { el.scrollLeft = 0; return; }
+    el.scrollLeft = S.half; S.pos = S.half;                       // start on the middle copy
+    const touch = () => { S.quiet = performance.now() + 3000; };
+    const wrap = () => {                                           // keep the user inside the middle copy range
+      const h = S.half, sl = el.scrollLeft;
+      if (sl < h * 0.5) { el.scrollLeft = sl + h; S.pos = el.scrollLeft; }
+      else if (sl > h * 1.5) { el.scrollLeft = sl - h; S.pos = el.scrollLeft; }
+    };
+    let idleT = null;
+    const onScroll = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (performance.now() >= S.quiet - 2800) wrap(); }, 160); };
+    const ev = ["touchstart","touchmove","pointerdown","wheel","mouseenter","focusin","keydown"];
+    ev.forEach(e => el.addEventListener(e, touch, { passive:true }));
+    el.addEventListener("scroll", onScroll, { passive:true });
+    let io = null;
+    if (window.IntersectionObserver) { io = new IntersectionObserver(es => { S.vis = es[0].isIntersecting; }, { threshold:0 }); io.observe(el); }
+    let raf = 0; S.last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - S.last) / 1000); S.last = now;
+      if (S.vis && !document.hidden) {
+        if (now < S.quiet) { S.pos = el.scrollLeft; }              // user is in charge: follow where they are
+        else {
+          S.pos += (reverse ? -1 : 1) * speed * dt;
+          if (S.pos >= S.half * 1.5) S.pos -= S.half; else if (S.pos <= S.half * 0.5) S.pos += S.half;
+          el.scrollLeft = S.pos;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); clearTimeout(idleT); if (io) io.disconnect(); ev.forEach(e => el.removeEventListener(e, touch)); el.removeEventListener("scroll", onScroll); };
+  }, [still, count, cardW, gap, speed, reverse]);
+
+  const nudge = (dir) => {
+    const el = box.current; if (!el) return;
+    st.current.quiet = performance.now() + 3500;
+    el.scrollBy({ left: dir * (cardW + gap) * 2, behavior:"smooth" });
+  };
+  const arrow = (dir) => (
+    <button type="button" aria-label={dir < 0 ? "Previous" : "Next"} onClick={() => nudge(dir)}
+      style={{ position:"absolute", top:"38%", [dir < 0 ? "left" : "right"]:2, width:30, height:30, borderRadius:"50%", border:"1px solid rgba(212,175,55,0.6)", background:"rgba(11,31,69,0.72)", color:"#F7E8A0", fontSize:18, lineHeight:"26px", padding:0, cursor:"pointer", zIndex:2, boxShadow:"0 2px 8px rgba(0,0,0,0.25)" }}>
+      {dir < 0 ? "‹" : "›"}
+    </button>
+  );
   return (
-    <div className="jlb-rail" style={{ overflow:"hidden", margin:"0 -14px", padding:"2px 0 8px",
-      WebkitMaskImage:"linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)",
-      maskImage:"linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)" }}
-      onMouseEnter={hold} onMouseLeave={() => release(200)}
-      onTouchStart={hold} onTouchEnd={() => release(1800)} onTouchCancel={() => release(1800)}
-      onFocus={hold} onBlur={() => release(200)}>
-      <style>{`
-        @keyframes jlbRail{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-        .jlb-rail .jlb-track{display:flex;width:max-content;padding-left:14px;animation:jlbRail linear infinite}
-        @media (prefers-reduced-motion: reduce){.jlb-rail{overflow-x:auto!important}.jlb-rail .jlb-track{animation:none!important}.jlb-rail .jlb-dup{display:none}}
-      `}</style>
-      <div className="jlb-track" style={{ animationDuration:dur + "s", animationDirection:reverse ? "reverse" : "normal", animationPlayState:paused ? "paused" : "running" }}>
-        {track(false)}{track(true)}
+    <div style={{ position:"relative", margin:"0 -14px" }}>
+      <style>{`.jlb-rail::-webkit-scrollbar{display:none}`}</style>
+      <div ref={box} className="jlb-rail" style={{ display:"flex", overflowX:"auto", padding:"2px 14px 8px", scrollbarWidth:"none", msOverflowStyle:"none", WebkitOverflowScrolling:"touch", overscrollBehaviorX:"contain" }}>
+        {Array.from({ length: copies }).map((_, c) => unit.map((i, k) => {
+          const dup = c > 0 || k >= count;
+          if (still && dup) return null;
+          return (
+            <div key={c + "-" + k} aria-hidden={dup ? true : undefined} style={{ flex:"0 0 " + cardW + "px", marginRight:gap }}>{render(i, dup)}</div>
+          );
+        }))}
       </div>
+      {arrow(-1)}{arrow(1)}
     </div>
   );
 }
