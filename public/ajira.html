@@ -427,11 +427,17 @@ function renderApply(){
     <div class="card">
       <h2>🙋 OMBA KAZI / APPLY FOR A JOB</h2>
       <p style="font-size:12px;line-height:1.6;color:rgba(11,31,69,0.65);margin-bottom:6px">Jaza utangulizi mfupi tu. Hii <b>si mkataba</b> — tutakutafuta kwa WhatsApp au simu kama tunahitaji kukuona kwa mahojiano.<br><span style="opacity:.8">Just a short intro. This is <b>not</b> a contract — we will contact you on WhatsApp or phone if we would like to interview you.</span></p>
+      <div style="background:#E8F7EE;border:1px solid #2E9E5B;border-radius:10px;padding:10px 12px;margin:8px 0 10px;font-size:12px;line-height:1.6;color:#0B3D22">
+        <b>📱 Lazima / Required:</b> Uwe na <b>simu janja (smartphone)</b> na uweze kutumia <b>WhatsApp</b>. Mawasiliano yote na <b>mafunzo yanayoendelea</b> ya kazi yanafanyika kupitia WhatsApp.<br>
+        <span style="opacity:.85">You must have a <b>smartphone</b> and be able to use <b>WhatsApp</b>. All communication and <b>ongoing job training</b> happen on WhatsApp.</span>
+      </div>
       <label>Jina Kamili / Full name *</label><input id="a_name" maxlength="120" placeholder="Jina lako / Your name" autocomplete="name">
       <label>Simu *</label><input id="a_phone" maxlength="30" inputmode="tel" placeholder="07xx xxx xxx" autocomplete="tel">
       <div style="font-size:11px;opacity:.7;margin:-4px 0 6px">Namba ya Tanzania, tarakimu 10 (mfano 0712 345 678) / Tanzanian number, 10 digits</div>
-      <label>Namba hii ina WhatsApp? / Does this number have WhatsApp? *</label>
-      <select id="a_wa"><option value="yes">✅ Ndiyo / Yes</option><option value="no">📵 Hapana — nitumie SMS / No — send me an SMS</option><option value="other">🔁 Nina WhatsApp kwenye namba nyingine / My WhatsApp is a different number</option></select>
+      <label>Simu Janja na WhatsApp / Smartphone &amp; WhatsApp *</label>
+      <select id="a_smart"><option value="">— Chagua / Choose —</option><option value="yes">✅ Ndiyo, nina simu janja na ninatumia WhatsApp / Yes, I have a smartphone and use WhatsApp</option><option value="no">❌ Hapana / No</option></select>
+      <label>Namba hii ina WhatsApp? / Is WhatsApp on this number? *</label>
+      <select id="a_wa"><option value="yes">✅ Ndiyo / Yes</option><option value="other">🔁 WhatsApp yangu ni namba nyingine / My WhatsApp is a different number</option></select>
       <input id="a_wanum" inputmode="tel" maxlength="30" style="display:none" placeholder="Namba ya WhatsApp / WhatsApp number (07xx xxx xxx)">
       <label>Umri / Age *</label><input id="a_age" type="number" inputmode="numeric" min="18" max="70" placeholder="Miaka / Years (e.g. 25)">
       <label>Jinsia / Gender *</label><select id="a_gender"><option value="">— Chagua / Choose —</option>${GENDERS.map(x=>`<option>${x}</option>`).join("")}</select>
@@ -470,6 +476,8 @@ async function submitApply(){
   if(name.length<2){ st.className="status err"; st.textContent="× Andika jina lako / Enter your name"; return; }
   const phoneN = normPhone(phone);
   if(!phoneN){ st.className="status err"; st.textContent="× Namba si sahihi. Tumia tarakimu 10, mfano 0712345678 / Invalid number — use 10 digits, e.g. 0712345678"; return; }
+  if(!g("a_smart")){ st.className="status err"; st.textContent="× Jibu kama una simu janja na WhatsApp / Tell us if you have a smartphone with WhatsApp"; return; }
+  if(g("a_smart")!=="yes"){ st.className="status err"; st.textContent="× Samahani — kazi hii inahitaji simu janja na WhatsApp kwa mawasiliano na mafunzo. / Sorry — this job requires a smartphone with WhatsApp for communication and training."; return; }
   const age = parseInt(g("a_age"),10);
   if(!(age>0)){ st.className="status err"; st.textContent="× Weka umri wako / Enter your age"; return; }
   if(age<18){ st.className="status err"; st.textContent="× Lazima uwe na miaka 18 au zaidi / You must be 18 or older"; return; }
