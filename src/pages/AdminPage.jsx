@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-18 · 24 Nov 2026, swipeable favorites";
+const APP_VERSION = "V4.0-19 · 24 Nov 2026, Ajira job name";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3882,7 +3882,7 @@ function ApplicantsTab({onCount}) {
   const salNum=r=>{ const n=parseInt(String(r.salary_wanted||"").replace(/[^\d]/g,""),10); return n>0?n:null; };
   const roleOf=r=>String(r.role_wanted||"");
   const passes=r=>(filter==="all"||r.status===filter)&&(!fitOnly||fitRank(r)===2)
-    &&(!eduMin||eduRank(r)>=eduMin)&&(!salMax||(salNum(r)!==null&&salNum(r)<=salMax))&&(!roleF||roleOf(r).startsWith(roleF))&&(!salMin||(salNum(r)!==null&&salNum(r)>=salMin))&&(!studyF||String(r.study_field||"").startsWith(studyF))&&(!probF||probKey(r)===probF);
+    &&(!eduMin||eduRank(r)>=eduMin)&&(!salMax||(salNum(r)!==null&&salNum(r)<=salMax))&&(!roleF||roleOf(r).startsWith(roleF)||(roleF==="Mtafuta"&&roleOf(r).startsWith("Mpokea")))&&(!salMin||(salNum(r)!==null&&salNum(r)>=salMin))&&(!studyF||String(r.study_field||"").startsWith(studyF))&&(!probF||probKey(r)===probF);
   const shown=rows.filter(passes)
     .map((r,i)=>({r,i})).sort((a,b)=>(salMax||salMin)?((salNum(a.r)-salNum(b.r))||(a.i-b.i)):((fitRank(b.r)-fitRank(a.r))||(a.i-b.i))).map(x=>x.r);   // cheapest first when a salary limit is set; otherwise best fits first, newest first as before
 
@@ -3929,7 +3929,7 @@ function ApplicantsTab({onCount}) {
           return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"end"}}>
             <div style={{gridColumn:"1 / -1"}}><div style={lab}>Kazi / Job</div>
               <select value={roleF} onChange={e=>setRoleF(e.target.value)} style={sel}>
-                <option value="">Zote / Any</option><option value="Mpishi">Mpishi / Cook</option><option value="Mhudumu">Mhudumu / Waitress</option><option value="Usafi">Usafi wa Jumla / Housekeeping</option><option value="Mpokea">Mpokea Oda na Mpelekaji / Order taker &amp; delivery</option>
+                <option value="">Zote / Any</option><option value="Mpishi">Mpishi / Cook</option><option value="Mhudumu">Mhudumu / Waitress</option><option value="Usafi">Usafi wa Jumla / Housekeeping</option><option value="Mtafuta">Mtafuta Wateja na Mpelekaji / Customer finder &amp; delivery</option>
               </select></div>
             <div><div style={lab}>Elimu / Education</div>
               <select value={eduMin} onChange={e=>setEduMin(+e.target.value)} style={sel}>
