@@ -387,7 +387,7 @@ const SOURCES = ["Tangazo la Facebook / Facebook ad","Ukurasa wa Facebook / Face
 const SRC_LINK = {fbad:0, fb:1, web:2, wom:3, social:4, sign:5};
 const GENDERS = ["Mwanamke / Female","Mwanaume / Male","Napendelea kutosema / Prefer not to say"];
 const KNOWS = ["Ndiyo, nafahamu Goba Njia Nne na naweza kufika kila siku / Yes, I know Goba Njia Nne and can get there daily","Nafahamu, lakini ni mbali kwangu / I know it, but it is far for me","Hapana, sifahamu eneo / No, I do not know the area"];
-const ROLES = ["Mpishi / Cook","Mhudumu / Waitress","Usafi wa Jumla / General Housekeeping","Mpokea Oda na Mpelekaji / Order Taker & Delivery (collects orders and delivers)"];
+const ROLES = ["Mpishi / Cook","Mhudumu / Waitress","Usafi wa Jumla / General Housekeeping","Mtafuta Wateja na Mpelekaji / Customer Finder & Delivery"];
 const EDU = ["Elimu ya Msingi (Darasa la 7) / Primary school","Kidato cha Nne / Form 4 (O-Level)","Kidato cha Sita / Form 6 (A-Level)","Cheti (VETA / Chuo) / Certificate","Stashahada / Diploma","Shahada / Degree","Sijasoma rasmi / No formal schooling"];
 const STUDY = ["Hakuna taaluma maalum / No specific field","Upishi na Hoteli / Culinary & Hotel","Utalii na Ukarimu / Tourism & Hospitality","Biashara na Uhasibu / Business & Accounting","Mauzo na Huduma kwa Wateja / Sales & Customer Service","Afya na Usafi / Health & Hygiene","Ufundi (VETA) / Technical trade (VETA)","Ualimu / Teaching","TEHAMA / IT & Computers","Nyingine / Other"];
 const PROB = ["Ndiyo, nakubali siku 60 za majaribio / Yes, I accept a 60-day probation","Hapana, sikubali / No, I do not accept","Naomba tujadili / I would like to discuss it"];
@@ -442,6 +442,7 @@ function renderApply(){
       <label>Umri / Age *</label><input id="a_age" type="number" inputmode="numeric" min="18" max="70" placeholder="Miaka / Years (e.g. 25)">
       <label>Jinsia / Gender *</label><select id="a_gender"><option value="">— Chagua / Choose —</option>${GENDERS.map(x=>`<option>${x}</option>`).join("")}</select>
       <label>Kazi Unayoomba / Job you want *</label><select id="a_role"><option value="">— Chagua kazi / Choose a job —</option>${ROLES.map(r=>`<option>${r}</option>`).join("")}</select>
+      <div id="a_roleinfo" style="display:none;font-size:11.5px;line-height:1.6;background:#FFF8E1;border:1px solid #D4AF37;border-radius:8px;padding:8px 10px;margin:-2px 0 8px;color:#5a4300"><b>Mtafuta Wateja na Mpelekaji:</b> Mtu wa kutafuta wateja wa chakula, kuchukua oda kwao na kuwapelekea chakula.<br><span style="opacity:.85">Someone who finds food customers, takes their orders and delivers the food to them.</span></div>
       <label>Elimu Yako / Your education (highest level completed) *</label><select id="a_edu"><option value="">— Chagua / Choose —</option>${EDU.map(x=>`<option>${x}</option>`).join("")}</select>
       <label>Taaluma Uliyosomea / Professional field of study *</label><select id="a_study"><option value="">— Chagua / Choose —</option>${STUDY.map(x=>`<option>${x}</option>`).join("")}</select>
       <input id="a_studyx" maxlength="80" style="display:none" placeholder="Taaluma yako / Your field (e.g. Nursing, Welding)">
@@ -465,6 +466,7 @@ function renderApply(){
 
   const sel=document.getElementById("a_src"); if(sel){ sel.onchange=srcChange; srcChange(); }
   const wsel=document.getElementById("a_wa"); if(wsel){ wsel.onchange=waChange; waChange(); }
+  const rsel=document.getElementById("a_role"); if(rsel){ rsel.onchange=()=>{ const x=document.getElementById("a_roleinfo"); if(x) x.style.display=rsel.value.indexOf("Mtafuta")===0?"block":"none"; }; }
   const ssel=document.getElementById("a_study"); if(ssel){ ssel.onchange=()=>{ const x=document.getElementById("a_studyx"); if(x) x.style.display=(ssel.value.indexOf("Other")>-1||ssel.value.indexOf("Technical")>-1)?"block":"none"; }; }
 }
 async function submitApply(){
