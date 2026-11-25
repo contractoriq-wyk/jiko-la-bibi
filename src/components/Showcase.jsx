@@ -15,6 +15,7 @@ const FAV_PHOTO = {
   "pilau-nyama":"/food/fav-pilau.webp", "pilau-choice":"/food/fav-pilau.webp",
 };
 // Shown until Akili has enough sales to choose the favorites
+const FAV_MEAL_SECTIONS = ["mchele","standard","pilau","specials","jioni"];
 const DEFAULT_FAVS = ["wali-combo","ugali-combo","pilau-nyama","supu-kongoro"];
 
 export const SERVICE_KEY = "jiko-service";
@@ -185,7 +186,22 @@ export function Favorites({ onPick }) {
     if (!food.length) food = null;
   }
   const fromAkili = !!food;
-  if (!food) food = DEFAULT_FAVS.filter(id => byId[id]).map(id => resolveItem(id, "", data ? data.edits : {}, data ? data.customs : {})).filter(Boolean).map((it, i) => ({ ...it, rank: i + 1 }));
+  const extra = data ? { edits:data.edits, customs:data.customs } : { edits:{}, customs:{} };
+  if (!food) food = [];
+  // Always show a full row of six: if Akili has fewer (few sales yet, or one dish hidden), top up with Bibi's own best plates
+  if (food.length < 6) {
+    const have = new Set(food.map(f => f.id));
+    const pool = [...DEFAULT_FAVS, ...menu.filter(m => FAV_MEAL_SECTIONS.includes(m.section)).map(m => m.id)];
+    for (const id of pool) {
+      if (food.length >= 6) break;
+      if (have.has(id) || !byId[id]) continue;
+      if (data && data.rows.some(x => x.menu_id === id && x.hidden)) continue;   // owner hid it in Tovuti
+      const it = resolveItem(id, "", extra.edits, extra.customs);
+      if (!it) continue;
+      have.add(id); food.push({ ...it, pad: true });
+    }
+  }
+  food = food.map((it, i) => ({ ...it, rank: i + 1 }));
 
   // Drinks (rails)
   const rails = data ? DRINK_KINDS.map(k => ({
@@ -206,7 +222,7 @@ export function Favorites({ onPick }) {
           <button key={f.id} onClick={() => f.menu && onPick(f.menu)} style={{ textAlign:"left", background:"#fff", border:"1px solid rgba(212,175,55,0.22)", borderRadius:14, padding:0, cursor:"pointer", overflow:"hidden", boxShadow:"0 2px 10px rgba(11,31,69,0.08)", position:"relative", display:"flex", flexDirection:"column" }}>
             <div style={{ aspectRatio:"1 / 1", background:"#F9F3E8", display:"grid", placeItems:"center", fontSize:44, overflow:"hidden", position:"relative" }}>
               {f.photo ? <img src={f.photo} alt={f.name[lang]} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} onError={e => { e.target.style.display = "none"; }} /> : f.emoji}
-              {fromAkili && f.rank <= 3 && (
+              {fromAkili && !f.pad && f.rank <= 3 && (
                 <span style={{ position:"absolute", top:8, left:8, background:GOLD, color:NAVY2, fontFamily:"sans-serif", fontWeight:900, fontSize:10.5, padding:"3px 8px", borderRadius:99, boxShadow:"0 1px 6px rgba(0,0,0,0.25)" }}>
                   {f.rank === 1 ? "🔥 #1" : "#" + f.rank}
                 </span>
