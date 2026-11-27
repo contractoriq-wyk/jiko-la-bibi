@@ -45,7 +45,7 @@ function dateStrET(d = new Date()) { return d.toLocaleDateString("en-CA", { time
 const today = () => dateStrET();
 // Bump the month number after each future upload (e.g. Agosti 2026 => "V2.6-8").
 // Fomu: V{toleo kuu}.{tarakimu ya mwisho ya mwaka}-{namba ya mwezi} · tarehe na saa ya kutengeneza
-const APP_VERSION = "V4.0-20 · 24 Nov 2026, Chuo updated";
+const APP_VERSION = "V4.0-21 · 27 Nov 2026, staff hire fix";
 // Label used for a built-in section in the section dropdown / custom items (e.g. "Vinywaji Baridi / Cold Drinks")
 // Ready-made drink sections (always shown in Menyu so items can be added straight into them)
 const SEC_BIA = "Bia / Beer / Lager";
@@ -3742,6 +3742,24 @@ function findStaffMatch(staff,name,phone){
   const n=String(name||"").trim().toLowerCase(), p=waPhone(phone);
   return (staff||[]).find(x=>(p&&waPhone(x.phone)===p)||(n&&String(x.name||"").trim().toLowerCase()===n));
 }
+// Shown instead of "Add to staff" when a matching staff record already exists — never a dead end:
+// a FORMER employee can be re-hired in one tap, and a different person with the same name/phone can still be added.
+function StaffMatchNote({ex,onAddNew}){
+  const {t}=useT();
+  const {reactivateStaff}=useAdmin();
+  const former=ex.active===false;
+  return (
+    <div style={{flex:"1 1 100%",marginTop:6}}>
+      <div style={{fontFamily:"sans-serif",fontSize:10,color:former?t.gold:t.gr,fontWeight:700,lineHeight:1.5}}>
+        {former?"⚠️ Yupo kwenye Waajiriwa kama wa ZAMANI (Former) — hayuko kazini sasa. / Listed as a FORMER employee — not active.":"✓ Yupo kwenye Waajiriwa na yuko kazini. / Already in Staff and active."}
+      </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+        {former&&<button onClick={()=>reactivateStaff(ex.id)} style={{flex:"1 1 150px",background:t.gr,color:"#fff",border:"none",borderRadius:8,padding:"9px 8px",fontSize:11,fontWeight:800,cursor:"pointer"}}>↩️ Rejesha kazini / Re-hire</button>}
+        <button onClick={onAddNew} style={{flex:"1 1 150px",background:"none",color:t.dim,border:"1px solid "+t.border,borderRadius:8,padding:"9px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>➕ Ni mtu mwingine? Ongeza mpya<br/><span style={{fontWeight:500,fontSize:9}}>Different person? Add as new</span></button>
+      </div>
+    </div>
+  );
+}
 // Add a person (from a signed contract or an applicant) to the Waajiriwa/Staff list, optionally with a WhatsApp welcome
 function HirePanel({person,onSave,onClose}){
   const {t}=useT();
@@ -4019,7 +4037,7 @@ function ApplicantsTab({onCount}) {
             </select>
             <button onClick={()=>remove(r)} style={{marginLeft:"auto",background:"none",border:"none",color:t.dim2,fontSize:11,cursor:"pointer"}}>🗑</button>
           </div>
-          {(r.status==="hired"||r.status==="interview")&&(()=>{const ex=findStaffMatch(staff,r.name,r.phone);return ex?<div style={{fontFamily:"sans-serif",fontSize:10,color:t.gr,marginTop:6,fontWeight:700}}>✓ Yupo kwenye Waajiriwa / Already in Staff{ex.active===false?" (Zamani/Former)":""}</div>:<button onClick={()=>setHire(hire===r.id?null:r.id)} style={{marginTop:8,width:"100%",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎉 Ameajiriwa → ➕ Weka kwa Waajiriwa / Add to Staff</button>;})()}
+          {(r.status==="hired"||r.status==="interview")&&(()=>{const ex=findStaffMatch(staff,r.name,r.phone);return ex?<div style={{display:"flex"}}><StaffMatchNote ex={ex} onAddNew={()=>setHire(hire===r.id?null:r.id)}/></div>:<button onClick={()=>setHire(hire===r.id?null:r.id)} style={{marginTop:8,width:"100%",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎉 Ameajiriwa → ➕ Weka kwa Waajiriwa / Add to Staff</button>;})()}
           {hire===r.id&&<HirePanel person={{name:r.name,phone:r.phone,role:(r.role_wanted||"").split("/")[0].trim(),type:"long_term"}} onClose={()=>setHire(null)} onSave={(m,w)=>{addStaff(m);patch(r.id,{status:"hired"});setHire(null);if(w) window.open("https://wa.me/"+w.num+"?text="+encodeURIComponent(w.text),"_blank");}}/>}
         </Card>);
       })}
@@ -4137,7 +4155,7 @@ function AjiraTab() {
             {canHire&&<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
               {!ex&&<button onClick={()=>setPanel(open==="hire"?null:{id:r.id,kind:"hire"})} style={{flex:"1 1 130px",background:t.gr+"18",color:t.gr,border:"1px solid "+t.gr+"55",borderRadius:8,padding:"7px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>➕ Waajiriwa<br/><span style={{fontWeight:500,fontSize:8}}>Add to staff</span></button>}
               {!ex&&<button onClick={()=>{setNnText(null);setNnPhone(r.employee_phone||"");setPanel(open==="notnow"?null:{id:r.id,kind:"notnow"});}} style={{flex:"1 1 130px",background:t.dim2+"18",color:t.dim,border:"1px solid "+t.dim2+"55",borderRadius:8,padding:"7px 6px",fontSize:10,fontWeight:700,cursor:"pointer"}}>⏳ Si Sasa<br/><span style={{fontWeight:500,fontSize:8}}>Not needed now</span></button>}
-              {ex&&<button onClick={()=>{setPanel(null);}} disabled style={{flex:1,background:"none",border:"none",color:t.dim2,fontSize:10,textAlign:"left",cursor:"default"}}>Tayari yupo kwenye tabu ya Waajiriwa. / Already in the Staff tab.</button>}
+              {ex&&<StaffMatchNote ex={ex} onAddNew={()=>setPanel(open==="hire"?null:{id:r.id,kind:"hire"})}/>}
             </div>}
             <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end",alignItems:"center"}}>
               <button onClick={()=>setArch([r.id],!archived[r.id])} style={{background:"none",border:"1px solid "+t.border,color:t.dim,borderRadius:7,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{archived[r.id]?"↩️ Rejesha / Restore":"📥 Hifadhi / Archive"}</button>
@@ -4288,6 +4306,7 @@ function ChuoTab() {
       <ChuoSection icon="✍️" color={t.pu} titleSw="Ajira / Contracts" titleEn="Signed contracts oversight" isOpen={open==="ajira"} onToggle={()=>toggle("ajira")}>
         <ChuoBullet title="Fungua Ajira Digital / Open Signing App" body="Kinafungua ukurasa wa jikolabibijjj.com/ajira ambapo watu wanaweza kusaini mikataba (waajiriwa, wadau, washirika). / Opens jikolabibijjj.com/ajira where people can sign contracts (employees, partners, business associates)." />
         <ChuoBullet title="Mikataba Iliyosainiwa / Signed Contracts List" body="Orodha ya kila mtu aliyesaini — jina, aina ya mkataba, tarehe. Bonyeza 'Angalia' kuona mkataba kamili na sahihi. / List of everyone who's signed — name, contract type, date. Tap 'Angalia' to see the full contract with signatures." />
+        <ChuoBullet title="➕ Waajiriwa / ↩️ Rejesha kazini (Re-hire)" body="Kwenye kila mkataba, '➕ Waajiriwa' kinamweka mtu kwenye Waajiriwa. Ikiwa jina au simu yake tayari ipo: kama ni mfanyakazi wa ZAMANI, bonyeza '↩️ Rejesha kazini' — anarudi kazini mara moja. Kama ni mtu mwingine mwenye jina sawa, bonyeza '➕ Ni mtu mwingine? Ongeza mpya'. Kisanduku cha kijani juu kinathibitisha ✓ imehifadhiwa, au chekundu kinaeleza kwa nini HAIKUHIFADHIWA. / On each contract, '➕ Waajiriwa' adds the person to Staff. If the name or phone already exists: for a FORMER employee tap '↩️ Re-hire' — they are back at work at once. For a different person with the same name tap '➕ Different person? Add as new'. The green banner at the top confirms ✓ saved, or the red one says why it was NOT saved." />
         <ChuoBullet title="Kwa nini hii ni tofauti na Msimamizi? / Why this is separate from Msimamizi" body="Ukurasa wa /ajira HAUNA PIN kwa makusudi — ni kwa umma kusaini maombi ya kazi au ushirikiano. Msimamizi (hapa) ndiyo pekee inayoona rekodi zote. / The /ajira page intentionally has NO PIN — it's public for job/partnership applications. Only Msimamizi (here) can see all the records." />
       </ChuoSection>
 
