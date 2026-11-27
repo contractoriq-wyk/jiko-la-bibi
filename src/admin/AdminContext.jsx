@@ -311,59 +311,75 @@ export function AdminProvider({ children }) {
       save("jiko-staff", next);
       return next;
     });
-    if(supabase){
-      try {
-        const {data} = await supabase.from("staff_members").insert({
-          name: member.name,
-          role: member.role || "",
-          type: member.type || "long_term",
-          monthly_salary: parseInt(member.monthly_salary) || 0,
-          phone: member.phone || "",
-          notes: member.notes || "",
-          active: true
-        }).select().single();
-        if(data) setStaff(prev => {
-          const next = prev.map(s => s.id === localId ? data : s);
-          save("jiko-staff", next);
-          return next;
-        });
-      } catch(e){ console.warn("Staff add failed:", e); }
+    if(!supabase){ note(true,"✓ "+member.name+" ameongezwa kwa Waajiriwa / added to Staff"); return true; }
+    try {
+      const {data,error} = await supabase.from("staff_members").insert({
+        name: member.name,
+        role: member.role || "",
+        type: member.type || "long_term",
+        monthly_salary: parseInt(member.monthly_salary) || 0,
+        phone: member.phone || "",
+        notes: member.notes || "",
+        active: true
+      }).select().single();
+      if(error||!data) throw (error||new Error("no row returned"));
+      setStaff(prev => {
+        const next = prev.map(s => s.id === localId ? data : s);
+        save("jiko-staff", next);
+        return next;
+      });
+      note(true,"✓ "+member.name+" ameongezwa kwa Waajiriwa / added to Staff");
+      return true;
+    } catch(e){
+      console.warn("Staff add failed:", e);
+      // do NOT keep a ghost row that exists only on this phone — take it back out and say why
+      setStaff(prev => { const next = prev.filter(s => s.id !== localId); save("jiko-staff", next); return next; });
+      note(false,"✗ "+member.name+" HAJAWEKWA kwa Waajiriwa / was NOT added — "+((e&&e.message)||"hitilafu / error")+". Jaribu tena au toka na uingie tena. / Try again, or sign out and in.");
+      return false;
     }
   }
   async function updateStaff(id, updates){
+    let before=null;
     setStaff(prev => {
+      before = prev.find(s => s.id === id) || null;
       const next = prev.map(s => s.id === id ? {...s, ...updates} : s);
       save("jiko-staff", next);
       return next;
     });
     if(supabase){
-      try { await supabase.from("staff_members").update({...updates, updated_at: new Date().toISOString()}).eq("id", id); }
-      catch(e){ console.warn("Staff update failed:", e); }
+      try {
+        const {error} = await supabase.from("staff_members").update({...updates, updated_at: new Date().toISOString()}).eq("id", id);
+        if(error) throw error;
+      } catch(e){
+        console.warn("Staff update failed:", e);
+        if(before) setStaff(prev => { const next = prev.map(s => s.id === id ? before : s); save("jiko-staff", next); return next; });
+        note(false,"✗ Mabadiliko hayakuhifadhiwa / Change was NOT saved — "+((e&&e.message)||"error"));
+      }
     }
   }
-  async function deleteStaff(id){
-    // Soft-delete: mark inactive but KEEP in list so employment history (incl. warnings) is preserved
+  async function setStaffActive(id, active, okMsg){
+    let before=null;
     setStaff(prev => {
-      const next = prev.map(s => s.id === id ? {...s, active:false} : s);
+      before = prev.find(s => s.id === id) || null;
+      const next = prev.map(s => s.id === id ? {...s, active} : s);
       save("jiko-staff", next);
       return next;
     });
     if(supabase){
-      try { await supabase.from("staff_members").update({active:false, updated_at: new Date().toISOString()}).eq("id", id); }
-      catch(e){ console.warn("Staff delete failed:", e); }
-    }
+      try {
+        const {error} = await supabase.from("staff_members").update({active, updated_at: new Date().toISOString()}).eq("id", id);
+        if(error) throw error;
+        if(okMsg) note(true,okMsg);
+      } catch(e){
+        console.warn("Staff active change failed:", e);
+        if(before) setStaff(prev => { const next = prev.map(s => s.id === id ? before : s); save("jiko-staff", next); return next; });
+        note(false,"✗ Haikuhifadhiwa / NOT saved — "+((e&&e.message)||"error"));
+      }
+    } else if(okMsg) note(true,okMsg);
   }
-  async function reactivateStaff(id){
-    setStaff(prev => {
-      const next = prev.map(s => s.id === id ? {...s, active:true} : s);
-      save("jiko-staff", next);
-      return next;
-    });
-    if(supabase){
-      try { await supabase.from("staff_members").update({active:true, updated_at: new Date().toISOString()}).eq("id", id); }
-      catch(e){ console.warn("Staff reactivate failed:", e); }
-    }
-  }
+  // Soft-delete: mark inactive but KEEP in list so employment history (incl. warnings) is preserved
+  async function deleteStaff(id){ await setStaffActive(id,false); }
+  async function reactivateStaff(id){ await setStaffActive(id,true,"✓ Amerudishwa kazini / Re-hired — yupo kwenye Waajiriwa tena / back in Staff"); }
   async function payStaff(staffMember, amount, date, period){
     const desc = staffMember.name + (period ? " — " + period : "");
     await recordCost("staff", desc, amount, date, "daily");
